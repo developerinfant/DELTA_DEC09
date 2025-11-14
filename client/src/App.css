@@ -1,0 +1,787 @@
+@import './responsive.css';
+@import './theme.css';
+
+/* ## 1. Global Body & Font Styles ## */
+body {
+  /* A neutral background color for the entire app */
+  background-color: #f5f5f5; /* light-200 */
+  font-family: var(--font-family);
+  color: #000000; /* Changed to black as requested */
+  font-weight: var(--font-weight-regular);
+  line-height: var(--line-height-normal);
+
+  /* Improves font rendering on most browsers for a smoother look */
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ## 2. Custom Scrollbar Styling ## */
+/* Works on Webkit browsers like Chrome, Safari, Edge */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f5f9; /* light-100 */
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1; /* light-300 */
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8; /* light-400 */
+}
+
+/* ## 3. Custom Animations ## */
+/* A simple fade-in animation for page loads */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.fade-in {
+  animation: fadeIn 0.5s ease-out forwards;
+}
+
+/* Enhanced fade in animation */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fadeIn {
+  animation: fadeInUp 0.3s ease-out forwards;
+}
+
+/* Smooth transitions for interactive elements */
+.transition-all {
+  transition: all 0.2s ease-in-out;
+}
+
+/* Apple-style page transition */
+@keyframes pageFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(15px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.page-fade-in {
+  animation: pageFadeIn var(--dur-slow) var(--ease) forwards;
+}
+
+/* ## 4. Custom Login Page Background ## */
+.login-background {
+  background: #fffbeb;
+  min-height: 100vh;
+}
+
+/* ## 5. Custom Sidebar Styles ## */
+/* New style for the active sidebar link indicator */
+.sidebar-active-link {
+  position: relative;
+}
+
+.sidebar-active-link::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  height: 100%;
+  width: 4px;
+  background-color: #f59e0b; /* primary-500 (yellow) */
+  border-top-right-radius: 4px;
+  border-bottom-right-radius: 4px;
+}
+
+/* ## 6. Enhanced Card Styles - Apple Style ## */
+.card {
+  background: var(--glass);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+  transition: all var(--dur) var(--ease);
+  border: 1px solid var(--glass-border);
+  -webkit-backdrop-filter: var(--glass-backdrop);
+  backdrop-filter: var(--glass-backdrop);
+}
+
+.card:hover {
+  box-shadow: var(--shadow-card-hover);
+  transform: translateY(-2px);
+}
+
+/* ## 7. Button Styles - Apple Style ## */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px; /* Pill shape */
+  font-weight: var(--font-weight-medium);
+  transition: all var(--dur) var(--ease);
+  cursor: pointer;
+  outline: none;
+  border: none;
+  position: relative;
+  overflow: hidden;
+  color: #000000; /* Default black text */
+  padding: 0.75rem 1.5rem;
+  font-size: var(--font-size-sm);
+  min-height: 44px;
+  min-width: 44px;
+}
+
+.btn:focus {
+  outline: 2px solid #fde68a;
+  outline-offset: 2px;
+  color: #ffffff; /* White text on focus */
+}
+
+.btn:hover {
+  color: #ffffff; /* White text on hover */
+  transform: scale(1.02);
+}
+
+.btn:active {
+  transform: scale(0.98);
+}
+
+.btn-primary {
+  background: linear-gradient(to right, #f59e0b, #d97706);
+  color: #000000; /* Black text on yellow background */
+  box-shadow: 0 4px 6px rgba(245, 158, 11, 0.2);
+}
+
+.btn-primary:hover {
+  background: linear-gradient(to right, #d97706, #b45309);
+  box-shadow: 0 6px 8px rgba(245, 158, 11, 0.3);
+  color: #ffffff; /* White text on hover */
+}
+
+.btn-secondary {
+  background: linear-gradient(to right, #ef4444, #dc2626);
+  color: #ffffff; /* White text on red background */
+  box-shadow: 0 4px 6px rgba(239, 68, 68, 0.2);
+}
+
+.btn-secondary:hover {
+  background: linear-gradient(to right, #dc2626, #b91c1c);
+  box-shadow: 0 6px 8px rgba(239, 68, 68, 0.3);
+  color: #ffffff; /* White text on hover */
+}
+
+.btn-accent {
+  background: linear-gradient(to right, #0ea5e9, #0284c7);
+  color: #ffffff; /* White text on blue background */
+  box-shadow: 0 4px 6px rgba(14, 165, 233, 0.2);
+}
+
+.btn-accent:hover {
+  background: linear-gradient(to right, #0284c7, #0369a1);
+  box-shadow: 0 6px 8px rgba(14, 165, 233, 0.3);
+  color: #ffffff; /* White text on hover */
+}
+
+.btn-success {
+  background: linear-gradient(to right, #22c55e, #16a34a);
+  color: #ffffff; /* White text on green background */
+  box-shadow: 0 4px 6px rgba(34, 197, 94, 0.2);
+}
+
+.btn-success:hover {
+  background: linear-gradient(to right, #16a34a, #15803d);
+  box-shadow: 0 6px 8px rgba(34, 197, 94, 0.3);
+  color: #ffffff; /* White text on hover */
+}
+
+.btn-outline {
+  background-color: transparent;
+  border: 1px solid #cbd5e1;
+  color: #000000; /* Black text */
+}
+
+.btn-outline:hover {
+  border-color: #94a3b8;
+  background-color: #f1f5f9;
+  color: #ffffff; /* White text on hover */
+}
+
+/* ## 8. Form Input Styles - Apple Style ## */
+.form-input {
+  width: 100%;
+  padding: 0.875rem 1.25rem;
+  background-color: var(--glass);
+  border: 1px solid rgba(0, 0, 0, 0.05);
+  border-radius: var(--radius-md);
+  transition: all var(--dur) var(--ease);
+  color: #000000; /* Black text */
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+  -webkit-backdrop-filter: var(--glass-backdrop);
+  backdrop-filter: var(--glass-backdrop);
+}
+
+.form-input:focus {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(253, 230, 138, 0.5), 0 4px 6px rgba(245, 158, 11, 0.1);
+  border-color: #f59e0b;
+  color: #000000; /* Keep black text */
+}
+
+.form-label {
+  display: block;
+  margin-bottom: 0.625rem;
+  font-weight: var(--font-weight-medium);
+  color: #000000; /* Black text */
+  font-size: var(--font-size-sm);
+}
+
+/* ## 9. Table Styles - Apple Style ## */
+.table-container {
+  overflow-x: auto;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+  border: 1px solid rgba(0, 0, 0, 0.03);
+  background: var(--glass);
+  -webkit-backdrop-filter: var(--glass-backdrop);
+  backdrop-filter: var(--glass-backdrop);
+}
+
+.table {
+  min-width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  table-layout: fixed;
+  width: 100%;
+}
+
+.table th {
+  background-color: rgba(248, 250, 252, 0.7);
+  padding: 1.25rem 1.5rem;
+  text-align: left;
+  font-weight: var(--font-weight-semibold);
+  color: #000000; /* Black text */
+  text-transform: uppercase;
+  font-size: var(--font-size-xs);
+  letter-spacing: 0.05em;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.table td {
+  padding: 1.25rem 1.5rem;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+  color: #000000; /* Black text */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.table tr:last-child td {
+  border-bottom: none;
+}
+
+.table tr:hover td {
+  background-color: rgba(248, 250, 252, 0.5);
+}
+
+/* Zebra striping for tables */
+.table-zebra tbody tr:nth-child(even) {
+  background-color: rgba(248, 250, 252, 0.3);
+}
+
+/* Materials table specific styles */
+.materials-table-container {
+  overflow-x: hidden;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+  border: 1px solid rgba(0, 0, 0, 0.03);
+  background: var(--glass);
+  -webkit-backdrop-filter: var(--glass-backdrop);
+  backdrop-filter: var(--glass-backdrop);
+}
+
+.materials-table {
+  table-layout: fixed;
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.materials-table th,
+.materials-table td {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.materials-table th {
+  background-color: rgba(248, 250, 252, 0.7);
+  padding: 1rem;
+  text-align: left;
+  font-weight: var(--font-weight-semibold);
+  color: #000000;
+  text-transform: uppercase;
+  font-size: var(--font-size-xs);
+  letter-spacing: 0.05em;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.materials-table td {
+  padding: 1rem;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+  color: #000000;
+}
+
+.materials-table tr:last-child td {
+  border-bottom: none;
+}
+
+.materials-table tr:hover td {
+  background-color: rgba(248, 250, 252, 0.5);
+}
+
+/* ## 10. Badge Styles - Apple Style ## */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.375rem 1rem;
+  border-radius: 9999px;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  transition: all var(--dur) ease-in-out;
+  color: #000000; /* Black text */
+}
+
+.badge-primary {
+  background: linear-gradient(to right, #fef3c7, #fde68a);
+  color: #000000; /* Black text on yellow badge */
+}
+
+.badge-primary:hover {
+  color: #ffffff; /* White text on hover */
+}
+
+.badge-secondary {
+  background: linear-gradient(to right, #fee2e2, #fecaca);
+  color: #000000; /* Black text on red badge */
+}
+
+.badge-secondary:hover {
+  color: #ffffff; /* White text on hover */
+}
+
+.badge-success {
+  background: linear-gradient(to right, #dcfce7, #bbf7d0);
+  color: #000000; /* Black text on green badge */
+}
+
+.badge-success:hover {
+  color: #ffffff; /* White text on hover */
+}
+
+.badge-warning {
+  background: linear-gradient(to right, #fef3c7, #fde68a);
+  color: #000000; /* Black text on yellow badge */
+}
+
+.badge-warning:hover {
+  color: #ffffff; /* White text on hover */
+}
+
+.badge-danger {
+  background: linear-gradient(to right, #fee2e2, #fecaca);
+  color: #000000; /* Black text on red badge */
+}
+
+.badge-danger:hover {
+  color: #ffffff; /* White text on hover */
+}
+
+/* ## 11. Alert Styles - Apple Style ## */
+.alert {
+  padding: 1.25rem;
+  border-radius: var(--radius-md);
+  margin-bottom: 1.25rem;
+  border: 1px solid transparent;
+  color: #000000; /* Black text */
+  background: var(--glass);
+  -webkit-backdrop-filter: var(--glass-backdrop);
+  backdrop-filter: var(--glass-backdrop);
+  box-shadow: var(--shadow-card);
+}
+
+.alert-success {
+  background: linear-gradient(to right, #dcfce7, #bbf7d0);
+  color: #000000; /* Black text */
+  border-color: #bbf7d0;
+}
+
+.alert-success:hover {
+  color: #ffffff; /* White text on hover */
+}
+
+.alert-warning {
+  background: linear-gradient(to right, #fef3c7, #fde68a);
+  color: #000000; /* Black text */
+  border-color: #fde68a;
+}
+
+.alert-warning:hover {
+  color: #ffffff; /* White text on hover */
+}
+
+.alert-error {
+  background: linear-gradient(to right, #fee2e2, #fecaca);
+  color: #000000; /* Black text */
+  border-color: #fecaca;
+}
+
+.alert-error:hover {
+  color: #ffffff; /* White text on hover */
+}
+
+.alert-info {
+  background: linear-gradient(to right, #e0f2fe, #bae6fd);
+  color: #000000; /* Black text */
+  border-color: #bae6fd;
+}
+
+.alert-info:hover {
+  color: #ffffff; /* White text on hover */
+}
+
+/* ## 12. Modal Styles - Apple Style ## */
+.modal-backdrop {
+  background-color: rgba(0, 0, 0, 0.5);
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
+}
+
+.modal-content {
+  background: var(--glass);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+  border: 1px solid var(--glass-border);
+  -webkit-backdrop-filter: var(--glass-backdrop);
+  backdrop-filter: var(--glass-backdrop);
+}
+
+.modal-header {
+  padding: 1.5rem;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.modal-title {
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-bold);
+  color: #000000;
+}
+
+.modal-body {
+  padding: 1.5rem;
+}
+
+.modal-footer {
+  padding: 1.5rem;
+  border-top: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+/* ## 13. Interactive Element Styles ## */
+/* Ensure text turns white on click/hover for better visibility */
+a, .interactive {
+  color: #000000; /* Default black text */
+  transition: color var(--dur) ease-in-out;
+}
+
+a:hover, a:focus, .interactive:hover, .interactive:focus {
+  color: #ffffff; /* White text on interaction */
+}
+
+/* Special styles for links with yellow background */
+a.bg-primary, .bg-primary .interactive {
+  color: #000000; /* Black text on yellow background */
+}
+
+a.bg-primary:hover, a.bg-primary:focus, .bg-primary .interactive:hover, .bg-primary .interactive:focus {
+  color: #ffffff; /* White text on interaction */
+}
+
+/* Special styles for links with red background */
+a.bg-secondary, .bg-secondary .interactive {
+  color: #ffffff; /* White text on red background */
+}
+
+a.bg-secondary:hover, a.bg-secondary:focus, .bg-secondary .interactive:hover, .bg-secondary .interactive:focus {
+  color: #ffffff; /* White text on interaction */
+}
+
+/* ## 14. Apple-style Components ## */
+/* Glassmorphic container */
+.glass-container {
+  background: var(--glass);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--glass-border);
+  -webkit-backdrop-filter: var(--glass-backdrop);
+  backdrop-filter: var(--glass-backdrop);
+  box-shadow: var(--shadow-card);
+}
+
+/* Soft shadow effect */
+.soft-shadow {
+  box-shadow: var(--shadow-card);
+}
+
+.soft-shadow-hover {
+  box-shadow: var(--shadow-card);
+  transition: box-shadow var(--dur) var(--ease);
+}
+
+.soft-shadow-hover:hover {
+  box-shadow: var(--shadow-card-hover);
+}
+
+/* Rounded corners */
+.rounded-sm {
+  border-radius: var(--radius-sm);
+}
+
+.rounded-md {
+  border-radius: var(--radius-md);
+}
+
+.rounded-lg {
+  border-radius: var(--radius-lg);
+}
+
+/* ## 15. Responsive Media Queries ## */
+/* Mobile First - Base styles for small screens */
+@media (max-width: 767px) {
+  /* Adjust body padding for mobile */
+  body {
+    padding: 0;
+  }
+  
+  /* Adjust card styles for mobile */
+  .card {
+    border-radius: var(--radius-lg);
+    margin-bottom: 1rem;
+  }
+  
+  /* Adjust form elements for touch targets */
+  .form-input {
+    min-height: 44px;
+  }
+  
+  /* Adjust button styles for touch targets */
+  .btn {
+    min-height: 44px;
+    min-width: 44px;
+  }
+  
+  /* Hide desktop-only elements */
+  .mobile-hidden {
+    display: none !important;
+  }
+  
+  /* Show mobile-only elements */
+  .mobile-only {
+    display: block !important;
+  }
+}
+
+/* Tablet portrait (768px) */
+@media (min-width: 768px) and (max-width: 1023px) {
+  .tablet-hidden {
+    display: none !important;
+  }
+  
+  .tablet-only {
+    display: block !important;
+  }
+}
+
+/* Small mobile (375px) */
+@media (max-width: 414px) {
+  .small-mobile-text-sm {
+    font-size: 0.875rem;
+  }
+  
+  .small-mobile-p-2 {
+    padding: 0.5rem;
+  }
+}
+
+/* Touch-friendly adjustments */
+@media (hover: none) and (pointer: coarse) {
+  /* Increase touch targets */
+  .touch-target {
+    min-height: 44px;
+    min-width: 44px;
+  }
+  
+  /* Adjust hover states for touch */
+  .touch-hover:hover {
+    background-color: inherit;
+  }
+  
+  /* Touch-specific animations */
+  .touch-animation {
+    transition: all 0.2s ease-out;
+  }
+  
+  .touch-active:active {
+    transform: scale(0.98);
+    transition: transform 0.1s ease-out;
+  }
+}
+
+/* Reduce motion for accessibility */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ## 16. Apple-style Card List for Mobile ## */
+.card-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--card-gap);
+}
+
+.card-item {
+  background: var(--glass);
+  border-radius: var(--radius-lg);
+  padding: 1rem;
+  box-shadow: var(--shadow-card);
+  border: 1px solid var(--glass-border);
+  -webkit-backdrop-filter: var(--glass-backdrop);
+  backdrop-filter: var(--glass-backdrop);
+  transition: all var(--dur) var(--ease);
+}
+
+.card-item:hover {
+  box-shadow: var(--shadow-card-hover);
+  transform: translateY(-2px);
+}
+
+.card-item-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.75rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.card-item-title {
+  font-weight: var(--font-weight-semibold);
+  font-size: var(--font-size-lg);
+  color: #000000;
+}
+
+.card-item-content {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+}
+
+.card-item-field {
+  display: flex;
+  flex-direction: column;
+}
+
+.card-item-label {
+  font-size: var(--font-size-xs);
+  color: #64748b;
+  margin-bottom: 0.25rem;
+}
+
+.card-item-value {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: #000000;
+}
+
+/* ## 17. Pagination Styles ## */
+.pagination {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 1rem;
+  margin-top: 1rem;
+}
+
+.pagination-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 9999px;
+  background: var(--glass);
+  border: 1px solid var(--glass-border);
+  -webkit-backdrop-filter: var(--glass-backdrop);
+  backdrop-filter: var(--glass-backdrop);
+  color: #000000;
+  font-weight: var(--font-weight-medium);
+  transition: all var(--dur) var(--ease);
+  cursor: pointer;
+}
+
+.pagination-button:hover {
+  background: #f59e0b;
+  color: #000000;
+  transform: scale(1.05);
+}
+
+.pagination-button.active {
+  background: #f59e0b;
+  color: #000000;
+  font-weight: var(--font-weight-bold);
+}
+
+.pagination-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* ## 18. Sticky Filter Bar ## */
+.sticky-filter-bar {
+  position: sticky;
+  top: 0;
+  background: var(--glass);
+  border-radius: var(--radius-md);
+  padding: 1rem;
+  margin-bottom: 1.5rem;
+  box-shadow: var(--shadow-card);
+  border: 1px solid var(--glass-border);
+  -webkit-backdrop-filter: var(--glass-backdrop);
+  backdrop-filter: var(--glass-backdrop);
+  z-index: 10;
+}

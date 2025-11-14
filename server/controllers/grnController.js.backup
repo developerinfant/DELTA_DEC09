@@ -1,0 +1,102 @@
+/**
+ * @desc    Handle damaged materials for a Delivery Challan
+ * @route   POST /api/grn/damaged-materials
+ * @access  Private
+ */
+const handleDamagedMaterials = async (req, res) => {
+    try {
+        const { dcId, dcNumber, materialName, sentQty, damagedQty, replacementQty, date } = req.body;
+        
+        // Validate required fields
+        if (!dcId || !materialName || damagedQty === undefined || replacementQty === undefined) {
+            return res.status(400).json({ message: 'Missing required fields' });
+        }
+        
+        // Validate that damagedQty and replacementQty are numbers
+        const damagedQtyNum = Number(damagedQty);
+        const replacementQtyNum = Number(replacementQty);
+        const sentQtyNum = Number(sentQty) || 0;
+        
+        if (isNaN(damagedQtyNum) || isNaN(replacementQtyNum)) {
+            return res.status(400).json({ message: 'Damaged quantity and replacement quantity must be numbers' });
+        }
+        
+        // Find the delivery challan
+        const dc = await DeliveryChallan.findById(dcId);
+        if (!dc) {
+            return res.status(404).json({ message: 'Delivery Challan not found' });
+        }
+        
+        // Find the packing material by name
+        const material = await PackingMaterial.findOne({ name: materialName });
+        if (!material) {
+            return res.status(404).json({ message: `Material ${materialName} not found` });
+        }
+        
+        // Check if there's enough stock available
+        if (material.quantity < damagedQtyNum) {
+            return res.status(400).json({ message: `Not enough stock available for ${materialName}. Available: ${material.quantity}, Requested: ${damagedQtyNum}` });
+        }
+        
+        // Deduct the damaged quantity from the material stock
+        material.quantity -= damagedQtyNum;
+        material.availableQty -= damagedQtyNum;
+        
+        // Process the date - handle both string and Date object formats
+        let processedDate = new Date();
+        if (date) {
+            if (typeof date === 'string') {
+                processedDate = new Date(date);
+            } else if (date instanceof Date) {
+                processedDate = date;
+            } else if (typeof date === 'object' && date.$date) {
+                // Handle MongoDB date format
+                processedDate = new Date(date.$date);
+            }
+        }
+        
+        // Validate the date
+        if (isNaN(processedDate.getTime())) {
+            processedDate = new Date();
+        }
+        
+        // Add to price history
+        material.priceHistory.push({
+            date: processedDate,
+            type: 'Damaged Material',
+            supplier: 'N/A',
+            poNumber: 'N/A',
+            grnNumber: `DM-${dcNumber}`,
+            qty: -damagedQtyNum, // Negative quantity to indicate deduction
+            unitPrice: material.perQuantityPrice || 0,
+            total: -damagedQtyNum * (material.perQuantityPrice || 0)
+        });
+        
+        // Save the updated material
+        await material.save();
+        
+        // Calculate updated balance
+        const updatedBalance = material.quantity;
+        
+        // Create a record in the damaged materials collection
+        const damagedMaterialRecord = new DamagedMaterial({
+            dcId,
+            dcNumber,
+            product: dc.product_name || 'N/A',
+            materialName,
+            sentQty: sentQtyNum,
+            damagedQty: damagedQtyNum,
+            replacementQty: replacementQtyNum,
+            updatedBalance,
+            date: processedDate
+        });
+        
+        await damagedMaterialRecord.save();
+        
+        res.status(200).json({ message: 'Damaged materials processed successfully' });
+    } catch (error) {
+        console.error(`Error handling damaged materials: ${error.message}`);
+        console.error('Error stack:', error.stack);
+        res.status(500).json({ message: 'Server error while processing damaged materials', error: error.message });
+    }
+};

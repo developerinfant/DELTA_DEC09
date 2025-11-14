@@ -1,0 +1,167 @@
+/**
+ * @desc    Get all GRNs
+ * @route   GET /api/grn
+ * @access  Private
+ */
+const getGRNs = async (req, res) => {
+    try {
+        // Build query filter
+        const filter = {};
+        
+        // Filter by source type if specified
+        if (req.query.sourceType) {
+            filter.sourceType = req.query.sourceType;
+        }
+        
+        // Filter by purchase order if specified
+        if (req.query.purchaseOrder) {
+            filter.purchaseOrder = req.query.purchaseOrder;
+        }
+        
+        // First get all GRNs with populated data
+        let query = GRN.find(filter)
+            .populate('supplier', 'name')
+            .populate('purchaseOrder', 'poNumber')
+            .populate('deliveryChallan', 'dc_no supplier_id person_name unit_type status') // Populate delivery challan for jobber GRNs
+            .populate('approvedBy', 'name')
+            .sort({ createdAt: -1 })
+            .lean();
+        
+        // Apply material type filter if specified
+        if (req.query.materialType) {
+            // Get all GRN IDs first
+            const allGrns = await GRN.find(filter)
+                .populate('supplier', 'name')
+                .populate('purchaseOrder', 'poNumber')
+                .populate('deliveryChallan', 'dc_no supplier_id person_name unit_type status') // Populate delivery challan for jobber GRNs
+                .populate('approvedBy', 'name')
+                .lean();
+            
+            // Filter GRNs based on material type
+            let filteredGrnIds = [];
+            if (req.query.materialType === 'packing') {
+                filteredGrnIds = allGrns
+                    .filter(grn => grn.items.some(item => item.materialModel === 'PackingMaterial'))
+                    .map(grn => grn._id);
+            } else if (req.query.materialType === 'raw') {
+                filteredGrnIds = allGrns
+                    .filter(grn => grn.items.some(item => item.materialModel === 'RawMaterial'))
+                    .map(grn => grn._id);
+            }
+            
+            query = GRN.find({ ...filter, _id: { $in: filteredGrnIds } })
+                .populate('supplier', 'name')
+                .populate('purchaseOrder', 'poNumber')
+                .populate('deliveryChallan', 'dc_no supplier_id person_name unit_type status') // Populate delivery challan for jobber GRNs
+                .populate('approvedBy', 'name')
+                .sort({ createdAt: -1 })
+                .lean();
+        }
+        
+        const allGrns = await query;
+        
+        // Filter to show only the latest GRN per reference (PO or DC)
+        const latestGrnsPerReference = {};
+        allGrns.forEach(grn => {
+            // Use purchaseOrder for PO-based GRNs, deliveryChallan for jobber GRNs
+            const referenceId = grn.sourceType === 'jobber' ? 
+                (grn.deliveryChallan ? grn.deliveryChallan._id || grn.deliveryChallan : null) :
+                (grn.purchaseOrder ? grn.purchaseOrder._id || grn.purchaseOrder : null);
+                
+            if (referenceId) {
+                const referenceIdStr = referenceId.toString();
+                // If we haven't seen this reference yet, or if this GRN is more recent, keep it
+                if (!latestGrnsPerReference[referenceIdStr] || new Date(grn.createdAt) > new Date(latestGrnsPerReference[referenceIdStr].createdAt)) {
+                    latestGrnsPerReference[referenceIdStr] = grn;
+                }
+            } else {
+                // If no reference, just add it (shouldn't happen in normal cases)
+                latestGrnsPerReference[grn._id] = grn;
+            }
+        });
+        
+        // Convert the object values to an array
+        const grns = Object.values(latestGrnsPerReference);
+
+        // Process GRNs to ensure proper supplier name for jobber GRNs and add itemCode
+        const processedGrns = await Promise.all(grns.map(async (grn) => {
+            // For jobber GRNs, ensure we have the correct supplier name
+            if (grn.sourceType === 'jobber') {
+                // Check if we have all required DC info
+                const hasDCInfo = grn.dcNumber && grn.supplierName;
+                
+                // If we already have supplierName and dcNumber fields, use them
+                if (hasDCInfo) {
+                    // Add itemCode for jobber GRNs
+                    if (grn.productName) {
+                        const productStock = await ProductStock.findOne({ productName: grn.productName });
+                        if (productStock && productStock.itemCode) {
+                            grn.itemCode = productStock.itemCode;
+                        }
+                    }
+                    return grn;
+                }
+                
+                // Otherwise, try to populate from delivery challan data
+                if (grn.deliveryChallan) {
+                    // Determine supplier name based on unit type
+                    let supplierName = 'N/A';
+                    if (grn.deliveryChallan.unit_type === 'Jobber' && grn.deliveryChallan.supplier_id) {
+                        supplierName = typeof grn.deliveryChallan.supplier_id === 'object' 
+                            ? grn.deliveryChallan.supplier_id.name 
+                            : grn.deliveryChallan.supplier_id;
+                    } else if (grn.deliveryChallan.unit_type === 'Own Unit') {
+                        supplierName = grn.deliveryChallan.person_name || 'N/A';
+                    }
+                    
+                    // Use dc_no from delivery challan if dcNumber is missing
+                    const dcNumber = grn.dcNumber || grn.deliveryChallan.dc_no || 'N/A';
+                    
+                    // Add itemCode for jobber GRNs
+                    let itemCode = 'N/A';
+                    if (grn.productName) {
+                        const productStock = await ProductStock.findOne({ productName: grn.productName });
+                        if (productStock && productStock.itemCode) {
+                            itemCode = productStock.itemCode;
+                        }
+                    }
+                    
+                    return {
+                        ...grn,
+                        supplierName: supplierName,
+                        dcNumber: dcNumber,
+                        itemCode: itemCode
+                    };
+                }
+                
+                // Fallback to existing supplier field if no delivery challan data
+                // Add itemCode for jobber GRNs
+                let itemCode = 'N/A';
+                if (grn.productName) {
+                    const productStock = await ProductStock.findOne({ productName: grn.productName });
+                    if (productStock && productStock.itemCode) {
+                        itemCode = productStock.itemCode;
+                    }
+                }
+                
+                return {
+                    ...grn,
+                    supplierName: grn.supplierName || grn.supplier?.name || 'N/A',
+                    dcNumber: grn.dcNumber || 'N/A',
+                    itemCode: itemCode
+                };
+            }
+            
+            // For non-jobber GRNs, manually add the Admin's name if needed
+            if (grn.status === 'Approved' && !grn.approvedBy) {
+                return { ...grn, approvedBy: { name: 'Admin User' } };
+            }
+            
+            return grn;
+        }));
+
+        res.json(processedGrns);
+    } catch (error) {
+        res.status(500).json({ message: 'Server error while fetching GRNs.' });
+    }
+};

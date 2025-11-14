@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192">
+  <rect width="192" height="192" fill="#FF7F32"/>
+  <circle cx="96" cy="96" r="60" fill="white"/>
+  <text x="96" y="110" font-family="Arial, sans-serif" font-size="40" fill="#FF7F32" text-anchor="middle" font-weight="bold">Δ</text>
+</svg>
