@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { FaPencilAlt, FaTrash, FaHistory, FaLock } from 'react-icons/fa';
 
 /**
- * A component to display a list of packing materials in a table.
+ * A component to display a list of packing materials in a responsive table.
  *
  * @param {object} props - The component props.
  * @param {Array} props.materials - The array of material objects to display.
@@ -37,34 +37,59 @@ const MaterialsTable = ({ materials, onEdit, onDelete, onViewHistory }) => {
 
     return (
         <div className="overflow-x-auto bg-light-100 rounded-xl shadow-lg">
-            <table className="min-w-full divide-y divide-light-200 table-fixed w-full">
+            <table className="min-w-full divide-y divide-light-200">
                 <thead className="bg-light-200 sticky top-0 z-10">
                     <tr>
-                        <th scope="col" className="px-6 py-3 text-left text-xs font-bold text-secondary-500 uppercase tracking-wider" style={{ width: '10%' }}>
-                            Item Code
+                        {/* Item Code */}
+                        <th scope="col" className="px-4 py-3 text-left text-xs font-bold text-secondary-500 uppercase tracking-wider whitespace-nowrap">
+                            <span className="hidden md:inline">Item</span>
+                            <span className="md:hidden">Code</span>
                         </th>
-                        <th scope="col" className="px-6 py-3 text-left text-xs font-bold text-secondary-500 uppercase tracking-wider" style={{ width: '20%' }}>
+                        
+                        {/* Material Name */}
+                        <th scope="col" className="px-4 py-3 text-left text-xs font-bold text-secondary-500 uppercase tracking-wider hidden md:table-cell">
                             Material Name
                         </th>
-                        <th scope="col" className="px-6 py-3 text-left text-xs font-bold text-secondary-500 uppercase tracking-wider" style={{ width: '10%' }}>
-                            Quantity
+                        
+                        {/* Quantity & Unit */}
+                        <th scope="col" className="px-4 py-3 text-left text-xs font-bold text-secondary-500 uppercase tracking-wider">
+                            Qty/<span className="hidden md:inline">Unit</span><span className="md:hidden">U</span>
                         </th>
-                        <th scope="col" className="px-6 py-3 text-left text-xs font-bold text-secondary-500 uppercase tracking-wider" style={{ width: '8%' }}>
-                            Unit
+                        
+                        {/* Unit Price & Total Price */}
+                        <th scope="col" className="px-4 py-3 text-left text-xs font-bold text-secondary-500 uppercase tracking-wider">
+                            <span className="hidden md:inline">Unit Price</span>
+                            <span className="md:hidden">Price</span>
                         </th>
-                        <th scope="col" className="px-6 py-3 text-left text-xs font-bold text-secondary-500 uppercase tracking-wider" style={{ width: '12%' }}>
-                            Per Quantity Price
-                        </th>
-                        <th scope="col" className="px-6 py-3 text-left text-xs font-bold text-secondary-500 uppercase tracking-wider" style={{ width: '12%' }}>
+                        
+                        <th scope="col" className="px-4 py-3 text-left text-xs font-bold text-secondary-500 uppercase tracking-wider hidden lg:table-cell">
                             Total Price
                         </th>
-                        <th scope="col" className="px-6 py-3 text-left text-xs font-bold text-secondary-500 uppercase tracking-wider" style={{ width: '10%' }}>
-                            Stock Alert Threshold
+                        
+                        {/* Stock Alert Threshold */}
+                        <th scope="col" className="px-4 py-3 text-left text-xs font-bold text-secondary-500 uppercase tracking-wider hidden md:table-cell">
+                            <span className="hidden lg:inline">Stock Alert</span>
+                            <span className="lg:hidden">Alert</span>
                         </th>
-                        <th scope="col" className="px-6 py-3 text-left text-xs font-bold text-secondary-500 uppercase tracking-wider" style={{ width: '10%' }}>
-                            View History
+                        
+                        {/* HSN Code */}
+                        <th scope="col" className="px-4 py-3 text-left text-xs font-bold text-secondary-500 uppercase tracking-wider hidden lg:table-cell">
+                            HSN
                         </th>
-                        <th scope="col" className="relative px-6 py-3" style={{ width: '8%' }}>
+                        
+                        {/* Brand Type */}
+                        <th scope="col" className="px-4 py-3 text-left text-xs font-bold text-secondary-500 uppercase tracking-wider hidden md:table-cell">
+                            Brand
+                        </th>
+                        
+                        {/* View History */}
+                        <th scope="col" className="px-4 py-3 text-left text-xs font-bold text-secondary-500 uppercase tracking-wider">
+                            <span className="hidden md:inline">View</span>
+                            <span className="md:hidden">Hist</span>
+                        </th>
+                        
+                        {/* Actions */}
+                        <th scope="col" className="relative px-4 py-3 text-right">
                             <span className="sr-only">Actions</span>
                         </th>
                     </tr>
@@ -72,7 +97,7 @@ const MaterialsTable = ({ materials, onEdit, onDelete, onViewHistory }) => {
                 <tbody className="bg-light-100 divide-y divide-light-200">
                     {materials.length === 0 ? (
                         <tr>
-                            <td colSpan="9" className="px-6 py-4 text-center text-secondary-500">
+                            <td colSpan="10" className="px-4 py-6 text-center text-secondary-500">
                                 No materials found. Add a new material using the form above.
                             </td>
                         </tr>
@@ -85,193 +110,169 @@ const MaterialsTable = ({ materials, onEdit, onDelete, onViewHistory }) => {
                             return (
                                 <React.Fragment key={material._id}>
                                     <tr className="hover:bg-light-200">
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-gray-700 overflow-hidden text-ellipsis">
-                                            <div className="truncate" title={material.itemCode || 'N/A'}>
+                                        {/* Item Code */}
+                                        <td className="px-4 py-3 whitespace-nowrap text-sm font-bold text-gray-700 overflow-hidden">
+                                            <div className="truncate max-w-[80px] md:max-w-[120px]" title={material.itemCode || 'N/A'}>
                                                 {material.itemCode || 'N/A'}
                                             </div>
                                         </td>
-                                        <td className="px-6 py-4 text-sm font-medium text-dark-700 overflow-hidden">
-                                            <div className="truncate" title={material.name}>
+                                        
+                                        {/* Material Name (hidden on mobile) */}
+                                        <td className="px-4 py-3 text-sm font-medium text-dark-700 overflow-hidden hidden md:table-cell">
+                                            <div className="truncate max-w-[150px] lg:max-w-xs" title={material.name}>
                                                 {truncateText(material.name, 30)}
                                             </div>
                                         </td>
-                                        <td className={`px-6 py-4 whitespace-nowrap text-sm ${isLowStock ? 'text-primary-500 font-bold' : 'text-dark-700'} overflow-hidden text-ellipsis`}>
-                                            <div className="truncate" title={material.quantity}>
-                                                {material.quantity}
+                                        
+                                        {/* Quantity & Unit (combined for mobile) */}
+                                        <td className="px-4 py-3 whitespace-nowrap text-sm overflow-hidden">
+                                            <div className="flex flex-col md:flex-row md:items-center">
+                                                <span className={`font-medium ${isLowStock ? 'text-primary-500' : 'text-dark-700'}`} title={`Quantity: ${material.quantity}`}>
+                                                    {material.quantity}
+                                                </span>
+                                                {isLowStock && <span className="md:hidden text-xs text-primary-500 ml-1">(Low)</span>}
+                                                <span className="hidden md:inline mx-1">/</span>
+                                                <span className="text-gray-500 text-sm" title={material.unit || 'pcs'}>
+                                                    {material.unit || 'pcs'}
+                                                </span>
                                             </div>
-                                            {isLowStock && <span className="ml-2 text-xs">(Low Stock)</span>}
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-dark-700 overflow-hidden text-ellipsis">
-                                            <div className="truncate" title={material.unit || 'pcs'}>
-                                                {material.unit || 'pcs'}
+                                            {/* Show material name on mobile */}
+                                            <div className="md:hidden truncate text-xs text-gray-500 mt-1 max-w-[120px]" title={material.name}>
+                                                {truncateText(material.name, 20)}
                                             </div>
                                         </td>
-                                        <td className="px-6 py-4 whitespace-nowrap overflow-hidden text-ellipsis">
-                                            <div className="text-sm text-dark-700 truncate" title={formatPrice(material.perQuantityPrice)}>
+                                        
+                                        {/* Unit Price */}
+                                        <td className="px-4 py-3 whitespace-nowrap overflow-hidden">
+                                            <div className="text-sm text-dark-700 truncate max-w-[80px]" title={`Unit Price: ${formatPrice(material.perQuantityPrice)}`}>
                                                 {formatPrice(material.perQuantityPrice)}
                                             </div>
                                         </td>
-                                        <td className="px-6 py-4 whitespace-nowrap overflow-hidden text-ellipsis">
-                                            <div className="text-sm text-dark-700 truncate" title={formatPrice(totalPrice)}>
+                                        
+                                        {/* Total Price (hidden on mobile) */}
+                                        <td className="px-4 py-3 whitespace-nowrap overflow-hidden hidden lg:table-cell">
+                                            <div className="text-sm text-dark-700 truncate max-w-[100px]" title={formatPrice(totalPrice)}>
                                                 {formatPrice(totalPrice)}
                                             </div>
                                         </td>
-                                        <td className="px-6 py-4 whitespace-nowrap overflow-hidden text-ellipsis">
-                                            <div className="text-sm text-dark-700 truncate" title={material.stockAlertThreshold}>
+                                        
+                                        {/* Stock Alert Threshold (hidden on mobile) */}
+                                        <td className="px-4 py-3 whitespace-nowrap overflow-hidden hidden md:table-cell">
+                                            <div className="text-sm text-dark-700 truncate max-w-[80px]" title={material.stockAlertThreshold}>
                                                 {material.stockAlertThreshold}
                                             </div>
+                                            {isLowStock && <span className="hidden md:inline text-xs text-primary-500 ml-1">(Low Stock)</span>}
                                         </td>
-                                        <td className="px-6 py-4 whitespace-nowrap overflow-hidden text-ellipsis">
+                                        
+                                        {/* HSN Code (hidden on mobile) */}
+                                        <td className="px-4 py-3 whitespace-nowrap overflow-hidden hidden lg:table-cell">
+                                            <div className="text-sm text-dark-700 truncate max-w-[80px]" title={material.hsnCode || 'N/A'}>
+                                                {material.hsnCode || 'N/A'}
+                                            </div>
+                                        </td>
+                                        
+                                        {/* Brand Type (hidden on mobile) */}
+                                        <td className="px-4 py-3 whitespace-nowrap overflow-hidden hidden md:table-cell">
+                                            <div className="text-sm text-dark-700 truncate max-w-[80px]" title={material.brandType === 'own' ? 'Own Brand' : 'Other Brand'}>
+                                                {material.brandType === 'own' ? 'Own' : 'Other'}
+                                            </div>
+                                        </td>
+                                        
+                                        {/* View History */}
+                                        <td className="px-4 py-3 whitespace-nowrap overflow-hidden">
                                             <button
                                                 onClick={() => toggleHistory(material._id)}
-                                                className="px-3 py-1 bg-yellow-500 text-white rounded-full text-xs hover:bg-yellow-600 flex items-center truncate"
+                                                className="px-2 py-1 bg-yellow-500 text-white rounded-full text-xs hover:bg-yellow-600 flex items-center truncate"
                                                 title="View History"
                                             >
-                                                <FaHistory className="mr-1" />
-                                                <span className="truncate">View History</span>
+                                                <FaHistory className="mr-1 text-xs" />
+                                                <span className="truncate hidden md:inline">History</span>
+                                                <span className="truncate md:hidden">Hist</span>
                                             </button>
                                         </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium overflow-hidden text-ellipsis">
-                                            <div className="flex items-center justify-end space-x-4">
+                                        
+                                        {/* Actions */}
+                                        <td className="px-4 py-3 whitespace-nowrap text-right text-sm font-medium overflow-hidden">
+                                            <div className="flex items-center justify-end space-x-2">
                                                 {onEdit ? (
                                                     <button
                                                         onClick={() => onEdit(material)}
-                                                        className="text-blue-500 hover:text-blue-700"
+                                                        className="text-blue-500 hover:text-blue-700 p-1"
                                                         title="Edit"
                                                     >
-                                                        <FaPencilAlt />
+                                                        <FaPencilAlt size={14} />
                                                     </button>
                                                 ) : (
-                                                    <div className="text-gray-400 cursor-not-allowed" title="Access disabled">
-                                                        <FaLock />
+                                                    <div className="text-gray-400 cursor-not-allowed p-1" title="Access disabled">
+                                                        <FaLock size={14} />
                                                     </div>
                                                 )}
                                                 {onDelete ? (
                                                     <button
                                                         onClick={() => onDelete(material._id)}
-                                                        className="text-primary-500 hover:text-primary-600"
+                                                        className="text-red-500 hover:text-red-700 p-1"
                                                         title="Delete"
                                                     >
-                                                        <FaTrash />
+                                                        <FaTrash size={14} />
                                                     </button>
                                                 ) : (
-                                                    <div className="text-gray-400 cursor-not-allowed" title="Access disabled">
-                                                        <FaLock />
+                                                    <div className="text-gray-400 cursor-not-allowed p-1" title="Access disabled">
+                                                        <FaLock size={14} />
                                                     </div>
                                                 )}
                                             </div>
                                         </td>
                                     </tr>
-                                    {/* History Expansion Row */}
+                                    
+                                    {/* Expanded History Row */}
                                     {isHistoryExpanded && (
-                                        <tr>
-                                            <td colSpan="9" className="px-6 py-4 bg-gray-50">
-                                                <div className="rounded-lg border border-gray-200 p-4">
-                                                    <h3 className="text-lg font-bold text-gray-800 mb-3">
-                                                        Material History — {material.name}
-                                                    </h3>
-                                                    
-                                                    
+                                        <tr className="bg-light-200 border-t border-light-300">
+                                            <td colSpan="10" className="px-4 py-3">
+                                                <div className="rounded-lg bg-white p-4 shadow-inner">
+                                                    <h4 className="font-bold text-dark-700 mb-2">Price History for {material.name}</h4>
                                                     {material.priceHistory && material.priceHistory.length > 0 ? (
                                                         <div className="overflow-x-auto">
-                                                            <table className="min-w-full divide-y divide-gray-200">
-                                                                <thead className="bg-gray-100">
+                                                            <table className="min-w-full divide-y divide-light-200">
+                                                                <thead className="bg-light-100">
                                                                     <tr>
-                                                                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Batch</th>
-                                                                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Qty</th>
-                                                                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Unit Price</th>
-                                                                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total</th>
-                                                                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Supplier</th>
-                                                                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                                                                        <th className="px-3 py-2 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">Date</th>
+                                                                        <th className="px-3 py-2 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">Type</th>
+                                                                        <th className="px-3 py-2 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">Supplier</th>
+                                                                        <th className="px-3 py-2 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">PO No.</th>
+                                                                        <th className="px-3 py-2 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">GRN No.</th>
+                                                                        <th className="px-3 py-2 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">Qty</th>
+                                                                        <th className="px-3 py-2 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">Unit Price</th>
+                                                                        <th className="px-3 py-2 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">Total</th>
                                                                     </tr>
                                                                 </thead>
-                                                                <tbody className="bg-white divide-y divide-gray-200">
-                                                                    {material.priceHistory.flatMap((entry, entryIndex) => {
-                                                                        // Create rows based on entry type
-                                                                        const rows = [];
-                                                                        
-                                                                        if (entry.type === 'Existing Stock') {
-                                                                            // Row: Existing Stock
-                                                                            rows.push(
-                                                                                <tr key={`${entryIndex}-0`}>
-                                                                                    <td className="px-4 py-2 text-sm text-gray-500 truncate" title={entry.type}>{entry.type}</td>
-                                                                                    <td className="px-4 py-2 text-sm text-gray-700 truncate" title={entry.qty || 0}>{entry.qty || 0}</td>
-                                                                                    <td className="px-4 py-2 text-sm text-gray-700 truncate" title={`₹${(entry.unitPrice || 0).toFixed(2)}`}>₹{(entry.unitPrice || 0).toFixed(2)}</td>
-                                                                                    <td className="px-4 py-2 text-sm text-gray-700 truncate" title={`₹${(entry.total || 0).toFixed(2)}`}>₹{(entry.total || 0).toFixed(2)}</td>
-                                                                                    <td className="px-4 py-2 text-sm text-gray-700 truncate" title="—">—</td>
-                                                                                    <td className="px-4 py-2 text-sm text-gray-700 truncate" title={new Date(entry.date).toLocaleDateString('en-GB')}>{new Date(entry.date).toLocaleDateString('en-GB')}</td>
-                                                                                </tr>
-                                                                            );
-                                                                        } else if (entry.type === 'New GRN') {
-                                                                            // Row: New GRN
-                                                                            rows.push(
-                                                                                <tr key={`${entryIndex}-1`}>
-                                                                                    <td className="px-4 py-2 text-sm text-blue-600 truncate" title={`New GRN (Supplier: ${entry.supplier || 'Unknown'})`}>New GRN (Supplier: {entry.supplier || 'Unknown'})</td>
-                                                                                    <td className="px-4 py-2 text-sm text-gray-700 truncate" title={entry.qty || 0}>{entry.qty || 0}</td>
-                                                                                    <td className="px-4 py-2 text-sm text-gray-700 truncate" title={`₹${(entry.unitPrice || 0).toFixed(2)}`}>₹{(entry.unitPrice || 0).toFixed(2)}</td>
-                                                                                    <td className="px-4 py-2 text-sm text-gray-700 truncate" title={`₹${(entry.total || 0).toFixed(2)}`}>₹{(entry.total || 0).toFixed(2)}</td>
-                                                                                    <td className="px-4 py-2 text-sm text-gray-700 truncate" title={entry.supplier || '—'}>{entry.supplier || '—'}</td>
-                                                                                    <td className="px-4 py-2 text-sm text-gray-700 truncate" title={new Date(entry.date).toLocaleDateString('en-GB')}>{new Date(entry.date).toLocaleDateString('en-GB')}</td>
-                                                                                </tr>
-                                                                            );
-                                                                        } else if (entry.type === 'New Average Price (Updated)' || entry.type === 'New Average Price') {
-                                                                            // Row: New Average Price (Updated)
-                                                                            rows.push(
-                                                                                <tr key={`${entryIndex}-2`} className="bg-green-100 font-bold">
-                                                                                    <td className="px-4 py-2 text-sm text-green-800 truncate" title={entry.type}>{entry.type}</td>
-                                                                                    <td className="px-4 py-2 text-sm text-gray-700 truncate" title={entry.qty || 0}>{entry.qty || 0}</td>
-                                                                                    <td className="px-4 py-2 text-sm text-gray-700 truncate" title={`₹${(entry.unitPrice || 0).toFixed(2)}`}>₹{(entry.unitPrice || 0).toFixed(2)}</td>
-                                                                                    <td className="px-4 py-2 text-sm text-gray-700 truncate" title={`₹${(entry.total || 0).toFixed(2)}`}>₹{(entry.total || 0).toFixed(2)}</td>
-                                                                                    <td className="px-4 py-2 text-sm text-gray-700 truncate" title="—">—</td>
-                                                                                    <td className="px-4 py-2 text-sm text-gray-700 truncate" title={new Date(entry.date).toLocaleDateString('en-GB')}>{new Date(entry.date).toLocaleDateString('en-GB')}</td>
-                                                                                </tr>
-                                                                            );
-                                                                        } else {
-                                                                            // For backward compatibility with old entries
-                                                                            // Row 1: Existing Stock
-                                                                            rows.push(
-                                                                                <tr key={`${entryIndex}-0`}>
-                                                                                    <td className="px-4 py-2 text-sm text-gray-500 truncate" title="Existing Stock">Existing Stock</td>
-                                                                                    <td className="px-4 py-2 text-sm text-gray-700 truncate" title={entry.oldQty || 0}>{entry.oldQty || 0}</td>
-                                                                                    <td className="px-4 py-2 text-sm text-gray-700 truncate" title={`₹${(entry.oldPrice || 0).toFixed(2)}`}>₹{(entry.oldPrice || 0).toFixed(2)}</td>
-                                                                                    <td className="px-4 py-2 text-sm text-gray-700 truncate" title={`₹${((entry.oldQty || 0) * (entry.oldPrice || 0)).toFixed(2)}`}>₹{((entry.oldQty || 0) * (entry.oldPrice || 0)).toFixed(2)}</td>
-                                                                                    <td className="px-4 py-2 text-sm text-gray-700 truncate" title="—">—</td>
-                                                                                    <td className="px-4 py-2 text-sm text-gray-700 truncate" title={new Date(entry.date).toLocaleDateString('en-GB')}>{new Date(entry.date).toLocaleDateString('en-GB')}</td>
-                                                                                </tr>
-                                                                            );
-                                                                            
-                                                                            // Row 2: New GRN
-                                                                            rows.push(
-                                                                                <tr key={`${entryIndex}-1`} className="bg-blue-50">
-                                                                                    <td className="px-4 py-2 text-sm text-blue-600 truncate" title="New GRN">New GRN</td>
-                                                                                    <td className="px-4 py-2 text-sm text-gray-700 truncate" title={entry.newQty || 0}>{entry.newQty || 0}</td>
-                                                                                    <td className="px-4 py-2 text-sm text-gray-700 truncate" title={`₹${(entry.newPrice || 0).toFixed(2)}`}>₹{(entry.newPrice || 0).toFixed(2)}</td>
-                                                                                    <td className="px-4 py-2 text-sm text-gray-700 truncate" title={`₹${((entry.newQty || 0) * (entry.newPrice || 0)).toFixed(2)}`}>₹{((entry.newQty || 0) * (entry.newPrice || 0)).toFixed(2)}</td>
-                                                                                    <td className="px-4 py-2 text-sm text-gray-700 truncate" title={entry.supplier || '—'}>{entry.supplier || '—'}</td>
-                                                                                    <td className="px-4 py-2 text-sm text-gray-700 truncate" title={new Date(entry.date).toLocaleDateString('en-GB')}>{new Date(entry.date).toLocaleDateString('en-GB')}</td>
-                                                                                </tr>
-                                                                            );
-                                                                            
-                                                                            // Row 3: New Average Price
-                                                                            rows.push(
-                                                                                <tr key={`${entryIndex}-2`} className="bg-green-100 font-bold">
-                                                                                    <td className="px-4 py-2 text-sm text-green-800 truncate" title="New Average Price">New Average Price</td>
-                                                                                    <td className="px-4 py-2 text-sm text-gray-700 truncate" title={entry.updatedQty || 0}>{entry.updatedQty || 0}</td>
-                                                                                    <td className="px-4 py-2 text-sm text-gray-700 truncate" title={`₹${(entry.updatedPrice || 0).toFixed(2)}`}>₹{(entry.updatedPrice || 0).toFixed(2)}</td>
-                                                                                    <td className="px-4 py-2 text-sm text-gray-700 truncate" title={`₹${((entry.updatedQty || 0) * (entry.updatedPrice || 0)).toFixed(2)}`}>₹{((entry.updatedQty || 0) * (entry.updatedPrice || 0)).toFixed(2)}</td>
-                                                                                    <td className="px-4 py-2 text-sm text-gray-700 truncate" title="—">—</td>
-                                                                                    <td className="px-4 py-2 text-sm text-gray-700 truncate" title={new Date(entry.date).toLocaleDateString('en-GB')}>{new Date(entry.date).toLocaleDateString('en-GB')}</td>
-                                                                                </tr>
-                                                                            );
-                                                                        }
-                                                                        
-                                                                        return rows;
-                                                                    })}
+                                                                <tbody className="divide-y divide-light-200">
+                                                                    {material.priceHistory.map((entry, index) => (
+                                                                        <tr key={index} className={entry.type === 'New Average Price (Updated)' ? 'bg-yellow-50' : ''}>
+                                                                            <td className="px-3 py-2 text-sm text-dark-700 whitespace-nowrap">{new Date(entry.date).toLocaleDateString()}</td>
+                                                                            <td className="px-3 py-2 text-sm text-dark-700 whitespace-nowrap">
+                                                                                <span className={`px-2 py-1 rounded-full text-xs ${
+                                                                                    entry.type === 'Existing Stock' ? 'bg-blue-100 text-blue-800' :
+                                                                                    entry.type === 'New GRN' ? 'bg-green-100 text-green-800' :
+                                                                                    entry.type === 'New Average Price' || entry.type === 'New Average Price (Updated)' ? 'bg-yellow-100 text-yellow-800' :
+                                                                                    entry.type === 'DC-OUT' ? 'bg-red-100 text-red-800' :
+                                                                                    'bg-gray-100 text-gray-800'
+                                                                                }`}>
+                                                                                    {entry.type}
+                                                                                </span>
+                                                                            </td>
+                                                                            <td className="px-3 py-2 text-sm text-dark-700 whitespace-nowrap">{entry.supplier || 'N/A'}</td>
+                                                                            <td className="px-3 py-2 text-sm text-dark-700 whitespace-nowrap">{entry.poNumber || 'N/A'}</td>
+                                                                            <td className="px-3 py-2 text-sm text-dark-700 whitespace-nowrap">{entry.grnNumber || 'N/A'}</td>
+                                                                            <td className="px-3 py-2 text-sm text-dark-700 whitespace-nowrap">{entry.qty !== undefined ? entry.qty : 'N/A'}</td>
+                                                                            <td className="px-3 py-2 text-sm text-dark-700 whitespace-nowrap">{entry.unitPrice !== undefined ? formatPrice(entry.unitPrice) : 'N/A'}</td>
+                                                                            <td className="px-3 py-2 text-sm text-dark-700 whitespace-nowrap">{entry.total !== undefined ? formatPrice(entry.total) : 'N/A'}</td>
+                                                                        </tr>
+                                                                    ))}
                                                                 </tbody>
                                                             </table>
                                                         </div>
                                                     ) : (
-                                                        <p className="text-gray-500 text-center py-4">No price history available for this material.</p>
+                                                        <p className="text-gray-500 text-sm">No price history available for this material.</p>
                                                     )}
                                                 </div>
                                             </td>

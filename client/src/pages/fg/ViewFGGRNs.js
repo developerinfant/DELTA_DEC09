@@ -2,10 +2,10 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import api from '../../api';
 import Card from '../../components/common/Card';
-import { FaSpinner, FaEye } from 'react-icons/fa';
-import ViewReportTools from '../../components/common/ViewReportTools';
+import { FaSpinner } from 'react-icons/fa';
 import Modal from '../../components/common/Modal';
 import { toast } from 'react-toastify';
+import { Plus, Eye } from 'lucide-react';
 
 // This component can be moved to its own file later if needed
 const GRNTable = ({ grns, onRecordDamagedStock }) => {
@@ -18,14 +18,28 @@ const GRNTable = ({ grns, onRecordDamagedStock }) => {
     const getStatusClass = (status) => {
         switch (status) {
             case 'Pending Admin Approval': return 'bg-yellow-100 text-yellow-800';
-            case 'Approved': return 'bg-green-100 text-green-800';
-            case 'Rejected': return 'bg-red-100 text-red-800';
-            case 'Completed': return 'bg-green-100 text-green-800';
-            case 'Partial': return 'bg-orange-100 text-orange-800';
-            case 'Pending': return 'bg-yellow-100 text-yellow-800';
-            case 'Damage Pending': return 'bg-amber-100 text-amber-800';
-            case 'Damage Completed': return 'bg-red-100 text-red-800';
-            default: return 'bg-gray-100 text-gray-800';
+            case 'Approved': return 'bg-green-100 text-green-600';
+            case 'Rejected': return 'bg-red-100 text-red-600';
+            case 'Completed': return 'bg-green-100 text-green-600';
+            case 'Partial': return 'bg-orange-100 text-orange-600';
+            case 'Pending': return 'bg-yellow-100 text-yellow-600';
+            case 'Damage Pending': return 'bg-amber-100 text-amber-600';
+            case 'Damage Completed': return 'bg-red-100 text-red-600';
+            default: return 'bg-gray-100 text-gray-600';
+        }
+    };
+
+    const getStatusBadgeClass = (status) => {
+        switch (status) {
+            case 'Completed': return 'bg-green-100 text-green-600';
+            case 'Partial': return 'bg-orange-100 text-orange-600';
+            case 'Pending': return 'bg-yellow-100 text-yellow-600';
+            case 'Pending Admin Approval': return 'bg-yellow-100 text-yellow-600';
+            case 'Approved': return 'bg-green-100 text-green-600';
+            case 'Rejected': return 'bg-red-100 text-red-600';
+            case 'Damage Pending': return 'bg-amber-100 text-amber-600';
+            case 'Damage Completed': return 'bg-red-100 text-red-600';
+            default: return 'bg-gray-100 text-gray-600';
         }
     };
 
@@ -55,45 +69,45 @@ const GRNTable = ({ grns, onRecordDamagedStock }) => {
             <table className="min-w-full divide-y divide-light-200">
                 <thead className="bg-light-200">
                     <tr>
-                        <th className="th-style">GRN Number</th>
-                        <th className="th-style">Item Code</th> {/* Add Item Code column */}
-                        <th className="th-style">DC Number</th>
-                        <th className="th-style">Unit Type</th>
-                        <th className="th-style">Supplier / Issued To</th>
-                        <th className="th-style">Date Received</th>
-                        <th className="th-style">Status</th>
-                        <th className="th-style">Received By</th>
-                        <th className="th-style">Actions</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-slate-600 uppercase tracking-wider bg-gray-100">GRN Number</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-slate-600 uppercase tracking-wider bg-gray-100">Item Code</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-slate-600 uppercase tracking-wider bg-gray-100">DC Number</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-slate-600 uppercase tracking-wider bg-gray-100">Unit Type</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-slate-600 uppercase tracking-wider bg-gray-100">Supplier / Issued To</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-slate-600 uppercase tracking-wider bg-gray-100">Date Received</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-slate-600 uppercase tracking-wider bg-gray-100">Status</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-slate-600 uppercase tracking-wider bg-gray-100">Received By</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-slate-600 uppercase tracking-wider bg-gray-100">Actions</th>
                     </tr>
                 </thead>
-                <tbody className="bg-light-100 divide-y divide-light-200">
+                <tbody className="bg-white divide-y divide-gray-200">
                     {grns.length === 0 ? (
                         <tr>
-                            <td colSpan="9" className="px-6 py-4 text-center text-secondary-500">No GRNs found.</td>
+                            <td colSpan="9" className="px-6 py-4 text-center text-gray-500">No GRNs found.</td>
                         </tr>
                     ) : (
                         grns.map(grn => (
-                            <tr key={grn._id} className="hover:bg-light-200">
-                                <td className="td-style font-medium">{grn.grnNumber}</td>
-                                <td className="td-style">{grn.itemCode || 'N/A'}</td> {/* Display Item Code */}
-                                <td className="td-style">{getReferenceNumber(grn)}</td>
-                                <td className="td-style">{getUnitTypeBadge(grn)}</td>
-                                <td className="td-style">{getSupplierName(grn)}</td>
-                                <td className="td-style">{formatDate(grn.dateReceived)}</td>
-                                <td className="td-style">
-                                    <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusClass(grn.status)}`}>
+                            <tr key={grn._id} className="hover:bg-gray-50">
+                                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{grn.grnNumber}</td>
+                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{grn.itemCode || 'N/A'}</td>
+                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{getReferenceNumber(grn)}</td>
+                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{getUnitTypeBadge(grn)}</td>
+                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{getSupplierName(grn)}</td>
+                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{formatDate(grn.dateReceived)}</td>
+                                <td className="px-6 py-4 whitespace-nowrap text-sm">
+                                    <span className={`px-3 py-1 text-sm rounded-full font-medium ${getStatusBadgeClass(grn.status)}`}>
                                         {grn.status}
                                     </span>
                                 </td>
-                                <td className="td-style">{grn.receivedBy || 'N/A'}</td>
-                                <td className="td-style flex space-x-2">
-                                    <Link to={`/fg/grn/${grn._id}`} className="text-blue-500 hover:text-blue-700">
-                                        <FaEye />
+                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{grn.receivedBy || 'N/A'}</td>
+                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 flex space-x-2">
+                                    <Link to={`/fg/grn/${grn._id}`} className="text-blue-600 hover:text-blue-900">
+                                        <Eye size={18} />
                                     </Link>
                                     {(grn.status === 'Completed' || grn.status === 'Partial') && (
                                         <button 
                                             onClick={() => onRecordDamagedStock(grn)}
-                                            className="px-2 py-1 text-xs bg-amber-600 text-white rounded hover:bg-amber-700 focus:outline-none focus:ring-1 focus:ring-amber-500"
+                                            className="px-2 py-1 text-xs bg-red-100 text-red-800 rounded-full hover:bg-red-200 focus:outline-none focus:ring-1 focus:ring-red-500"
                                         >
                                             Damaged
                                         </button>
@@ -463,20 +477,23 @@ const ViewFGGRNs = () => {
 
     return (
         <div className="space-y-6">
-            <div className="flex justify-between items-center">
-                <div>
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-5">
+                <div className="flex items-center gap-4">
                     <Link 
                         to="/fg/grn/create"
-                        className="btn-primary bg-orange-500 hover:bg-orange-600 mr-4"
+                        className="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-5 py-2.5 rounded-lg flex items-center gap-2"
                     >
-                        Create New GRN
+                        <Plus size={18} /> Create New GRN
                     </Link>
-                    <h1 className="text-3xl font-bold text-dark-700 inline-block">Finished Goods GRN (DC-based)</h1>
+                    <div>
+                        <h1 className="text-2xl font-bold text-gray-900">Finished Goods GRN (DC-based)</h1>
+                        <p className="text-gray-600 text-sm mt-1">Manage and track Finished Goods GRN entries generated from Delivery Challans.</p>
+                    </div>
                 </div>
             </div>
 
             <Card>
-                <div className="mb-6">
+                <div className="mb-6 bg-gray-50 border border-gray-300 rounded-xl p-4">
                     <div className="flex items-center mb-4">
                         <span className="px-3 py-1 bg-accent-100 text-accent-800 rounded-full text-sm font-medium">
                             Delivery Challan (Jobber & Own Unit)
@@ -490,14 +507,14 @@ const ViewFGGRNs = () => {
                                 placeholder="Search by GRN#, Item Code, DC#, Supplier, or Issued To..."
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
-                                className="w-full sm:w-64 px-4 py-2 text-dark-700 bg-light-100 border border-light-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                                className="w-full sm:w-64 px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                             />
                         </div>
                         <div>
                             <select 
                                 value={statusFilter}
                                 onChange={(e) => setStatusFilter(e.target.value)}
-                                className="w-full sm:w-auto px-4 py-2 text-dark-700 bg-light-100 border border-light-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                                className="w-full sm:w-auto px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                             >
                                 <option value="">All Statuses</option>
                                 <option value="Pending Admin Approval">Pending Admin Approval</option>

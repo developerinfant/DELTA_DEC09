@@ -6,7 +6,7 @@ const PackingMaterial = require('../models/PackingMaterial');
 const RawMaterial = require('../models/RawMaterial');
 const mongoose = require('mongoose');
 const { getNextGRNNumber } = require('../utils/grnUtils');
-const { updateProductStockOnGRNCompletion } = require('../utils/stockUpdate'); // Import the new utility
+const { updateProductStockOnGRNCompletion, updateProductStockWithNewQuantity } = require('../utils/stockUpdate'); // Import the new utility
 
 // Helper function to generate item code
 const generateItemCode = async () => {
@@ -220,17 +220,7 @@ const updateDeliveryChallanQuantities = async (deliveryChallanId, grnItems, grnI
         }
         
         // Update overall DC status based on material statuses
-        let allMaterialsCompleted = true;
-        for (const material of dc.materials) {
-            // Material is completed if balance is 0
-            if (material.balance_qty > 0) {
-                allMaterialsCompleted = false;
-                break;
-            }
-        }
-        
-        // Update DC status
-        dc.status = allMaterialsCompleted ? 'Completed' : 'Pending';
+       
         
         // Save the updated delivery challan
         await dc.save();
@@ -301,7 +291,21 @@ const checkPOForGRN = async (req, res) => {
  * @access  Private
  */
 const createGRN = async (req, res) => {
-    const { purchaseOrderId, deliveryChallanId, items, receivedBy, dateReceived, cartonsReturned, damagedStock } = req.body;
+    let { purchaseOrderId, deliveryChallanId, items, receivedBy, dateReceived, cartonsReturned, damagedStock } = req.body;
+        
+        // Parse cartonsReturned as a number if it's provided
+        console.log(`Parsing cartonsReturned: ${cartonsReturned}`);
+        if (cartonsReturned !== undefined) {
+            cartonsReturned = parseFloat(cartonsReturned);
+            console.log(`Parsed cartonsReturned: ${cartonsReturned}`);
+            // Validate that cartonsReturned is a valid number
+            if (isNaN(cartonsReturned)) {
+                console.log(`Invalid carton quantity provided: ${cartonsReturned}`);
+                return res.status(400).json({ 
+                    message: 'Invalid carton quantity provided.' 
+                });
+            }
+        }
 
     try {
         // Check if user is authenticated
@@ -325,45 +329,85 @@ const createGRN = async (req, res) => {
             }
 
             // Check if a GRN already exists for this delivery challan
-            const existingGRN = await GRN.findOne({ deliveryChallan: deliveryChallanId }).sort({ createdAt: -1 });
-            
-            if (existingGRN) {
-                if (existingGRN.status === 'Completed') {
-                    return res.status(400).json({ 
-                        message: `⚠️ GRN already completed for this Delivery Challan. You cannot create another GRN for ${dc.dc_no}.` 
-                    });
-                } else if (existingGRN.status === 'Partial') {
-                    return res.status(400).json({ 
-                        message: '⚠️ A Partial GRN already exists for this Delivery Challan. Please edit the existing GRN instead of creating a new one.'
-                    });
-                }
-            }
+                 if (dc.status === 'Completed') {
+                return res.status(400).json({ 
+                   message: `⚠️ This Delivery Challan (${dc.dc_no}) is already completed. You cannot create a new GRN.` 
+               });
+           }
             
             const grnNumber = await getNextGRNNumber();
             
             // Handle carton-based GRN creation for delivery challans
             if (cartonsReturned !== undefined) {
                 // Carton-based GRN logic
-                const cartonsSent = dc.carton_qty || 0;
+                console.log(`Parsing cartonsSent from dc.carton_qty: ${dc.carton_qty}`);
+                const cartonsSent = parseFloat(dc.carton_qty) || 0;
+                console.log(`Parsed cartonsSent: ${cartonsSent}`);
+                // Validate that cartonsSent is a valid number
+                if (isNaN(cartonsSent) || cartonsSent <= 0) {
+                    console.log(`Invalid carton quantity in Delivery Challan: ${cartonsSent}`);
+                    return res.status(400).json({ 
+                        message: 'Invalid carton quantity in Delivery Challan.' 
+                    });
+                }
                 
                 // Calculate total cartons already received for this DC
+                // Validate that deliveryChallanId is a valid ObjectId
+                if (!mongoose.Types.ObjectId.isValid(deliveryChallanId)) {
+                    return res.status(400).json({ 
+                        message: 'Invalid Delivery Challan ID.' 
+                    });
+                }
+                console.log(`Querying existing GRNs for deliveryChallanId: ${deliveryChallanId}`);
                 const existingGRNs = await GRN.find({ deliveryChallan: deliveryChallanId });
-                const totalReceived = existingGRNs.reduce((sum, grn) => sum + (grn.cartonsReturned || 0), 0);
-                const pendingCartons = cartonsSent - totalReceived;
+                console.log(`Found ${existingGRNs.length} existing GRNs for DC ${deliveryChallanId}`);
+                console.log(`Existing GRNs:`, JSON.stringify(existingGRNs.map(g => ({
+                    _id: g._id,
+                    cartonsReturned: g.cartonsReturned,
+                    status: g.status
+                })), null, 2));
+                const totalReceived = existingGRNs.reduce((sum, grn) => {
+                    const cartons = parseFloat(grn.cartonsReturned) || 0;
+                    console.log(`GRN ${grn._id}: cartonsReturned = ${grn.cartonsReturned}, parsed = ${cartons}`);
+                    return sum + cartons;
+                }, 0);
+                console.log(`Total received cartons: ${totalReceived}`);
+                const pendingCartons = parseFloat((cartonsSent - totalReceived).toFixed(3));
+                console.log(`Cartons sent: ${cartonsSent}, Pending cartons: ${pendingCartons}`);
                 
                 // Validate carton quantities
-                if (cartonsReturned > pendingCartons) {
+                console.log(`Validating carton quantities: cartonsReturned = ${cartonsReturned}, pendingCartons = ${pendingCartons}`);
+                // Use a small tolerance for floating point comparison
+                if (cartonsReturned > pendingCartons + 0.001) {
+                    console.log(`Validation failed: cartonsReturned (${cartonsReturned}) > pendingCartons (${pendingCartons})`);
                     return res.status(400).json({ 
                         message: `Returned cartons cannot exceed pending cartons. Pending: ${pendingCartons}` 
                     });
                 }
                 
-                const balance = pendingCartons - cartonsReturned;
+                // Validate that newReceivedQty > 0
+                console.log(`Validating cartonsReturned > 0: isNaN = ${isNaN(cartonsReturned)}, value = ${cartonsReturned}`);
+                if (isNaN(cartonsReturned) || cartonsReturned <= 0) {
+                    console.log(`Validation failed: cartonsReturned (${cartonsReturned}) is not > 0`);
+                    return res.status(400).json({ 
+                        message: 'Returned cartons must be greater than zero.' 
+                    });
+                }
+                
+                console.log(`Calculating balance: pendingCartons = ${pendingCartons}, cartonsReturned = ${cartonsReturned}`);
+                const balance = parseFloat((pendingCartons - cartonsReturned).toFixed(3));
+                console.log(`Calculated balance: ${balance}`);
                 
                 // Determine status based on carton quantities
+                // Only set to Completed if pendingQty == 0, otherwise Partial
+                // Use a small tolerance for floating point comparison
                 let status = 'Partial';
-                if (cartonsReturned === pendingCartons) {
+                console.log(`Determining status: balance = ${balance}`);
+                if (Math.abs(balance) < 0.001) {
                     status = 'Completed';
+                    console.log(`Status set to Completed`);
+                } else {
+                    console.log(`Status set to Partial`);
                 }
 
                 // Determine supplier name based on unit type
@@ -433,7 +477,7 @@ const createGRN = async (req, res) => {
                     referenceNumber: dc.dc_no,
                     productName: dc.product_name,
                     cartonsSent,
-                    cartonsReturned,
+                    cartonsReturned: parseFloat(cartonsReturned.toFixed(3)),
                     cartonBalance: balance,
                     dcNumber: dc.dc_no,
                     supplierName: supplierName,
@@ -450,10 +494,20 @@ const createGRN = async (req, res) => {
                     grnData.approvalDate = new Date();
                 }
 
+                console.log(`Creating new GRN with data:`, JSON.stringify(grnData, null, 2));
                 const newGRN = new GRN(grnData);
                 const savedGRN = await newGRN.save();
+                console.log(`Saved GRN:`, JSON.stringify(savedGRN, null, 2));
                 
                 // Update the Delivery Challan status to match the GRN status
+                // Validate that status is a valid value
+                console.log(`Validating status: ${status}`);
+                if (!['Completed', 'Partial'].includes(status)) {
+                    console.log(`Validation failed: invalid status ${status}`);
+                    return res.status(400).json({ 
+                        message: 'Invalid status value.' 
+                    });
+                }
                 await DeliveryChallan.findByIdAndUpdate(deliveryChallanId, { status });
                 
                 // Create damaged stock records if any
@@ -493,20 +547,17 @@ const createGRN = async (req, res) => {
                     // Don't fail the GRN creation if DC update fails, just log it
                 }
                 
-                // If GRN is completed, update product stock and generate item code
-                if (status === 'Completed') {
-                    try {
-                        // Generate item code for the product
+                // Immediately update product stock with newly received quantity
+                try {
+                    // Generate item code for the product (only for first GRN)
+                    let productStock = await ProductStock.findOne({ productName: dc.product_name });
+                    if (!productStock || !productStock.itemCode) {
                         const itemCode = await generateItemCode();
                         
-                        // Update or create product stock with item code
-                        let productStock = await ProductStock.findOne({ productName: dc.product_name });
                         if (productStock) {
-                            // If product stock exists, update it with the item code if not already set
-                            if (!productStock.itemCode) {
-                                productStock.itemCode = itemCode;
-                                await productStock.save();
-                            }
+                            // If product stock exists, update it with the item code
+                            productStock.itemCode = itemCode;
+                            await productStock.save();
                         } else {
                             // If product stock doesn't exist, create it with the item code
                             productStock = new ProductStock({
@@ -514,24 +565,24 @@ const createGRN = async (req, res) => {
                                 itemCode: itemCode,
                                 ownUnitStock: dc.unit_type === 'Own Unit' ? dc.carton_qty : 0,
                                 jobberStock: dc.unit_type === 'Jobber' ? dc.carton_qty : 0,
-                                available_cartons: dc.carton_qty || 0,
+                                available_cartons: 0, // Will be updated with new quantity
                                 units_per_carton: dc.units_per_carton || 1,
                                 lastUpdatedFrom: dc.unit_type,
                                 lastProductionDetails: {
                                     unitType: dc.unit_type,
-                                    cartonQty: dc.carton_qty,
+                                    cartonQty: cartonsReturned,
                                     date: new Date()
                                 }
                             });
                             await productStock.save();
                         }
-                        
-                        // Update product stock on GRN completion
-                        await updateProductStockOnGRNCompletion(dc, req.user ? req.user.name : 'System');
-                    } catch (stockError) {
-                        console.error(`Error updating product stock: ${stockError.message}`);
-                        // Don't fail the GRN creation if stock update fails, just log it
                     }
+                    
+                    // Update product stock with newly received quantity
+                    await updateProductStockWithNewQuantity(dc, cartonsReturned, req.user ? req.user.name : 'System');
+                } catch (stockError) {
+                    console.error(`Error updating product stock: ${stockError.message}`);
+                    // Don't fail the GRN creation if stock update fails, just log it
                 }
                 
                 return res.status(201).json(savedGRN);
@@ -858,30 +909,37 @@ const getGRNs = async (req, res) => {
                 .lean();
         }
         
+     // NEW CODE BLOCK TO USE INSTEAD
+
         const allGrns = await query;
-        
-        // Filter to show only the latest GRN per reference (PO or DC)
-        const latestGrnsPerReference = {};
-        allGrns.forEach(grn => {
-            // Use purchaseOrder for PO-based GRNs, deliveryChallan for jobber GRNs
-            const referenceId = grn.sourceType === 'jobber' ? 
-                (grn.deliveryChallan ? grn.deliveryChallan._id || grn.deliveryChallan : null) :
-                (grn.purchaseOrder ? grn.purchaseOrder._id || grn.purchaseOrder : null);
-                
-            if (referenceId) {
-                const referenceIdStr = referenceId.toString();
-                // If we haven't seen this reference yet, or if this GRN is more recent, keep it
-                if (!latestGrnsPerReference[referenceIdStr] || new Date(grn.createdAt) > new Date(latestGrnsPerReference[referenceIdStr].createdAt)) {
-                    latestGrnsPerReference[referenceIdStr] = grn;
+
+        let grns = allGrns; // By default, use the full list of GRNs.
+
+        // IMPORTANT: Only filter for the latest GRN if we are on the main list page.
+        // If a specific deliveryChallan is being requested (from the Create page), we need ALL of them.
+        if (!req.query.deliveryChallan && !req.query.purchaseOrder) {
+            const latestGrnsPerReference = {};
+            allGrns.forEach(grn => {
+                // Use purchaseOrder for PO-based GRNs, deliveryChallan for jobber GRNs
+                const referenceId = grn.sourceType === 'jobber' ? 
+                    (grn.deliveryChallan ? grn.deliveryChallan._id || grn.deliveryChallan : null) :
+                    (grn.purchaseOrder ? grn.purchaseOrder._id || grn.purchaseOrder : null);
+                    
+                if (referenceId) {
+                    const referenceIdStr = referenceId.toString();
+                    // If we haven't seen this reference yet, or if this GRN is more recent, keep it
+                    if (!latestGrnsPerReference[referenceIdStr] || new Date(grn.createdAt) > new Date(latestGrnsPerReference[referenceIdStr].createdAt)) {
+                        latestGrnsPerReference[referenceIdStr] = grn;
+                    }
+                } else {
+                    // If no reference, just add it (shouldn't happen in normal cases)
+                    latestGrnsPerReference[grn._id] = grn;
                 }
-            } else {
-                // If no reference, just add it (shouldn't happen in normal cases)
-                latestGrnsPerReference[grn._id] = grn;
-            }
-        });
-        
-        // Convert the object values to an array
-        const grns = Object.values(latestGrnsPerReference);
+            });
+            
+            // Overwrite the 'grns' variable with the filtered list
+            grns = Object.values(latestGrnsPerReference);
+        }
 
         // Process GRNs to ensure proper supplier name for jobber GRNs and add itemCode
         const processedGrns = await Promise.all(grns.map(async (grn) => {
@@ -1016,7 +1074,21 @@ const getGRNById = async (req, res) => {
  * @access  Private
  */
 const updateGRN = async (req, res) => {
-    const { items, receivedBy, dateReceived, cartonsReturned, damagedStock } = req.body;
+    let { items, receivedBy, dateReceived, cartonsReturned, damagedStock } = req.body;
+    
+    // Parse cartonsReturned as a number if it's provided
+    console.log(`Parsing cartonsReturned: ${cartonsReturned}`);
+    if (cartonsReturned !== undefined) {
+        cartonsReturned = parseFloat(cartonsReturned);
+        console.log(`Parsed cartonsReturned: ${cartonsReturned}`);
+        // Validate that cartonsReturned is a valid number
+        if (isNaN(cartonsReturned)) {
+            console.log(`Invalid carton quantity provided: ${cartonsReturned}`);
+            return res.status(400).json({ 
+                message: 'Invalid carton quantity provided.' 
+            });
+        }
+    }
 
     try {
         console.log(`Updating GRN with ID: ${req.params.id}`); // Add logging for debugging
@@ -1042,46 +1114,82 @@ const updateGRN = async (req, res) => {
             return res.status(400).json({ message: 'Cannot update GRN for a cancelled Purchase Order.' });
         }
 
-        // Handle carton-based GRN update
+        // Handle carton-based GRN update for delivery challans
         if (grn.sourceType === 'jobber' && grn.deliveryChallan && cartonsReturned !== undefined) {
-            // Carton-based GRN update logic
-            const cartonsSent = grn.cartonsSent || 0;
+            // Carton-based GRN logic
+            console.log(`Parsing cartonsSent from grn.deliveryChallan.carton_qty: ${grn.deliveryChallan.carton_qty}`);
+            const cartonsSent = parseFloat(grn.deliveryChallan.carton_qty) || 0;
+            console.log(`Parsed cartonsSent: ${cartonsSent}`);
+            // Validate that cartonsSent is a valid number
+            if (isNaN(cartonsSent) || cartonsSent <= 0) {
+                console.log(`Invalid carton quantity in Delivery Challan: ${cartonsSent}`);
+                return res.status(400).json({ 
+                    message: 'Invalid carton quantity in Delivery Challan.' 
+                });
+            }
             
             // Calculate total cartons already received for this DC (excluding current GRN)
+            // Validate that deliveryChallan ID is a valid ObjectId
+            if (!mongoose.Types.ObjectId.isValid(grn.deliveryChallan._id)) {
+                return res.status(400).json({ 
+                    message: 'Invalid Delivery Challan ID.' 
+                });
+            }
             const existingGRNs = await GRN.find({ 
                 deliveryChallan: grn.deliveryChallan._id, 
                 _id: { $ne: grn._id } 
             });
-            const totalReceived = existingGRNs.reduce((sum, g) => sum + (g.cartonsReturned || 0), 0);
-            const pendingCartons = cartonsSent - totalReceived;
+            console.log(`Querying existing GRNs for deliveryChallanId: ${grn.deliveryChallan._id} (excluding current GRN: ${grn._id})`);
+            console.log(`Found ${existingGRNs.length} existing GRNs for DC ${grn.deliveryChallan._id} (excluding current GRN)`);
+            console.log(`Existing GRNs:`, JSON.stringify(existingGRNs.map(g => ({
+                _id: g._id,
+                cartonsReturned: g.cartonsReturned,
+                status: g.status
+            })), null, 2));
+            const totalReceived = existingGRNs.reduce((sum, g) => {
+                const cartons = parseFloat(g.cartonsReturned) || 0;
+                console.log(`GRN ${g._id}: cartonsReturned = ${g.cartonsReturned}, parsed = ${cartons}`);
+                return sum + cartons;
+            }, 0);
+            console.log(`Total received cartons: ${totalReceived}`);
+            const pendingCartons = parseFloat((cartonsSent - totalReceived).toFixed(3));
+            console.log(`Cartons sent: ${cartonsSent}, Pending cartons: ${pendingCartons}`);
             
             // Validate carton quantities
-            if (cartonsReturned > pendingCartons) {
+            console.log(`Validating carton quantities: cartonsReturned = ${cartonsReturned}, pendingCartons = ${pendingCartons}`);
+            // Use a small tolerance for floating point comparison
+            if (cartonsReturned > pendingCartons + 0.001) {
+                console.log(`Validation failed: cartonsReturned (${cartonsReturned}) > pendingCartons (${pendingCartons})`);
                 return res.status(400).json({ 
                     message: `Returned cartons cannot exceed pending cartons. Pending: ${pendingCartons}` 
                 });
             }
             
-            // Validate damaged stock quantities
-            if (damagedStock && Array.isArray(damagedStock)) {
-                for (const item of damagedStock) {
-                    const receivedQty = item.received_qty || 0;
-                    const damagedQty = item.damaged_qty || 0;
-                    
-                    if (damagedQty > receivedQty) {
-                        return res.status(400).json({ 
-                            message: `Damaged quantity for ${item.material_name} cannot exceed received quantity.` 
-                        });
-                    }
-                }
+            // Validate that newReceivedQty > 0
+            console.log(`Validating cartonsReturned > 0: isNaN = ${isNaN(cartonsReturned)}, value = ${cartonsReturned}`);
+            if (isNaN(cartonsReturned) || cartonsReturned <= 0) {
+                console.log(`Validation failed: cartonsReturned (${cartonsReturned}) is not > 0`);
+                return res.status(400).json({ 
+                    message: 'Returned cartons must be greater than zero.' 
+                });
             }
             
-            const balance = pendingCartons - cartonsReturned;
+
+            
+            console.log(`Calculating balance: pendingCartons = ${pendingCartons}, cartonsReturned = ${cartonsReturned}`);
+            const balance = parseFloat((pendingCartons - cartonsReturned).toFixed(3));
+            console.log(`Calculated balance: ${balance}`);
             
             // Determine status based on carton quantities
+            // NEW: Only set to Completed if pendingQty == 0, otherwise Partial
+            // Use a small tolerance for floating point comparison
             let status = 'Partial';
-            if (cartonsReturned === pendingCartons) {
+            console.log(`Determining status: balance = ${balance}`);
+            if (Math.abs(balance) < 0.001) {
                 status = 'Completed';
+                console.log(`Status set to Completed`);
+            } else {
+                console.log(`Status set to Partial`);
             }
 
             // Process items to calculate usedQty and remainingQty based on carton return
@@ -1121,7 +1229,7 @@ const updateGRN = async (req, res) => {
             grn.status = status;
             grn.receivedBy = receivedBy;
             grn.dateReceived = dateReceived;
-            grn.cartonsReturned = cartonsReturned;
+            grn.cartonsReturned = parseFloat(cartonsReturned.toFixed(3));
             grn.cartonBalance = balance;
 
             // If it is approved/partial, set the approver and date now
@@ -1130,7 +1238,16 @@ const updateGRN = async (req, res) => {
                 grn.approvalDate = new Date();
             }
 
+            console.log(`Updating GRN ${grn._id} with data:`, JSON.stringify({
+                items: processedItems,
+                status,
+                receivedBy,
+                dateReceived,
+                cartonsReturned: parseFloat(cartonsReturned.toFixed(3)),
+                cartonBalance: balance
+            }, null, 2));
             const updatedGRN = await grn.save();
+            console.log(`Updated GRN:`, JSON.stringify(updatedGRN, null, 2));
 
             // Create damaged stock records if any
             if (damagedStock && Array.isArray(damagedStock) && damagedStock.length > 0) {
@@ -1162,6 +1279,14 @@ const updateGRN = async (req, res) => {
             }
 
             // Sync status with Delivery Challan
+            // Validate that status is a valid value
+            console.log(`Validating status: ${status}`);
+            if (!['Completed', 'Partial'].includes(status)) {
+                console.log(`Validation failed: invalid status ${status}`);
+                return res.status(400).json({ 
+                    message: 'Invalid status value.' 
+                });
+            }
             await DeliveryChallan.findByIdAndUpdate(grn.deliveryChallan._id, { status });
 
             // Update Delivery Challan quantities
@@ -1172,56 +1297,29 @@ const updateGRN = async (req, res) => {
                 // Don't fail the GRN update if DC update fails, just log it
             }
             
-            // If GRN is completed, update product stock and generate item code
-            if (status === 'Completed') {
-                try {
-                    // Check if product stock already has an item code
-                    let productStock = await ProductStock.findOne({ productName: grn.deliveryChallan.product_name });
-                    
-                    // Generate item code only if product stock doesn't exist or doesn't have an item code
-                    if (!productStock || !productStock.itemCode) {
-                        const itemCode = await generateItemCode();
-                        
-                        if (productStock) {
-                            // If product stock exists, update it with the item code
-                            productStock.itemCode = itemCode;
-                            await productStock.save();
-                        } else {
-                            // If product stock doesn't exist, create it with the item code
-                            productStock = new ProductStock({
-                                productName: grn.deliveryChallan.product_name,
-                                itemCode: itemCode,
-                                ownUnitStock: grn.deliveryChallan.unit_type === 'Own Unit' ? grn.deliveryChallan.carton_qty : 0,
-                                jobberStock: grn.deliveryChallan.unit_type === 'Jobber' ? grn.deliveryChallan.carton_qty : 0,
-                                available_cartons: grn.deliveryChallan.carton_qty || 0,
-                                units_per_carton: grn.deliveryChallan.units_per_carton || 1,
-                                lastUpdatedFrom: grn.deliveryChallan.unit_type,
-                                lastProductionDetails: {
-                                    unitType: grn.deliveryChallan.unit_type,
-                                    cartonQty: grn.deliveryChallan.carton_qty,
-                                    date: new Date()
-                                }
-                            });
-                            await productStock.save();
-                        }
-                    }
-                    
-                    // Update product stock on GRN completion
-                    await updateProductStockOnGRNCompletion(grn.deliveryChallan, req.user ? req.user.name : 'System');
-                } catch (stockError) {
-                    console.error(`Error updating product stock: ${stockError.message}`);
-                    // Don't fail the GRN update if stock update fails, just log it
-                }
+            // Immediately update product stock with newly received quantity
+            try {
+                // Get the DC to pass to the update function
+                const dc = grn.deliveryChallan;
+                const grnNumber = grn.grnNumber;
+                
+                // Use the new utility function to update product stock
+                await updateProductStockWithNewQuantity(dc, cartonsReturned, req.user ? req.user.name : 'System');
+            } catch (stockError) {
+                console.error(`Error updating product stock: ${stockError.message}`);
+                // Don't fail the GRN creation if stock update fails, just log it
             }
 
             return res.json(updatedGRN);
         }
 
-        // Process items to calculate totals and price differences
-        const processedItems = [];
-        let allItemsMatch = true; // Flag to check if all items match exactly
-
-        // Process each item
+        // If we reach here, it's not a jobber GRN with cartonsReturned, so process as regular GRN
+        // For jobber GRNs without cartonsReturned, return an error
+        if (grn.sourceType === 'jobber') {
+            return res.status(400).json({ 
+                message: 'Carton information is required for Delivery Challan-based GRN updates.' 
+            });
+        }
         for (const item of items) {
             const { material, materialModel, receivedQuantity, damagedQuantity = 0 } = item;
             

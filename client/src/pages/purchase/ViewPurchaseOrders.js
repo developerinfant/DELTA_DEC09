@@ -2,12 +2,14 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../../api';
 import Card from '../../components/common/Card';
-import { FaSpinner, FaEye, FaRedo } from 'react-icons/fa';
+import { FaSpinner, FaEye, FaRedo, FaCheck, FaTimes } from 'react-icons/fa';
 import ViewReportTools from '../../components/common/ViewReportTools';
 import { exportPOToExcel } from '../../utils/excelExporter';
+import { useAuth } from '../../context/AuthContext';
+import { toast } from 'react-toastify';
 
 // This component can be moved to its own file later if needed
-const PurchaseOrdersTable = ({ purchaseOrders }) => {
+const PurchaseOrdersTable = ({ purchaseOrders, user, onStatusUpdate }) => {
     const formatDate = (dateString) => {
         return new Date(dateString).toLocaleDateString(undefined, {
             year: 'numeric', month: 'short', day: 'numeric'
@@ -25,6 +27,7 @@ const PurchaseOrdersTable = ({ purchaseOrders }) => {
         switch (status) {
             case 'Pending': return 'bg-yellow-100 text-yellow-800';
             case 'Approved': return 'bg-blue-100 text-blue-800';
+            case 'Rejected': return 'bg-red-100 text-red-800';
             case 'Ordered': return 'bg-indigo-100 text-indigo-800';
             case 'Partially Received': return 'bg-purple-100 text-purple-800';
             case 'Completed': return 'bg-green-100 text-green-800';
@@ -38,6 +41,30 @@ const PurchaseOrdersTable = ({ purchaseOrders }) => {
         // This would typically come from the backend, but for now we'll simulate
         // In a real implementation, this data would be included in the PO object
         return null;
+    };
+
+    const handleApprove = async (poId) => {
+        try {
+            const response = await api.put(`/purchase-orders/${poId}/approve`);
+            if (response.data.success) {
+                toast.success('Purchase Order Approved Successfully');
+                onStatusUpdate();
+            }
+        } catch (err) {
+            toast.error(err.response?.data?.message || 'Failed to approve purchase order.');
+        }
+    };
+
+    const handleReject = async (poId) => {
+        try {
+            const response = await api.put(`/purchase-orders/${poId}/reject`);
+            if (response.data.success) {
+                toast.success('Purchase Order Rejected Successfully');
+                onStatusUpdate();
+            }
+        } catch (err) {
+            toast.error(err.response?.data?.message || 'Failed to reject purchase order.');
+        }
     };
 
     return (
@@ -90,9 +117,29 @@ const PurchaseOrdersTable = ({ purchaseOrders }) => {
                                     </span>
                                 </td>
                                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                                    <Link to={`/purchase-orders/${po._id}`} className="text-primary-600 hover:text-primary-900 flex items-center">
-                                        <FaEye className="mr-1" /> View
-                                    </Link>
+                                    <div className="flex items-center space-x-2">
+                                        <Link to={`/purchase-orders/${po._id}`} className="text-primary-600 hover:text-primary-900 flex items-center">
+                                            <FaEye className="mr-1" /> View
+                                        </Link>
+                                        {po.status === 'Pending' && (
+                                            <>
+                                                <button 
+                                                    onClick={() => handleApprove(po._id)}
+                                                    className="text-green-600 hover:text-green-900 flex items-center"
+                                                    title="Approve Purchase Order"
+                                                >
+                                                    <FaCheck className="mr-1" /> Approve
+                                                </button>
+                                                <button 
+                                                    onClick={() => handleReject(po._id)}
+                                                    className="text-red-600 hover:text-red-900 flex items-center"
+                                                    title="Reject Purchase Order"
+                                                >
+                                                    <FaTimes className="mr-1" /> Reject
+                                                </button>
+                                            </>
+                                        )}
+                                    </div>
                                 </td>
                             </tr>
                         ))
@@ -104,6 +151,7 @@ const PurchaseOrdersTable = ({ purchaseOrders }) => {
 };
 
 const ViewPurchaseOrders = () => {
+    const { user } = useAuth();
     const [purchaseOrders, setPurchaseOrders] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState('');
@@ -166,6 +214,7 @@ const ViewPurchaseOrders = () => {
             <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
                 value === 'Pending' ? 'bg-yellow-100 text-yellow-800' :
                 value === 'Approved' ? 'bg-blue-100 text-blue-800' :
+                value === 'Rejected' ? 'bg-red-100 text-red-800' :
                 value === 'Ordered' ? 'bg-indigo-100 text-indigo-800' :
                 value === 'Partially Received' ? 'bg-purple-100 text-purple-800' :
                 value === 'Completed' ? 'bg-green-100 text-green-800' :
@@ -258,6 +307,7 @@ const ViewPurchaseOrders = () => {
                         <option value="">All Statuses</option>
                         <option value="Pending">Pending</option>
                         <option value="Approved">Approved</option>
+                        <option value="Rejected">Rejected</option>
                         <option value="Ordered">Ordered</option>
                         <option value="Partially Received">Partially Received</option>
                         <option value="Completed">Completed</option>
@@ -266,7 +316,7 @@ const ViewPurchaseOrders = () => {
                 </div>
             </div>
             
-            <PurchaseOrdersTable purchaseOrders={filteredPurchaseOrders} />
+            <PurchaseOrdersTable purchaseOrders={filteredPurchaseOrders} user={user} onStatusUpdate={fetchPurchaseOrders} />
             
             <div className="mt-6 text-sm text-gray-500 flex justify-between items-center">
                 <div>

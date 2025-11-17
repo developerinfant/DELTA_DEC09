@@ -3,7 +3,7 @@ import { useParams, Link, useNavigate, useLocation } from 'react-router-dom';
 import api from '../../api';
 import { useAuth } from '../../context/AuthContext';
 import Card from '../../components/common/Card';
-import { FaSpinner, FaBan, FaRedo, FaPrint, FaBox, FaTruck, FaFileInvoice, FaUser, FaBuilding, FaMoneyBillWave, FaSignature } from 'react-icons/fa';
+import { FaSpinner, FaBan, FaRedo, FaPrint, FaBox, FaTruck, FaFileInvoice, FaUser, FaBuilding, FaMoneyBillWave, FaSignature, FaCheck, FaTimes } from 'react-icons/fa';
 
 const PurchaseOrderDetail = () => {
     const { id } = useParams();
@@ -64,6 +64,40 @@ const PurchaseOrderDetail = () => {
             fetchPO();
         } catch (err) {
             alert(err.response?.data?.message || 'Failed to update status.');
+        } finally {
+            setIsUpdating(false);
+        }
+    };
+
+    const handleApprove = async () => {
+        setIsUpdating(true);
+        try {
+            const response = await api.put(`/purchase-orders/${id}/approve`);
+            
+            if (response.data.message) {
+                alert(response.data.message);
+            }
+            
+            fetchPO();
+        } catch (err) {
+            alert(err.response?.data?.message || 'Failed to approve purchase order.');
+        } finally {
+            setIsUpdating(false);
+        }
+    };
+
+    const handleReject = async () => {
+        setIsUpdating(true);
+        try {
+            const response = await api.put(`/purchase-orders/${id}/reject`);
+            
+            if (response.data.message) {
+                alert(response.data.message);
+            }
+            
+            fetchPO();
+        } catch (err) {
+            alert(err.response?.data?.message || 'Failed to reject purchase order.');
         } finally {
             setIsUpdating(false);
         }
@@ -141,7 +175,7 @@ const PurchaseOrderDetail = () => {
         </Card>
     );
 
-    const canCreateGRN = po.status === 'Ordered' || po.status === 'Partially Received';
+    const canCreateGRN = po.status === 'Approved' || po.status === 'Ordered' || po.status === 'Partially Received';
 
     const handlePrint = async () => {
         // Assuming generateDeltaPOPDF is defined elsewhere
@@ -157,6 +191,7 @@ const PurchaseOrderDetail = () => {
         switch (status) {
             case 'Pending': return 'bg-yellow-100 text-yellow-800';
             case 'Approved': return 'bg-blue-100 text-blue-800';
+            case 'Rejected': return 'bg-red-100 text-red-800';
             case 'Ordered': return 'bg-indigo-100 text-indigo-800';
             case 'Partially Received': return 'bg-purple-100 text-purple-800';
             case 'Completed': return 'bg-green-100 text-green-800';
@@ -293,69 +328,9 @@ const PurchaseOrderDetail = () => {
                                 <p className="font-medium">{po.approvedBy?.name || 'N/A'}</p>
                             </div>
                         </div>
-                        
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                            <div>
-                                <p className="text-sm text-gray-500 uppercase tracking-wide">Dispatch From</p>
-                                <p className="font-medium">{po.dispatchFrom || 'N/A'}</p>
-                            </div>
-                            <div>
-                                <p className="text-sm text-gray-500 uppercase tracking-wide">Destination</p>
-                                <p className="font-medium">{po.destination || 'N/A'}</p>
-                            </div>
-                        </div>
                     </div>
                 </Card>
             </div>
-
-            {/* Dispatch & Logistics Card */}
-            <Card title="Dispatch & Logistics" className="mb-6 shadow-lg" withShadow={true}>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                    <div className="flex items-start">
-                        <div className="bg-indigo-100 p-3 rounded-lg mr-4">
-                            <FaTruck className="text-indigo-600 text-xl" />
-                        </div>
-                        <div>
-                            <p className="text-sm text-gray-500 uppercase tracking-wide">Vehicle No</p>
-                            <p className="font-medium">{po.vehicleNo || 'N/A'}</p>
-                        </div>
-                    </div>
-                    
-
-                    
-                    <div>
-                        <p className="text-sm text-gray-500 uppercase tracking-wide">No. of Packs</p>
-                        <p className="font-medium">{po.noOfPacks || 'N/A'}</p>
-                    </div>
-                </div>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mt-6">
-                    <div>
-                        <p className="text-sm text-gray-500 uppercase tracking-wide">Transport</p>
-                        <p className="font-medium">{po.transport || 'N/A'}</p>
-                    </div>
-                    
-                    <div>
-                        <p className="text-sm text-gray-500 uppercase tracking-wide">Salesman</p>
-                        <p className="font-medium">{po.salesman || 'N/A'}</p>
-                    </div>
-                    
-                    <div>
-                        <p className="text-sm text-gray-500 uppercase tracking-wide">DC No</p>
-                        <p className="font-medium">{po.dcNo || 'N/A'}</p>
-                    </div>
-                    
-                    <div>
-                        <p className="text-sm text-gray-500 uppercase tracking-wide">DC Date</p>
-                        <p className="font-medium">{formatDate(po.dcDate)}</p>
-                    </div>
-                </div>
-                
-                <div className="mt-6 pt-4 border-t border-gray-200">
-                    <p className="text-sm text-gray-500 uppercase tracking-wide">Delivery Terms</p>
-                    <p className="font-medium">{po.deliveryTerms || 'N/A'}</p>
-                </div>
-            </Card>
 
             {/* Items Table Card */}
             <Card title="Order Items" className="mb-6 shadow-lg" withShadow={true}>
@@ -517,30 +492,54 @@ const PurchaseOrderDetail = () => {
             {user.role === 'Admin' && (
                 <Card title="Admin Actions" className="shadow-lg" withShadow={true}>
                     <div className="flex flex-wrap items-center gap-4">
-                        <p className="font-medium text-lg">Change Status:</p>
-                        {po.status !== 'Cancelled' ? (
-                            <button 
-                                onClick={() => handleStatusUpdate('Cancelled')} 
-                                disabled={isUpdating || hasCompletedGRN} 
-                                className={`flex items-center px-4 py-2.5 rounded-lg transition-all ${
-                                    hasCompletedGRN 
-                                        ? 'bg-gray-300 text-gray-500 cursor-not-allowed' 
-                                        : 'bg-gradient-to-r from-red-500 to-red-600 text-white hover:from-red-600 hover:to-red-700 shadow-md'
-                                }`}
-                                title={hasCompletedGRN ? "Cannot cancel — GRN fully completed." : "Cancel this purchase order"}
-                            >
-                                {isUpdating ? <FaSpinner className="animate-spin mr-2" /> : <FaBan className="mr-2" />}
-                                Cancel PO
-                            </button>
+                        {po.status === 'Pending' ? (
+                            <>
+                                <p className="font-medium text-lg">Approval Actions:</p>
+                                <button 
+                                    onClick={handleApprove} 
+                                    disabled={isUpdating} 
+                                    className="flex items-center px-4 py-2.5 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-lg hover:from-green-600 hover:to-emerald-700 shadow-md disabled:opacity-50 transition-all"
+                                >
+                                    {isUpdating ? <FaSpinner className="animate-spin mr-2" /> : <FaCheck className="mr-2" />}
+                                    Approve
+                                </button>
+                                <button 
+                                    onClick={handleReject} 
+                                    disabled={isUpdating} 
+                                    className="flex items-center px-4 py-2.5 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-lg hover:from-red-600 hover:to-red-700 shadow-md disabled:opacity-50 transition-all"
+                                >
+                                    {isUpdating ? <FaSpinner className="animate-spin mr-2" /> : <FaTimes className="mr-2" />}
+                                    Reject
+                                </button>
+                            </>
                         ) : (
-                            <button 
-                                onClick={() => handleStatusUpdate('Ordered')} 
-                                disabled={isUpdating} 
-                                className="flex items-center px-4 py-2.5 bg-gradient-to-r from-orange-500 to-amber-600 text-white rounded-lg hover:from-orange-600 hover:to-amber-700 shadow-md disabled:opacity-50 transition-all"
-                            >
-                                {isUpdating ? <FaSpinner className="animate-spin mr-2" /> : <FaRedo className="mr-2" />}
-                                Re-Order
-                            </button>
+                            <>
+                                <p className="font-medium text-lg">Change Status:</p>
+                                {po.status !== 'Cancelled' ? (
+                                    <button 
+                                        onClick={() => handleStatusUpdate('Cancelled')} 
+                                        disabled={isUpdating || hasCompletedGRN} 
+                                        className={`flex items-center px-4 py-2.5 rounded-lg transition-all ${
+                                            hasCompletedGRN 
+                                                ? 'bg-gray-300 text-gray-500 cursor-not-allowed' 
+                                                : 'bg-gradient-to-r from-red-500 to-red-600 text-white hover:from-red-600 hover:to-red-700 shadow-md'
+                                        }`}
+                                        title={hasCompletedGRN ? "Cannot cancel — GRN fully completed." : "Cancel this purchase order"}
+                                    >
+                                        {isUpdating ? <FaSpinner className="animate-spin mr-2" /> : <FaBan className="mr-2" />}
+                                        Cancel PO
+                                    </button>
+                                ) : (
+                                    <button 
+                                        onClick={() => handleStatusUpdate('Ordered')} 
+                                        disabled={isUpdating} 
+                                        className="flex items-center px-4 py-2.5 bg-gradient-to-r from-orange-500 to-amber-600 text-white rounded-lg hover:from-orange-600 hover:to-amber-700 shadow-md disabled:opacity-50 transition-all"
+                                    >
+                                        {isUpdating ? <FaSpinner className="animate-spin mr-2" /> : <FaRedo className="mr-2" />}
+                                        Re-Order
+                                    </button>
+                                )}
+                            </>
                         )}
                         
                         {hasGRNs && (

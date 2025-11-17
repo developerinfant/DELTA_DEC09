@@ -15,19 +15,47 @@ const RawMaterialsTable = ({ materials, onEdit, onDelete }) => {
             <table className="min-w-full divide-y divide-neutral-200">
                 <thead className="bg-neutral-50">
                     <tr>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase" style={{ width: '120px' }}>Item Code</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase">Raw Material Name</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase">Quantity</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase">Per Quantity Price</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase">Total Price</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase">Stock Alert Threshold</th>
-                        <th className="relative px-6 py-3"><span className="sr-only">Actions</span></th>
+                        {/* Item Code */}
+                        <th className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase whitespace-nowrap">
+                            <span className="hidden md:inline">Item</span>
+                            <span className="md:hidden">Code</span>
+                        </th>
+                        
+                        {/* Material Name */}
+                        <th className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase hidden md:table-cell">
+                            Raw Material Name
+                        </th>
+                        
+                        {/* Quantity & Unit (combined for mobile) */}
+                        <th className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase">
+                            Qty/<span className="hidden md:inline">Unit</span><span className="md:hidden">U</span>
+                        </th>
+                        
+                        {/* Unit Price */}
+                        <th className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase">
+                            <span className="hidden md:inline">Unit Price</span>
+                            <span className="md:hidden">Price</span>
+                        </th>
+                        
+                        {/* Total Price (hidden on mobile) */}
+                        <th className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase hidden md:table-cell">
+                            Total Price
+                        </th>
+                        
+                        {/* Stock Alert Threshold (hidden on mobile) */}
+                        <th className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase hidden md:table-cell">
+                            <span className="hidden lg:inline">Stock Alert</span>
+                            <span className="lg:hidden">Alert</span>
+                        </th>
+                        
+                        {/* Actions */}
+                        <th className="relative px-4 py-3 text-right"><span className="sr-only">Actions</span></th>
                     </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-neutral-200">
                     {materials.length === 0 ? (
                         <tr>
-                            <td colSpan="7" className="px-6 py-4 text-center text-neutral-500">
+                            <td colSpan="7" className="px-4 py-6 text-center text-neutral-500">
                                 No raw materials found.
                             </td>
                         </tr>
@@ -37,22 +65,66 @@ const RawMaterialsTable = ({ materials, onEdit, onDelete }) => {
                             const totalPrice = material.quantity * material.perQuantityPrice;
                             return (
                                 <tr key={material._id} className="hover:bg-neutral-50">
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-gray-700">{material.itemCode || 'N/A'}</td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-neutral-900">{material.name}</td>
-                                    <td className={`px-6 py-4 whitespace-nowrap text-sm ${isLowStock ? 'text-red-600 font-bold' : 'text-neutral-700'}`}>
-                                        {material.quantity}
-                                        {isLowStock && <span className="ml-2 text-xs">(Low Stock)</span>}
+                                    {/* Item Code */}
+                                    <td className="px-4 py-3 whitespace-nowrap text-sm font-bold text-gray-700 truncate max-w-[80px]">
+                                        {material.itemCode || 'N/A'}
                                     </td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-neutral-700">{formatPrice(material.perQuantityPrice)}</td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-neutral-700">{formatPrice(totalPrice)}</td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-neutral-700">{material.stockAlertThreshold}</td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                        <div className="flex items-center justify-end space-x-4">
-                                            <button onClick={() => onEdit(material)} className="text-accent-600 hover:text-accent-900" title="Edit">
-                                                <FaPencilAlt />
+                                    
+                                    {/* Material Name (hidden on mobile) */}
+                                    <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-neutral-900 truncate hidden md:table-cell max-w-[150px] lg:max-w-xs">
+                                        {material.name}
+                                    </td>
+                                    
+                                    {/* Quantity & Unit (combined for mobile) */}
+                                    <td className="px-4 py-3 whitespace-nowrap text-sm">
+                                        <div className="flex flex-col md:flex-row md:items-center">
+                                            <span className={`font-medium ${isLowStock ? 'text-red-600' : 'text-neutral-700'}`}>
+                                                {material.quantity}
+                                            </span>
+                                            {isLowStock && <span className="md:hidden text-xs text-red-600 ml-1">(Low)</span>}
+                                            <span className="hidden md:inline mx-1">/</span>
+                                            <span className="text-gray-500 text-sm">
+                                                {material.unit || 'pcs'}
+                                            </span>
+                                        </div>
+                                        {/* Show material name on mobile */}
+                                        <div className="md:hidden truncate text-xs text-gray-500 mt-1 max-w-[120px]" title={material.name}>
+                                            {material.name}
+                                        </div>
+                                    </td>
+                                    
+                                    {/* Unit Price */}
+                                    <td className="px-4 py-3 whitespace-nowrap text-sm text-neutral-700 truncate max-w-[80px]">
+                                        {formatPrice(material.perQuantityPrice)}
+                                    </td>
+                                    
+                                    {/* Total Price (hidden on mobile) */}
+                                    <td className="px-4 py-3 whitespace-nowrap text-sm text-neutral-700 truncate hidden md:table-cell max-w-[100px]">
+                                        {formatPrice(totalPrice)}
+                                    </td>
+                                    
+                                    {/* Stock Alert Threshold (hidden on mobile) */}
+                                    <td className="px-4 py-3 whitespace-nowrap text-sm text-neutral-700 truncate hidden md:table-cell max-w-[80px]">
+                                        {material.stockAlertThreshold}
+                                        {isLowStock && <span className="hidden md:inline text-xs text-red-600 ml-1">(Low Stock)</span>}
+                                    </td>
+                                    
+                                    {/* Actions */}
+                                    <td className="px-4 py-3 whitespace-nowrap text-right text-sm font-medium">
+                                        <div className="flex items-center justify-end space-x-2">
+                                            <button 
+                                                onClick={() => onEdit(material)} 
+                                                className="text-accent-600 hover:text-accent-900 p-1" 
+                                                title="Edit"
+                                            >
+                                                <FaPencilAlt size={14} />
                                             </button>
-                                            <button onClick={() => onDelete(material._id)} className="text-red-600 hover:text-red-900" title="Delete">
-                                                <FaTrash />
+                                            <button 
+                                                onClick={() => onDelete(material._id)} 
+                                                className="text-red-600 hover:text-red-900 p-1" 
+                                                title="Delete"
+                                            >
+                                                <FaTrash size={14} />
                                             </button>
                                         </div>
                                     </td>

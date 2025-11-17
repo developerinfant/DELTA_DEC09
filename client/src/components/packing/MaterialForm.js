@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import Card from '../common/Card';
 import api from '../../api';
 
-const MaterialForm = ({ onMaterialAdded }) => {
+const MaterialForm = ({ onMaterialAdded, brandType = 'own' }) => {
     // --- State for form fields ---
     const [name, setName] = useState('');
     const [quantity, setQuantity] = useState('');
@@ -10,6 +10,7 @@ const MaterialForm = ({ onMaterialAdded }) => {
     const [perQuantityPrice, setPerQuantityPrice] = useState('');
     const [totalPrice, setTotalPrice] = useState('');
     const [stockAlertThreshold, setStockAlertThreshold] = useState('');
+    const [hsnCode, setHsnCode] = useState(''); // Add HSN Code state
     const [date, setDate] = useState(new Date().toISOString().split('T')[0]); // Add date field
     const [itemCode, setItemCode] = useState(''); // Add itemCode state
     
@@ -59,7 +60,9 @@ const MaterialForm = ({ onMaterialAdded }) => {
             unit, // Include unit in the material data
             perQuantityPrice: Number(perQuantityPrice),
             stockAlertThreshold: Number(stockAlertThreshold),
-            date // Include date in the material data
+            hsnCode, // Include HSN Code in the material data
+            date, // Include date in the material data
+            brandType // Include brandType in the material data
         };
         
         try {
@@ -74,6 +77,7 @@ const MaterialForm = ({ onMaterialAdded }) => {
             setPerQuantityPrice('');
             setTotalPrice('');
             setStockAlertThreshold('');
+            setHsnCode(''); // Reset HSN Code
             setDate(new Date().toISOString().split('T')[0]); // Reset to current date
             
             // Fetch the next item code for the next material
@@ -92,7 +96,7 @@ const MaterialForm = ({ onMaterialAdded }) => {
     };
 
     return (
-        <Card title="Add New Material">
+        <Card title={`Add New Material - ${brandType === 'own' ? 'Own Brand' : 'Other Brand'}`}>
             <form onSubmit={handleSubmit}>
                 {/* Form layout using CSS Grid for responsiveness */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-8 gap-6 items-end">
@@ -165,9 +169,9 @@ const MaterialForm = ({ onMaterialAdded }) => {
                         </select>
                     </div>
 
-                    {/* Per Quantity Price */}
+                    {/* Unit Price */}
                     <div>
-                        <label htmlFor="perQuantityPrice" className="block text-sm font-medium text-dark-700">Per Quantity Price (₹)</label>
+                        <label htmlFor="perQuantityPrice" className="block text-sm font-medium text-dark-700">Unit Price (₹)</label>
                         <input
                             type="number"
                             id="perQuantityPrice"
@@ -207,6 +211,19 @@ const MaterialForm = ({ onMaterialAdded }) => {
                         />
                     </div>
                     
+                    {/* HSN Code */}
+                    <div>
+                        <label htmlFor="hsnCode" className="block text-sm font-medium text-dark-700">HSN Code</label>
+                        <input
+                            type="text"
+                            id="hsnCode"
+                            value={hsnCode}
+                            onChange={(e) => setHsnCode(e.target.value)}
+                            className="mt-1 block w-full px-4 py-2 text-dark-700 bg-light-200 border border-transparent rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                            placeholder="e.g., 123456"
+                        />
+                    </div>
+                    
                     {/* Date Field */}
                     <div>
                         <label htmlFor="date" className="block text-sm font-medium text-dark-700">Date</label>
@@ -226,7 +243,7 @@ const MaterialForm = ({ onMaterialAdded }) => {
                             disabled={isLoading}
                             className="w-full justify-center py-2 px-6 border border-transparent shadow-sm text-sm font-medium rounded-lg text-white bg-primary-500 hover:bg-primary-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:bg-red-300"
                         >
-                            {isLoading ? 'Adding...' : 'Add Material'}
+                            {isLoading ? 'Adding...' : `Add ${brandType === 'own' ? 'Own Brand' : 'Other Brand'} Material`}
                         </button>
                     </div>
                 </div>

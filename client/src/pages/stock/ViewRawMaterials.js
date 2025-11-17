@@ -104,8 +104,8 @@ const ViewRawMaterials = () => {
     }
 
     return (
-        <div className="container mx-auto">
-            <div className="flex justify-between items-center mb-6">
+        <div className="container mx-auto px-4 py-6">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
                 <h1 className="text-3xl font-bold text-neutral-800">Raw Materials</h1>
                 <ViewReportTools
                     data={filteredMaterials}
@@ -117,11 +117,11 @@ const ViewRawMaterials = () => {
                 />
             </div>
             <RawMaterialForm onMaterialAdded={handleAddMaterial} />
-            <div className="mt-8">
+            <div className="mt-6">
                 <input
                     type="text"
                     placeholder="Search by item code or material name..."
-                    className="p-3 border border-gray-300 rounded-md w-full md:w-1/3 mb-4 shadow-sm"
+                    className="p-2.5 border border-gray-300 rounded-md w-full md:w-1/3 mb-4 shadow-sm text-sm"
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                 />
@@ -135,34 +135,34 @@ const ViewRawMaterials = () => {
             {/* Edit Material Modal */}
             <Modal isOpen={isEditModalOpen} onClose={closeEditModal} title="Edit Raw Material">
                 {selectedMaterial && (
-                    <form onSubmit={handleUpdateMaterial} className="space-y-4">
+                    <form onSubmit={handleUpdateMaterial} className="space-y-5">
                         <div>
-                            <label className="block text-sm font-medium text-neutral-700">Item Code</label>
-                            <input type="text" value={selectedMaterial.itemCode} readOnly className="mt-1 block w-full px-3 py-2 border border-neutral-300 rounded-md shadow-sm bg-gray-100"/>
+                            <label className="block text-sm font-medium text-neutral-700 mb-1.5">Item Code</label>
+                            <input type="text" value={selectedMaterial.itemCode} readOnly className="mt-1 block w-full px-3 py-2.5 border border-neutral-300 rounded-md shadow-sm bg-gray-100 text-sm"/>
                         </div>
                         <div>
-                            <label className="block text-sm font-medium text-neutral-700">Material Name</label>
-                            <input type="text" value={selectedMaterial.name} onChange={e => setSelectedMaterial({...selectedMaterial, name: e.target.value})} className="mt-1 block w-full px-3 py-2 border border-neutral-300 rounded-md shadow-sm"/>
+                            <label className="block text-sm font-medium text-neutral-700 mb-1.5">Material Name</label>
+                            <input type="text" value={selectedMaterial.name} onChange={e => setSelectedMaterial({...selectedMaterial, name: e.target.value})} className="mt-1 block w-full px-3 py-2.5 border border-neutral-300 rounded-md shadow-sm text-sm"/>
                         </div>
                         <div>
-                            <label className="block text-sm font-medium text-neutral-700">Quantity</label>
-                            <input type="number" value={selectedMaterial.quantity} onChange={e => setSelectedMaterial({...selectedMaterial, quantity: Number(e.target.value)})} className="mt-1 block w-full px-3 py-2 border border-neutral-300 rounded-md shadow-sm"/>
+                            <label className="block text-sm font-medium text-neutral-700 mb-1.5">Quantity</label>
+                            <input type="number" value={selectedMaterial.quantity} onChange={e => setSelectedMaterial({...selectedMaterial, quantity: Number(e.target.value)})} className="mt-1 block w-full px-3 py-2.5 border border-neutral-300 rounded-md shadow-sm text-sm"/>
                         </div>
                         <div>
-                            <label className="block text-sm font-medium text-neutral-700">Per Quantity Price (₹)</label>
-                            <input type="number" value={selectedMaterial.perQuantityPrice} onChange={e => setSelectedMaterial({...selectedMaterial, perQuantityPrice: Number(e.target.value)})} className="mt-1 block w-full px-3 py-2 border border-neutral-300 rounded-md shadow-sm"/>
+                            <label className="block text-sm font-medium text-neutral-700 mb-1.5">Unit Price (₹)</label>
+                            <input type="number" value={selectedMaterial.perQuantityPrice} onChange={e => setSelectedMaterial({...selectedMaterial, perQuantityPrice: Number(e.target.value)})} className="mt-1 block w-full px-3 py-2.5 border border-neutral-300 rounded-md shadow-sm text-sm"/>
                         </div>
                         <div>
-                            <label className="block text-sm font-medium text-neutral-700">Total Price (₹)</label>
-                            <input type="text" value={editModalTotalPrice} readOnly className="mt-1 block w-full px-3 py-2 border border-neutral-300 rounded-md shadow-sm bg-gray-100"/>
+                            <label className="block text-sm font-medium text-neutral-700 mb-1.5">Total Price (₹)</label>
+                            <input type="text" value={editModalTotalPrice} readOnly className="mt-1 block w-full px-3 py-2.5 border border-neutral-300 rounded-md shadow-sm bg-gray-100 text-sm"/>
                         </div>
                         <div>
-                            <label className="block text-sm font-medium text-neutral-700">Alert Threshold</label>
-                            <input type="number" value={selectedMaterial.stockAlertThreshold} onChange={e => setSelectedMaterial({...selectedMaterial, stockAlertThreshold: Number(e.target.value)})} className="mt-1 block w-full px-3 py-2 border border-neutral-300 rounded-md shadow-sm"/>
+                            <label className="block text-sm font-medium text-neutral-700 mb-1.5">Alert Threshold</label>
+                            <input type="number" value={selectedMaterial.stockAlertThreshold} onChange={e => setSelectedMaterial({...selectedMaterial, stockAlertThreshold: Number(e.target.value)})} className="mt-1 block w-full px-3 py-2.5 border border-neutral-300 rounded-md shadow-sm text-sm"/>
                         </div>
-                        <div className="mt-6 flex justify-end space-x-3">
-                            <button type="button" onClick={closeEditModal} className="btn-secondary">Cancel</button>
-                            <button type="submit" className="btn-primary">Save Changes</button>
+                        <div className="mt-6 flex flex-col sm:flex-row justify-end space-y-3 sm:space-y-0 sm:space-x-3">
+                            <button type="button" onClick={closeEditModal} className="px-5 py-2.5 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50">Cancel</button>
+                            <button type="submit" className="px-5 py-2.5 border border-transparent rounded-md text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700">Save Changes</button>
                         </div>
                     </form>
                 )}
@@ -171,9 +171,9 @@ const ViewRawMaterials = () => {
             {/* Delete Confirmation Modal */}
             <Modal isOpen={isDeleteModalOpen} onClose={closeDeleteModal} title="Confirm Deletion">
                 <p>Are you sure you want to delete this raw material?</p>
-                <div className="mt-6 flex justify-end space-x-3">
-                    <button type="button" onClick={closeDeleteModal} className="btn-secondary">Cancel</button>
-                    <button type="button" onClick={handleDeleteMaterial} className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700">Delete</button>
+                <div className="mt-6 flex flex-col sm:flex-row justify-end space-y-3 sm:space-y-0 sm:space-x-3">
+                    <button type="button" onClick={closeDeleteModal} className="px-5 py-2.5 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50">Cancel</button>
+                    <button type="button" onClick={handleDeleteMaterial} className="px-5 py-2.5 border border-transparent rounded-md text-sm font-medium text-white bg-red-600 hover:bg-red-700">Delete</button>
                 </div>
             </Modal>
         </div>

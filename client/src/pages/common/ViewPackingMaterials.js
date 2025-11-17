@@ -46,6 +46,10 @@ const ViewPackingMaterials = () => {
     const [isImporting, setIsImporting] = useState(false);
     const [importResult, setImportResult] = useState(null);
     
+    // Duplicate confirmation states
+    const [isDuplicateModalOpen, setIsDuplicateModalOpen] = useState(false);
+    const [duplicateMaterials, setDuplicateMaterials] = useState([]);
+    
     // Modal states
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
@@ -81,6 +85,21 @@ const ViewPackingMaterials = () => {
         setIsLoading(true);
         try {
             const { data } = await api.get('/materials');
+            // Debug: Log the raw data from API
+            console.log('Raw materials data from API:', data);
+            
+            // Debug: Check specific material fields
+            if (data && data.length > 0) {
+                console.log('First material details:', {
+                    _id: data[0]._id,
+                    name: data[0].name,
+                    quantity: data[0].quantity,
+                    perQuantityPrice: data[0].perQuantityPrice,
+                    typeOfQuantity: typeof data[0].quantity,
+                    typeOfPrice: typeof data[0].perQuantityPrice
+                });
+            }
+            
             setMaterials(data);
         } catch (err) {
             setError('Failed to fetch materials. Please try refreshing the page.');
@@ -119,7 +138,8 @@ const ViewPackingMaterials = () => {
                 ...selectedMaterial,
                 quantity: Number(selectedMaterial.quantity) || 0,
                 perQuantityPrice: Number(selectedMaterial.perQuantityPrice) || 0,
-                stockAlertThreshold: Number(selectedMaterial.stockAlertThreshold) || 0
+                stockAlertThreshold: Number(selectedMaterial.stockAlertThreshold) || 0,
+                hsnCode: selectedMaterial.hsnCode || '' // Include HSN Code in update
             };
             
             const { data: updatedMaterial } = await api.put(`/materials/${selectedMaterial._id}`, updatedMaterialData);
@@ -189,14 +209,43 @@ const ViewPackingMaterials = () => {
                 }
             });
             
-            setImportResult(response.data);
-            // Refresh materials list
-            fetchMaterials();
+            // Check if duplicates were found
+            if (response.data.duplicates && response.data.duplicates.length > 0) {
+                // Show duplicate confirmation modal
+                setDuplicateMaterials(response.data.duplicates);
+                setIsDuplicateModalOpen(true);
+                setImportResult(null); // Clear previous result
+            } else {
+                // No duplicates, show result normally
+                setImportResult(response.data);
+                // Refresh materials list
+                fetchMaterials();
+            }
         } catch (err) {
             console.error("Failed to import materials", err);
             setImportResult({ error: 'Failed to import materials. Please try again.' });
         } finally {
             setIsImporting(false);
+        }
+    };
+
+    // Handle duplicate confirmation
+    const handleDuplicateConfirmation = async (action) => {
+        setIsDuplicateModalOpen(false);
+        
+        try {
+            // Send confirmation to server
+            const response = await api.post('/materials/import-with-duplicates', {
+                duplicates: duplicateMaterials,
+                action: action // 'add' or 'skip'
+            });
+            
+            setImportResult(response.data);
+            // Refresh materials list
+            fetchMaterials();
+        } catch (err) {
+            console.error("Failed to process duplicates", err);
+            setImportResult({ error: 'Failed to process duplicates. Please try again.' });
         }
     };
 
@@ -280,9 +329,11 @@ const ViewPackingMaterials = () => {
         { header: 'Item Code', key: 'itemCode' },
         { header: 'Material Name', key: 'name' },
         { header: 'Quantity', key: 'quantity' },
-        { header: 'Unit Price (₹)', key: 'perQuantityPrice', render: (value) => `₹${parseFloat(value).toFixed(2)}` },
-        { header: 'Total Value (₹)', key: 'totalValue', render: (value, row) => `₹${(parseFloat(row.quantity) * parseFloat(row.perQuantityPrice)).toFixed(2)}` },
-        { header: 'Alert Threshold', key: 'stockAlertThreshold' },
+        { header: 'Unit', key: 'unit' },
+        { header: 'Unit Price', key: 'perQuantityPrice', render: (value) => `₹${parseFloat(value).toFixed(2)}` },
+        { header: 'Total Price', key: 'totalValue', render: (value, row) => `₹${(parseFloat(row.quantity) * parseFloat(row.perQuantityPrice)).toFixed(2)}` },
+        { header: 'Stock Alert Threshold', key: 'stockAlertThreshold' },
+        { header: 'HSN Code', key: 'hsnCode' },
         { header: 'Last Updated', key: 'updatedAt', render: (value) => new Date(value).toLocaleDateString() }
     ];
 
@@ -327,26 +378,22 @@ const ViewPackingMaterials = () => {
 
     return (
         <MaterialsRefreshContext.Provider value={{ refreshMaterials: fetchMaterials }}>
-            <div className="container mx-auto px-4 py-6 max-w-7xl border-4 border-green-500">
+            <div className="container mx-auto px-4 py-6 max-w-7xl">
                 {/* Header Section - Improved spacing and alignment */}
-                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8 bg-yellow-100 p-2">
-                    <div className="text-red-500 font-bold">DEBUG: HEADER RENDERED</div>
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
                     <div>
-                        <h1 className="text-4xl font-bold text-gray-900 tracking-tight">Packing Materials</h1>
+                        <h1 className="text-3xl font-bold text-gray-900 tracking-tight">Packing Materials</h1>
                         <p className="text-gray-600 mt-1 text-sm">Manage your packing materials inventory</p>
                     </div>
-                    <div className="flex space-x-2 self-end sm:self-auto bg-red-100 p-2">
-                        {/* Debug: Always show the button temporarily */}
+                    <div className="flex flex-wrap gap-2">
                         <button
                             onClick={handleImportClick}
                             className="flex items-center px-3 py-2 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 transition"
                             title="Import Excel"
                         >
                             <FaFileImport className="mr-2" />
-                            <span>Import Excel</span>
-                        </button>
-                        <button className="flex items-center px-3 py-2 text-sm font-medium text-white bg-blue-600 rounded-md">
-                            <span>Test Button</span>
+                            <span className="hidden sm:inline">Import Excel</span>
+                            <span className="sm:hidden">Import</span>
                         </button>
                         <button
                             onClick={handleExportExcel}
@@ -354,7 +401,8 @@ const ViewPackingMaterials = () => {
                             title="Export Excel"
                         >
                             <FaFileExport className="mr-2" />
-                            <span>Export Excel</span>
+                            <span className="hidden sm:inline">Export Excel</span>
+                            <span className="sm:hidden">Export</span>
                         </button>
                         <button
                             onClick={handleExportPDF}
@@ -362,14 +410,16 @@ const ViewPackingMaterials = () => {
                             title="Export PDF"
                         >
                             <FaFileExport className="mr-2" />
-                            <span>Export PDF</span>
+                            <span className="hidden sm:inline">Export PDF</span>
+                            <span className="sm:hidden">PDF</span>
                         </button>
                         <button
                             onClick={() => setIsProductMappingModalOpen(true)}
                             className="flex items-center px-3 py-2 text-sm font-medium text-white bg-purple-600 rounded-md hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 transition"
                             title="Add Product Mapping"
                         >
-                            <span>Add Product Mapping</span>
+                            <span className="hidden md:inline">Add Product Mapping</span>
+                            <span className="md:hidden">Mapping</span>
                         </button>
                         {canViewReports && (
                             <ViewReportTools
@@ -386,7 +436,7 @@ const ViewPackingMaterials = () => {
                 
                 {/* Add Material Form - Enhanced card styling */}
                 {canAddMaterials && (
-                    <div className="mb-8">
+                    <div className="mb-6">
                         <MaterialForm onMaterialAdded={handleAddMaterial} />
                     </div>
                 )}
@@ -394,19 +444,19 @@ const ViewPackingMaterials = () => {
                 {/* Search and Table Section - Better visual separation */}
                 <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
                     {/* Search Bar - Enhanced styling with icon */}
-                    <div className="p-6 border-b border-gray-200 bg-gray-50">
+                    <div className="p-4 border-b border-gray-200 bg-gray-50">
                         <div className="relative max-w-md">
-                            <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                                 <FaSearch className="h-4 w-4 text-gray-400" />
                             </div>
                             <input
                                 type="text"
                                 placeholder="Search by item code or material name..."
-                                className="block w-full pl-11 pr-4 py-3 border border-gray-300 rounded-lg 
+                                className="block w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg 
                                          bg-white text-gray-900 placeholder-gray-500
                                          focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent
                                          transition-all duration-200 ease-in-out
-                                         hover:border-gray-400"
+                                         hover:border-gray-400 text-sm"
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
                             />
@@ -425,9 +475,13 @@ const ViewPackingMaterials = () => {
                                 materials={filteredMaterials} 
                                 onEdit={canEditMaterials ? openEditModal : null} 
                                 onDelete={canDeleteMaterials ? openDeleteModal : null}
+                                onViewHistory={(materialId) => {
+                                    // This function is passed to the table but we're handling it internally
+                                    // The table component manages its own state for history expansion
+                                }}
                             />
                         ) : (
-                            <div className="text-center py-16 px-4">
+                            <div className="text-center py-12 px-4">
                                 <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gray-100 mb-4">
                                     <FaSearch className="h-8 w-8 text-gray-400" />
                                 </div>
@@ -444,8 +498,8 @@ const ViewPackingMaterials = () => {
                 
                 {/* Import Modal */}
                 <Modal isOpen={isImportModalOpen} onClose={() => setIsImportModalOpen(false)} title="Import Materials from Excel">
-                    <form onSubmit={handleImportSubmit} className="space-y-6">
-                        <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
+                    <form onSubmit={handleImportSubmit} className="space-y-5">
+                        <div className="border-2 border-dashed border-gray-300 rounded-lg p-5 text-center">
                             <input 
                                 type="file" 
                                 accept=".xlsx,.xls,.csv" 
@@ -455,8 +509,8 @@ const ViewPackingMaterials = () => {
                             />
                             <label htmlFor="import-file" className="cursor-pointer">
                                 <div className="flex flex-col items-center justify-center">
-                                    <FaFileImport className="h-12 w-12 text-gray-400 mb-3" />
-                                    <p className="text-lg font-medium text-gray-700 mb-1">
+                                    <FaFileImport className="h-10 w-10 text-gray-400 mb-3" />
+                                    <p className="text-base font-medium text-gray-700 mb-1">
                                         {importFile ? importFile.name : 'Click to upload Excel file'}
                                     </p>
                                     <p className="text-sm text-gray-500">
@@ -473,21 +527,38 @@ const ViewPackingMaterials = () => {
                                 ) : (
                                     <div>
                                         <p className="text-green-700 font-medium">{importResult.message}</p>
-                                        <ul className="mt-2 text-green-700">
-                                            <li>✅ Imported: {importResult.imported} rows</li>
-                                            <li>⚠️ Duplicates skipped: {importResult.duplicates}</li>
-                                            <li>❌ Errors: {importResult.errors}</li>
+                                        <ul className="mt-2 text-green-700 text-sm">
+                                            <li className="flex justify-between py-1">
+                                                <span>Imported:</span>
+                                                <span className="font-medium">{importResult.imported} rows</span>
+                                            </li>
+                                            {importResult.updated !== undefined && (
+                                                <li className="flex justify-between py-1">
+                                                    <span>Updated:</span>
+                                                    <span className="font-medium">{importResult.updated} materials</span>
+                                                </li>
+                                            )}
+                                            {importResult.skipped !== undefined && (
+                                                <li className="flex justify-between py-1">
+                                                    <span>Skipped:</span>
+                                                    <span className="font-medium">{importResult.skipped} duplicates</span>
+                                                </li>
+                                            )}
+                                            <li className="flex justify-between py-1">
+                                                <span>Errors:</span>
+                                                <span className="font-medium">{importResult.errors}</span>
+                                            </li>
                                         </ul>
                                     </div>
                                 )}
                             </div>
                         )}
                         
-                        <div className="flex justify-end space-x-3 pt-4">
+                        <div className="flex flex-col sm:flex-row justify-end space-y-3 sm:space-y-0 sm:space-x-3 pt-4">
                             <button
                                 type="button"
                                 onClick={() => setIsImportModalOpen(false)}
-                                className="px-6 py-2.5 border border-gray-300 rounded-lg 
+                                className="px-5 py-2.5 border border-gray-300 rounded-lg 
                                          text-sm font-medium text-gray-700 bg-white 
                                          hover:bg-gray-50 hover:border-gray-400
                                          focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500
@@ -498,7 +569,7 @@ const ViewPackingMaterials = () => {
                             </button>
                             <button
                                 type="submit"
-                                className="px-6 py-2.5 border border-transparent rounded-lg 
+                                className="px-5 py-2.5 border border-transparent rounded-lg 
                                          text-sm font-medium text-white bg-indigo-600 
                                          hover:bg-indigo-700 hover:shadow-md
                                          focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500
@@ -519,15 +590,76 @@ const ViewPackingMaterials = () => {
                     </form>
                 </Modal>
                 
+                {/* Duplicate Confirmation Modal */}
+                <Modal isOpen={isDuplicateModalOpen} onClose={() => setIsDuplicateModalOpen(false)} title="Duplicate Materials Found">
+                    <div className="space-y-5">
+                        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                            <p className="text-yellow-800 font-medium mb-2">⚠️ Duplicate materials detected</p>
+                            <p className="text-yellow-700 text-sm">
+                                The following materials already exist in your inventory. What would you like to do?
+                            </p>
+                        </div>
+                        
+                        <div className="max-h-60 overflow-y-auto border border-gray-200 rounded-lg">
+                            <table className="min-w-full divide-y divide-gray-200">
+                                <thead className="bg-gray-50">
+                                    <tr>
+                                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Material Name</th>
+                                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Existing Qty</th>
+                                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">New Qty</th>
+                                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total Qty</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="bg-white divide-y divide-gray-200">
+                                    {duplicateMaterials.map((material, index) => (
+                                        <tr key={index}>
+                                            <td className="px-4 py-2 text-sm font-medium text-gray-900 truncate max-w-[120px]" title={material.name}>{material.name}</td>
+                                            <td className="px-4 py-2 text-sm text-gray-500">{material.existingQuantity}</td>
+                                            <td className="px-4 py-2 text-sm text-gray-500">{material.quantity}</td>
+                                            <td className="px-4 py-2 text-sm font-medium text-indigo-600">{material.existingQuantity + material.quantity}</td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                        
+                        <div className="flex flex-col sm:flex-row justify-end space-y-3 sm:space-y-0 sm:space-x-3 pt-4">
+                            <button
+                                type="button"
+                                onClick={() => handleDuplicateConfirmation('skip')}
+                                className="px-5 py-2.5 border border-gray-300 rounded-lg 
+                                         text-sm font-medium text-gray-700 bg-white 
+                                         hover:bg-gray-50 hover:border-gray-400
+                                         focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500
+                                         transition-all duration-200 ease-in-out"
+                            >
+                                Skip Duplicates
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => handleDuplicateConfirmation('add')}
+                                className="px-5 py-2.5 border border-transparent rounded-lg 
+                                         text-sm font-medium text-white bg-indigo-600 
+                                         hover:bg-indigo-700 hover:shadow-md
+                                         focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500
+                                         transition-all duration-200 ease-in-out
+                                         transform hover:scale-105"
+                            >
+                                Add Quantities to Existing
+                            </button>
+                        </div>
+                    </div>
+                </Modal>
+                
                 {/* Edit Material Modal - Enhanced form styling */}
                 <Modal isOpen={isEditModalOpen} onClose={closeEditModal} title="Edit Material">
                     {selectedMaterial && (
-                        <form onSubmit={handleUpdateMaterial} className="space-y-6">
+                        <form onSubmit={handleUpdateMaterial} className="space-y-5">
                             {/* Form Grid for better organization */}
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 {/* Item Code - Read only with distinct styling */}
                                 <div className="md:col-span-2">
-                                    <label htmlFor="edit-itemCode" className="block text-sm font-semibold text-gray-700 mb-2">
+                                    <label htmlFor="edit-itemCode" className="block text-sm font-semibold text-gray-700 mb-1.5">
                                         Item Code
                                     </label>
                                     <input 
@@ -535,15 +667,15 @@ const ViewPackingMaterials = () => {
                                         type="text" 
                                         value={selectedMaterial?.itemCode || ''} 
                                         readOnly 
-                                        className="block w-full px-4 py-3 border border-gray-200 rounded-lg 
-                                                 bg-gray-50 text-gray-600 cursor-not-allowed
+                                        className="block w-full px-3 py-2.5 border border-gray-200 rounded-lg 
+                                                 bg-gray-50 text-gray-600 cursor-not-allowed text-sm
                                                  focus:outline-none"
                                     />
                                 </div>
                                 
                                 {/* Material Name */}
                                 <div className="md:col-span-2">
-                                    <label htmlFor="edit-name" className="block text-sm font-semibold text-gray-700 mb-2">
+                                    <label htmlFor="edit-name" className="block text-sm font-semibold text-gray-700 mb-1.5">
                                         Material Name <span className="text-red-500">*</span>
                                     </label>
                                     <input 
@@ -552,8 +684,8 @@ const ViewPackingMaterials = () => {
                                         value={selectedMaterial?.name || ''} 
                                         onChange={e => setSelectedMaterial({...selectedMaterial, name: e.target.value})} 
                                         required
-                                        className="block w-full px-4 py-3 border border-gray-300 rounded-lg 
-                                                 bg-white text-gray-900 placeholder-gray-400
+                                        className="block w-full px-3 py-2.5 border border-gray-300 rounded-lg 
+                                                 bg-white text-gray-900 placeholder-gray-400 text-sm
                                                  focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent
                                                  transition-all duration-200 hover:border-gray-400"
                                     />
@@ -561,7 +693,7 @@ const ViewPackingMaterials = () => {
                                 
                                 {/* Quantity */}
                                 <div>
-                                    <label htmlFor="edit-quantity" className="block text-sm font-semibold text-gray-700 mb-2">
+                                    <label htmlFor="edit-quantity" className="block text-sm font-semibold text-gray-700 mb-1.5">
                                         Quantity <span className="text-red-500">*</span>
                                     </label>
                                     <input 
@@ -572,20 +704,20 @@ const ViewPackingMaterials = () => {
                                         value={selectedMaterial?.quantity || 0} 
                                         onChange={e => setSelectedMaterial({...selectedMaterial, quantity: Number(e.target.value) || 0})} 
                                         required
-                                        className="block w-full px-4 py-3 border border-gray-300 rounded-lg 
-                                                 bg-white text-gray-900 placeholder-gray-400
+                                        className="block w-full px-3 py-2.5 border border-gray-300 rounded-lg 
+                                                 bg-white text-gray-900 placeholder-gray-400 text-sm
                                                  focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent
                                                  transition-all duration-200 hover:border-gray-400"
                                     />
                                 </div>
                                 
-                                {/* Per Quantity Price */}
+                                {/* Unit Price */}
                                 <div>
-                                    <label htmlFor="edit-perQuantityPrice" className="block text-sm font-semibold text-gray-700 mb-2">
+                                    <label htmlFor="edit-perQuantityPrice" className="block text-sm font-semibold text-gray-700 mb-1.5">
                                         Unit Price (₹) <span className="text-red-500">*</span>
                                     </label>
                                     <div className="relative">
-                                        <span className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-500 font-medium">₹</span>
+                                        <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 font-medium text-sm">₹</span>
                                         <input 
                                             id="edit-perQuantityPrice" 
                                             type="number" 
@@ -594,8 +726,8 @@ const ViewPackingMaterials = () => {
                                             value={selectedMaterial?.perQuantityPrice || 0} 
                                             onChange={e => setSelectedMaterial({...selectedMaterial, perQuantityPrice: Number(e.target.value) || 0})} 
                                             required
-                                            className="block w-full pl-8 pr-4 py-3 border border-gray-300 rounded-lg 
-                                                     bg-white text-gray-900 placeholder-gray-400
+                                            className="block w-full pl-7 pr-3 py-2.5 border border-gray-300 rounded-lg 
+                                                     bg-white text-gray-900 placeholder-gray-400 text-sm
                                                      focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent
                                                      transition-all duration-200 hover:border-gray-400"
                                         />
@@ -604,18 +736,18 @@ const ViewPackingMaterials = () => {
                                 
                                 {/* Total Price - Highlighted */}
                                 <div>
-                                    <label htmlFor="edit-totalPrice" className="block text-sm font-semibold text-gray-700 mb-2">
+                                    <label htmlFor="edit-totalPrice" className="block text-sm font-semibold text-gray-700 mb-1.5">
                                         Total Value (₹)
                                     </label>
                                     <div className="relative">
-                                        <span className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-500 font-medium">₹</span>
+                                        <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 font-medium text-sm">₹</span>
                                         <input 
                                             id="edit-totalPrice" 
                                             type="text" 
                                             value={editModalTotalPrice} 
                                             readOnly 
-                                            className="block w-full pl-8 pr-4 py-3 border border-gray-200 rounded-lg 
-                                                     bg-indigo-50 text-indigo-900 font-semibold cursor-not-allowed
+                                            className="block w-full pl-7 pr-3 py-2.5 border border-gray-200 rounded-lg 
+                                                     bg-indigo-50 text-indigo-900 font-semibold cursor-not-allowed text-sm
                                                      focus:outline-none"
                                         />
                                     </div>
@@ -623,7 +755,7 @@ const ViewPackingMaterials = () => {
                                 
                                 {/* Alert Threshold */}
                                 <div>
-                                    <label htmlFor="edit-threshold" className="block text-sm font-semibold text-gray-700 mb-2">
+                                    <label htmlFor="edit-threshold" className="block text-sm font-semibold text-gray-700 mb-1.5">
                                         Stock Alert Threshold
                                     </label>
                                     <input 
@@ -632,8 +764,25 @@ const ViewPackingMaterials = () => {
                                         min="0"
                                         value={selectedMaterial?.stockAlertThreshold || 0} 
                                         onChange={e => setSelectedMaterial({...selectedMaterial, stockAlertThreshold: Number(e.target.value) || 0})} 
-                                        className="block w-full px-4 py-3 border border-gray-300 rounded-lg 
-                                                 bg-white text-gray-900 placeholder-gray-400
+                                        className="block w-full px-3 py-2.5 border border-gray-300 rounded-lg 
+                                                 bg-white text-gray-900 placeholder-gray-400 text-sm
+                                                 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent
+                                                 transition-all duration-200 hover:border-gray-400"
+                                    />
+                                </div>
+                                
+                                {/* HSN Code */}
+                                <div>
+                                    <label htmlFor="edit-hsnCode" className="block text-sm font-semibold text-gray-700 mb-1.5">
+                                        HSN Code
+                                    </label>
+                                    <input 
+                                        id="edit-hsnCode" 
+                                        type="text" 
+                                        value={selectedMaterial?.hsnCode || ''} 
+                                        onChange={e => setSelectedMaterial({...selectedMaterial, hsnCode: e.target.value})} 
+                                        className="block w-full px-3 py-2.5 border border-gray-300 rounded-lg 
+                                                 bg-white text-gray-900 placeholder-gray-400 text-sm
                                                  focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent
                                                  transition-all duration-200 hover:border-gray-400"
                                     />
@@ -641,11 +790,11 @@ const ViewPackingMaterials = () => {
                             </div>
                             
                             {/* Action Buttons - Enhanced with better spacing */}
-                            <div className="flex justify-end space-x-3 pt-6 border-t border-gray-200">
+                            <div className="flex flex-col sm:flex-row justify-end space-y-3 sm:space-y-0 sm:space-x-3 pt-5 border-t border-gray-200">
                                 <button
                                     type="button"
                                     onClick={closeEditModal}
-                                    className="px-6 py-2.5 border border-gray-300 rounded-lg 
+                                    className="px-5 py-2.5 border border-gray-300 rounded-lg 
                                              text-sm font-medium text-gray-700 bg-white 
                                              hover:bg-gray-50 hover:border-gray-400
                                              focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500
@@ -655,7 +804,7 @@ const ViewPackingMaterials = () => {
                                 </button>
                                 <button
                                     type="submit"
-                                    className="px-6 py-2.5 border border-transparent rounded-lg 
+                                    className="px-5 py-2.5 border border-transparent rounded-lg 
                                              text-sm font-medium text-white bg-indigo-600 
                                              hover:bg-indigo-700 hover:shadow-md
                                              focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500
@@ -677,11 +826,11 @@ const ViewPackingMaterials = () => {
                             <p className="text-gray-600 text-sm">This action cannot be undone and will permanently remove this material from your inventory.</p>
                         </div>
                         
-                        <div className="flex justify-end space-x-3 pt-2">
+                        <div className="flex flex-col sm:flex-row justify-end space-y-3 sm:space-y-0 sm:space-x-3 pt-2">
                             <button
                                 type="button"
                                 onClick={closeDeleteModal}
-                                className="px-6 py-2.5 border border-gray-300 rounded-lg 
+                                className="px-5 py-2.5 border border-gray-300 rounded-lg 
                                          text-sm font-medium text-gray-700 bg-white 
                                          hover:bg-gray-50 hover:border-gray-400
                                          focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500
@@ -692,7 +841,7 @@ const ViewPackingMaterials = () => {
                             <button
                                 type="button"
                                 onClick={handleDeleteMaterial}
-                                className="px-6 py-2.5 border border-transparent rounded-lg 
+                                className="px-5 py-2.5 border border-transparent rounded-lg 
                                          text-sm font-medium text-white bg-red-600 
                                          hover:bg-red-700 hover:shadow-md
                                          focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500
