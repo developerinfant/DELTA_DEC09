@@ -139,6 +139,9 @@ const ViewPackingPurchaseOrders = () => {
             <div className="flex justify-between items-center mb-4">
                 <h2 className="text-xl font-bold text-dark-700">Packing Materials Purchase Orders</h2>
                 <div className="flex space-x-2">
+                    <Link to="/packing/purchase-orders/create" className="px-4 py-2 text-white bg-primary-500 rounded-lg hover:bg-primary-600">
+                        Create New PO
+                    </Link>
                     <ViewReportTools
                         data={filteredPurchaseOrders}
                         title="Packing Materials Purchase Orders"
@@ -147,9 +150,6 @@ const ViewPackingPurchaseOrders = () => {
                         columns={reportColumns}
                         formatDataForExport={formatDataForExport}
                     />
-                    <Link to="/packing/purchase-orders/create" className="px-4 py-2 text-white bg-primary-500 rounded-lg hover:bg-primary-600">
-                        Create New PO
-                    </Link>
                 </div>
             </div>
             <div className="flex items-center space-x-4 mb-4">

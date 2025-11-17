@@ -36,7 +36,7 @@ const generateItemCode = async (type) => {
  * @access  Private
  */
 const addRawMaterial = async (req, res) => {
-    const { name, quantity, perQuantityPrice, stockAlertThreshold, shop, itemCode } = req.body;
+    const { name, quantity, perQuantityPrice, stockAlertThreshold, shop, itemCode, hsnCode } = req.body;
 
     try {
         // Check if user is admin or manager with a shop assigned
@@ -66,6 +66,7 @@ const addRawMaterial = async (req, res) => {
             quantity: Number(quantity), 
             perQuantityPrice: Number(perQuantityPrice), 
             stockAlertThreshold: Number(stockAlertThreshold),
+            hsnCode: hsnCode || '',
             shop: shop || undefined // Only set shop if provided
         };
         
@@ -142,7 +143,7 @@ const getRawMaterials = async (req, res) => {
  * @access  Private
  */
 const updateRawMaterial = async (req, res) => {
-    const { name, quantity, perQuantityPrice, stockAlertThreshold, shop } = req.body;
+    const { name, quantity, perQuantityPrice, stockAlertThreshold, shop, hsnCode } = req.body;
     try {
         const material = await RawMaterial.findById(req.params.id);
         if (!material) {
@@ -166,6 +167,7 @@ const updateRawMaterial = async (req, res) => {
         material.quantity = quantity !== undefined ? quantity : material.quantity;
         material.perQuantityPrice = perQuantityPrice || material.perQuantityPrice;
         material.stockAlertThreshold = stockAlertThreshold !== undefined ? stockAlertThreshold : material.stockAlertThreshold;
+        material.hsnCode = hsnCode || material.hsnCode;
         // Only update shop if provided in the request
         if (shop !== undefined) {
             material.shop = shop;

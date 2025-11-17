@@ -55,6 +55,7 @@ const productStockRoutes = require('./routes/productStockRoutes');
 const packingStockRoutes = require('./routes/packingStockRoutes');
 const fgStockRoutes = require('./routes/fgStockRoutes');
 const damagedStockRoutes = require('./routes/damagedStockRoutes');
+const materialRequestRoutes = require('./routes/materialRequestRoutes');
 
 // 4. Connect to MongoDB Database
 mongoose.connect(process.env.MONGO_URI)
@@ -100,6 +101,7 @@ app.use('/api/product-stock', productStockRoutes);
 app.use('/api/packing', packingStockRoutes);
 app.use('/api/fg', fgStockRoutes);
 app.use('/api/damaged-stock', damagedStockRoutes);
+app.use('/api/material-requests', materialRequestRoutes);
 
 // Basic route for testing if the server is up
 app.get('/', (req, res) => {

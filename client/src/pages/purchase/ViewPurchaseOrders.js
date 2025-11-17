@@ -265,6 +265,9 @@ const ViewPurchaseOrders = () => {
                     <p className="text-gray-600 mt-1">Manage and view all packing materials purchase orders</p>
                 </div>
                 <div className="flex space-x-3">
+                    <Link to="/purchase-orders/create" className="px-4 py-2 bg-primary-500 text-white rounded-lg hover:bg-primary-600 flex items-center">
+                        <span className="mr-2">+</span> Create New PO
+                    </Link>
                     <ViewReportTools
                         data={filteredPurchaseOrders}
                         title="Packing Materials Purchase Orders"
@@ -280,9 +283,6 @@ const ViewPurchaseOrders = () => {
                         <FaRedo className="mr-2" />
                         Refresh
                     </button>
-                    <Link to="/purchase-orders/create" className="px-4 py-2 bg-primary-500 text-white rounded-lg hover:bg-primary-600 flex items-center">
-                        <span className="mr-2">+</span> Create New PO
-                    </Link>
                 </div>
             </div>
             

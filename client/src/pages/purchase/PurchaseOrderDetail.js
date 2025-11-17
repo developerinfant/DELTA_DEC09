@@ -325,7 +325,7 @@ const PurchaseOrderDetail = () => {
                             </div>
                             <div>
                                 <p className="text-sm text-gray-500 uppercase tracking-wide">Approved By</p>
-                                <p className="font-medium">{po.approvedBy?.name || 'N/A'}</p>
+                                <p className="font-medium">{po.approvedByName || po.approvedBy?.name || 'N/A'}</p>
                             </div>
                         </div>
                     </div>
@@ -473,7 +473,7 @@ const PurchaseOrderDetail = () => {
                         </div>
                         <div className="border-t-2 border-gray-300 pt-4">
                             <p className="font-medium text-lg">Approved By</p>
-                            <p className="text-gray-600 mt-1">{po.approvedBy?.name || 'N/A'}</p>
+                            <p className="text-gray-600 mt-1">{po.approvedByName || po.approvedBy?.name || 'N/A'}</p>
                         </div>
                     </div>
                     <div className="flex flex-col items-center">

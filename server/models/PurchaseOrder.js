@@ -171,6 +171,10 @@ const purchaseOrderSchema = new mongoose.Schema({
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User',
     },
+    approvedByName: {
+        type: String,
+        trim: true,
+    },
     preparedBy: {
         type: String,
         trim: true,

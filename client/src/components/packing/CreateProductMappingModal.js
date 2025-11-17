@@ -6,6 +6,7 @@ import { FaSearch } from 'react-icons/fa';
 
 const CreateProductMappingModal = ({ isOpen, onClose, onMappingCreated, editingMapping }) => {
     const [productName, setProductName] = useState('');
+    const [hsnCode, setHsnCode] = useState('');
     const [unitsPerCarton, setUnitsPerCarton] = useState(1);
     const [selectedMaterials, setSelectedMaterials] = useState([]);
     const [materials, setMaterials] = useState([]);
@@ -46,6 +47,7 @@ const CreateProductMappingModal = ({ isOpen, onClose, onMappingCreated, editingM
             // Pre-fill form with existing data for editing
             setIsEditing(true);
             setProductName(editingMapping.product_name);
+            setHsnCode(editingMapping.hsn_code || '');
             setUnitsPerCarton(editingMapping.units_per_carton || 1);
             
             // Map materials to selected materials and quantities
@@ -67,6 +69,7 @@ const CreateProductMappingModal = ({ isOpen, onClose, onMappingCreated, editingM
             // Reset for new mapping
             setIsEditing(false);
             setProductName('');
+            setHsnCode('');
             setUnitsPerCarton(1);
             setSelectedMaterials([]);
             setMaterialQuantities({});
@@ -140,6 +143,7 @@ const CreateProductMappingModal = ({ isOpen, onClose, onMappingCreated, editingM
                 // Update existing mapping
                 response = await api.put(`/product-mapping/${editingMapping._id}`, {
                     product_name: productName.trim(),
+                    hsn_code: hsnCode.trim(),
                     units_per_carton: unitsPerCarton,
                     materials: materialsData
                 });
@@ -148,6 +152,7 @@ const CreateProductMappingModal = ({ isOpen, onClose, onMappingCreated, editingM
                 // Create new mapping
                 response = await api.post('/product-mapping', {
                     product_name: productName.trim(),
+                    hsn_code: hsnCode.trim(),
                     units_per_carton: unitsPerCarton,
                     materials: materialsData
                 });
@@ -200,6 +205,20 @@ const CreateProductMappingModal = ({ isOpen, onClose, onMappingCreated, editingM
                         onChange={(e) => setProductName(e.target.value)}
                         className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
                         placeholder="e.g., Sampradayam 12 Cup Sambrani"
+                    />
+                </div>
+
+                <div>
+                    <label htmlFor="hsn-code" className="block text-sm font-medium text-gray-700 mb-1">
+                        HSN Code
+                    </label>
+                    <input
+                        type="text"
+                        id="hsn-code"
+                        value={hsnCode}
+                        onChange={(e) => setHsnCode(e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        placeholder="e.g., 48191010"
                     />
                 </div>
 

@@ -92,6 +92,13 @@ const rawMaterialSchema = new mongoose.Schema({
         default: 0,
         min: [0, 'Threshold cannot be negative'],
     },
+    // HSN Code field
+    hsnCode: {
+        type: String,
+        required: false,
+        trim: true,
+        default: ''
+    },
     shop: {
         type: String,
         required: false, // Changed from true to false to make it optional

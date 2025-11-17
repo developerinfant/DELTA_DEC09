@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import api from '../../api';
 import Modal from '../../components/common/Modal';
 import { FaSpinner, FaCheckCircle, FaExclamationTriangle, FaPlusCircle, FaTruck } from 'react-icons/fa';
+import { toast } from 'react-toastify';
 
 const FGStockAlert = () => {
     const navigate = useNavigate();
@@ -18,6 +19,13 @@ const FGStockAlert = () => {
     const [selectedProduct, setSelectedProduct] = useState(null);
     const [stockToAdd, setStockToAdd] = useState('');
     const [isUpdating, setIsUpdating] = useState(false);
+    
+    // Request Materials modal states
+    const [isRequestModalOpen, setIsRequestModalOpen] = useState(false);
+    const [requiredQty, setRequiredQty] = useState('');
+    const [priority, setPriority] = useState('Medium');
+    const [remarks, setRemarks] = useState('');
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
     // Function to fetch alerts from the API
     const fetchStockAlerts = async () => {
@@ -48,6 +56,48 @@ const FGStockAlert = () => {
     const handleCloseModal = () => {
         setIsModalOpen(false);
         setSelectedProduct(null);
+    };
+    
+    // --- Request Materials Handlers ---
+    const handleOpenRequestModal = (product) => {
+        setSelectedProduct(product);
+        setRequiredQty('');
+        setPriority('Medium');
+        setRemarks('');
+        setIsRequestModalOpen(true);
+    };
+
+    const handleCloseRequestModal = () => {
+        setIsRequestModalOpen(false);
+        setSelectedProduct(null);
+        setRequiredQty('');
+        setPriority('Medium');
+        setRemarks('');
+    };
+    
+    const handleSubmitRequest = async (e) => {
+        e.preventDefault();
+        setIsSubmitting(true);
+        
+        try {
+            const requestData = {
+                productId: selectedProduct._id,
+                requiredQty: parseInt(requiredQty),
+                priority,
+                remarks
+            };
+            
+            await api.post('/material-requests', requestData);
+            toast.success('Material request submitted successfully!');
+            handleCloseRequestModal();
+            // Refresh alerts
+            fetchStockAlerts();
+        } catch (err) {
+            console.error('Error submitting material request:', err);
+            toast.error('Failed to submit material request. Please try again.');
+        } finally {
+            setIsSubmitting(false);
+        }
     };
     
     // --- Handler for Creating a GRN ---
@@ -132,6 +182,12 @@ const FGStockAlert = () => {
                                 <FaTruck className="mr-2" />
                                 Create DC
                             </button>
+                            <button
+                                onClick={() => handleOpenRequestModal(product)}
+                                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500"
+                            >
+                                Request Materials
+                            </button>
                         </div>
                     </div>
                 ))}
@@ -186,6 +242,115 @@ const FGStockAlert = () => {
                         </button>
                     </div>
                 </div>
+            </Modal>
+            
+            {/* Modal for requesting materials */}
+            <Modal 
+                isOpen={isRequestModalOpen} 
+                onClose={handleCloseRequestModal} 
+                title={`Request Materials from Packing Section`}
+            >
+                <form onSubmit={handleSubmitRequest} className="space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700">Product Name</label>
+                            <div className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm bg-gray-100">
+                                {selectedProduct?.productName}
+                            </div>
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700">Available Stock</label>
+                            <div className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm bg-gray-100">
+                                {selectedProduct?.currentStock}
+                            </div>
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700">Alert Threshold</label>
+                            <div className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm bg-gray-100">
+                                {selectedProduct?.alertThreshold}
+                            </div>
+                        </div>
+                        <div>
+                            <label htmlFor="requiredQty" className="block text-sm font-medium text-gray-700">Required Quantity</label>
+                            <input
+                                type="number"
+                                id="requiredQty"
+                                value={requiredQty}
+                                onChange={(e) => setRequiredQty(e.target.value)}
+                                min="1"
+                                required
+                                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                            />
+                        </div>
+                    </div>
+                    
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700">Priority</label>
+                        <div className="mt-2 space-x-4">
+                            <label className="inline-flex items-center">
+                                <input
+                                    type="radio"
+                                    name="priority"
+                                    value="High"
+                                    checked={priority === 'High'}
+                                    onChange={(e) => setPriority(e.target.value)}
+                                    className="h-4 w-4 text-indigo-600 border-gray-300 focus:ring-indigo-500"
+                                />
+                                <span className="ml-2 text-sm text-gray-700">High</span>
+                            </label>
+                            <label className="inline-flex items-center">
+                                <input
+                                    type="radio"
+                                    name="priority"
+                                    value="Medium"
+                                    checked={priority === 'Medium'}
+                                    onChange={(e) => setPriority(e.target.value)}
+                                    className="h-4 w-4 text-indigo-600 border-gray-300 focus:ring-indigo-500"
+                                />
+                                <span className="ml-2 text-sm text-gray-700">Medium</span>
+                            </label>
+                            <label className="inline-flex items-center">
+                                <input
+                                    type="radio"
+                                    name="priority"
+                                    value="Low"
+                                    checked={priority === 'Low'}
+                                    onChange={(e) => setPriority(e.target.value)}
+                                    className="h-4 w-4 text-indigo-600 border-gray-300 focus:ring-indigo-500"
+                                />
+                                <span className="ml-2 text-sm text-gray-700">Low</span>
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <div>
+                        <label htmlFor="remarks" className="block text-sm font-medium text-gray-700">Remarks (Optional)</label>
+                        <textarea
+                            id="remarks"
+                            rows={3}
+                            value={remarks}
+                            onChange={(e) => setRemarks(e.target.value)}
+                            className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                        />
+                    </div>
+                    
+                    <div className="flex justify-end space-x-3 pt-4">
+                        <button
+                            type="button"
+                            onClick={handleCloseRequestModal}
+                            className="px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                        >
+                            Cancel
+                        </button>
+                        <button
+                            type="submit"
+                            disabled={isSubmitting}
+                            className={`px-4 py-2 text-sm font-medium rounded-md text-white focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 ${isSubmitting ? 'bg-indigo-400' : 'bg-indigo-600 hover:bg-indigo-700'}`}
+                        >
+                            {isSubmitting ? 'Sending...' : 'Send Request'}
+                        </button>
+                    </div>
+                </form>
             </Modal>
         </div>
     );

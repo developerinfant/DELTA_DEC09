@@ -1,11 +1,14 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import api from '../../api';
 import Card from '../../components/common/Card';
 import Modal from '../../components/common/Modal';
-import { FaSpinner, FaEdit, FaSave, FaBan } from 'react-icons/fa';
+import { FaSpinner, FaEdit, FaSave, FaBan, FaFilePdf, FaFileExcel } from 'react-icons/fa';
 import { useAuth } from '../../context/AuthContext';
+import * as XLSX from 'xlsx';
 
 const DeliveryChallanDetailModal = ({ isOpen, onClose, deliveryChallanId, onStatusUpdate }) => {
+    const navigate = useNavigate();
     const { user } = useAuth();
     const [dc, setDc] = useState(null);
     const [isLoading, setIsLoading] = useState(true);
@@ -179,6 +182,99 @@ const DeliveryChallanDetailModal = ({ isOpen, onClose, deliveryChallanId, onStat
             : "Own Unit Delivery Challan Details";
     };
 
+    // PDF Export Function - Navigate to the new DeltaDCPrintLayout component
+    const exportToPDF = () => {
+        if (!dc) return;
+        // Navigate to the new DeltaDCPrintLayout page with the DC ID
+        navigate(`/delivery-challan/${dc._id}/print`);
+    };
+
+    // Excel Export Function
+    const exportToExcel = () => {
+        if (!dc) return;
+
+        // Prepare data for Excel
+        const dcInfo = [
+            { 'Field': 'DC Number', 'Value': dc.dc_no || 'N/A' },
+            { 'Field': 'Unit Type', 'Value': dc.unit_type || 'N/A' },
+            { 'Field': dc.unit_type === 'Jobber' ? 'Supplier' : 'Issued To', 
+              'Value': dc.unit_type === 'Jobber' 
+                ? (dc.supplier_id?.name || 'N/A') 
+                : (dc.person_name || 'N/A') },
+            { 'Field': 'Status', 'Value': dc.status || 'N/A' },
+            { 'Field': 'Product Name', 'Value': dc.product_name || 'N/A' },
+            { 'Field': 'Carton Quantity', 'Value': dc.carton_qty || 0 },
+            { 'Field': 'Date', 'Value': formatDate(dc.date) }
+        ];
+
+        const materialsData = editedItems.map((item, index) => {
+            const sentQty = item.qty_per_carton * dc.carton_qty;
+            const receivedQty = item.received_qty !== undefined ? item.received_qty : item.total_qty;
+            const balance = item.balance_qty !== undefined ? item.balance_qty : (sentQty - receivedQty);
+            
+            // Calculate item status
+            let itemStatus = 'Completed';
+            if (balance > 0) {
+                itemStatus = 'Pending';
+            } else if (balance < 0) {
+                itemStatus = 'Over Received';
+            }
+
+            return {
+                'S.No': index + 1,
+                'Material Name': item.material_name || 'N/A',
+                'Qty per Carton': item.qty_per_carton || 0,
+                'Sent Qty': sentQty,
+                'Received Qty': receivedQty,
+                'Balance': balance,
+                'Status': itemStatus
+            };
+        });
+
+        // Add totals row
+        const totalSent = editedItems.reduce((sum, item) => sum + (item.qty_per_carton * dc.carton_qty), 0);
+        const totalReceived = editedItems.reduce((sum, item) => sum + (item.received_qty !== undefined ? item.received_qty : (item.total_qty || 0)), 0);
+        const totalBalance = editedItems.reduce((sum, item) => {
+            return sum + (item.balance_qty !== undefined ? item.balance_qty : ((item.qty_per_carton * dc.carton_qty) - (item.received_qty !== undefined ? item.received_qty : (item.total_qty || 0))));
+        }, 0);
+
+        materialsData.push({
+            'S.No': '',
+            'Material Name': '',
+            'Qty per Carton': 'TOTALS:',
+            'Sent Qty': totalSent,
+            'Received Qty': totalReceived,
+            'Balance': totalBalance,
+            'Status': ''
+        });
+
+        // Create a new workbook
+        const wb = XLSX.utils.book_new();
+        
+        // Create worksheets
+        const dcInfoSheet = XLSX.utils.json_to_sheet(dcInfo);
+        const materialsSheet = XLSX.utils.json_to_sheet(materialsData);
+        
+        // Add worksheets to workbook
+        XLSX.utils.book_append_sheet(wb, dcInfoSheet, 'DC Info');
+        XLSX.utils.book_append_sheet(wb, materialsSheet, 'Materials');
+        
+        // Generate buffer
+        const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+        
+        // Create blob and download
+        const blob = new Blob([wbout], { type: 'application/octet-stream' });
+        const url = URL.createObjectURL(blob);
+        
+        const link = document.createElement('a');
+        link.href = url;
+        const timestamp = new Date().toISOString().split('T')[0];
+        link.download = `DeliveryChallan_${dc.dc_no || 'DC'}_${timestamp}.xlsx`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    };
+
     if (isLoading) return (
         <Modal isOpen={isOpen} onClose={onClose} title={getModalTitle()}>
             <div className="flex justify-center items-center h-64">
@@ -214,6 +310,26 @@ const DeliveryChallanDetailModal = ({ isOpen, onClose, deliveryChallanId, onStat
 
     return (
         <Modal isOpen={isOpen} onClose={onClose} title={getModalTitle()} size="xl">
+            {/* Export Buttons */}
+            <div className="flex justify-end space-x-2 mb-4">
+                <button
+                    onClick={exportToPDF}
+                    className="flex items-center px-3 py-1.5 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 transition"
+                    title="Export to PDF"
+                >
+                    <FaFilePdf className="mr-1" />
+                    PDF
+                </button>
+                <button
+                    onClick={exportToExcel}
+                    className="flex items-center px-3 py-1.5 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 transition"
+                    title="Export to Excel"
+                >
+                    <FaFileExcel className="mr-1" />
+                    Excel
+                </button>
+            </div>
+
             {/* Edit Mode Banner for Partial DCs */}
             {canEditDC && (
                 <Card className="bg-gradient-to-r from-purple-50 to-indigo-50 border-l-4 border-purple-500 mb-6">

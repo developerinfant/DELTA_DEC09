@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import api from '../../api';
-import { FaSpinner, FaBox, FaIndustry, FaUser, FaMoneyBill, FaRedo, FaSearch, FaArrowLeft } from 'react-icons/fa';
+import { FaSpinner, FaBox, FaIndustry, FaUser, FaMoneyBill, FaRedo, FaSearch, FaArrowLeft, FaClipboardList, FaCheck, FaTimes, FaTruck } from 'react-icons/fa';
 import StockSummaryCard from '../../components/StockSummaryCard';
 import io from 'socket.io-client';
+import { toast } from 'react-toastify';
 
 const MaterialStockReport = () => {
   const [materialStocks, setMaterialStocks] = useState([]);
@@ -10,8 +11,10 @@ const MaterialStockReport = () => {
   const [error, setError] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [socket, setSocket] = useState(null);
-  const [activeView, setActiveView] = useState(''); // 'job' or 'ownUnit'
+  const [activeView, setActiveView] = useState(''); // 'job', 'ownUnit', or 'materialRequests'
   const [deliveryChallans, setDeliveryChallans] = useState([]);
+  const [materialRequests, setMaterialRequests] = useState([]);
+  const [requestsLoading, setRequestsLoading] = useState(false);
 
   // Fetch data
   const fetchData = async () => {
@@ -33,6 +36,20 @@ const MaterialStockReport = () => {
       setIsLoading(false);
     }
   };
+  
+  // Fetch material requests
+  const fetchMaterialRequests = async () => {
+    setRequestsLoading(true);
+    try {
+      const response = await api.get('/material-requests');
+      setMaterialRequests(response.data);
+    } catch (err) {
+      console.error('Error fetching material requests:', err);
+      toast.error('Failed to load material requests');
+    } finally {
+      setRequestsLoading(false);
+    }
+  };
 
   useEffect(() => {
     fetchData();
@@ -52,6 +69,13 @@ const MaterialStockReport = () => {
       newSocket.close();
     };
   }, []);
+  
+  // Fetch material requests when activeView changes to 'materialRequests'
+  useEffect(() => {
+    if (activeView === 'materialRequests') {
+      fetchMaterialRequests();
+    }
+  }, [activeView]);
 
   // Handle item click (for viewing details)
   const handleItemClick = (item) => {
@@ -163,6 +187,12 @@ const MaterialStockReport = () => {
         >
           Own Unit Report
         </button>
+        <button
+          onClick={() => setActiveView('materialRequests')}
+          className={`px-6 py-3 rounded-lg font-medium transition-colors ${activeView === 'materialRequests' ? 'bg-purple-600 text-white shadow-md' : 'bg-white text-purple-600 border border-purple-200 hover:bg-purple-50'}`}
+        >
+          Material Requests
+        </button>
       </div>
       
       {activeView === '' && (
@@ -250,6 +280,16 @@ const MaterialStockReport = () => {
       {/* Own Unit Report */}
       {activeView === 'ownUnit' && (
         <OwnUnitReport deliveryChallans={deliveryChallans} onBack={() => setActiveView('')} />
+      )}
+      
+      {/* Material Requests */}
+      {activeView === 'materialRequests' && (
+        <MaterialRequestsView 
+          requests={materialRequests} 
+          loading={requestsLoading} 
+          onBack={() => setActiveView('')} 
+          onRefresh={fetchMaterialRequests}
+        />
       )}
       
       {/* Material Stock Table (default view) */}
@@ -769,6 +809,203 @@ const OwnUnitReport = ({ deliveryChallans, onBack }) => {
             </div>
           </div>
         )}
+      </div>
+    </div>
+  );
+};
+
+// Material Requests View Component
+const MaterialRequestsView = ({ requests, loading, onBack, onRefresh }) => {
+  const [searchTerm, setSearchTerm] = useState('');
+  
+  // Filter requests by search term
+  const filteredRequests = requests.filter(request => 
+    request.productName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    request.requester.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    request.requestId.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+  
+  // Format date
+  const formatDate = (dateString) => {
+    if (!dateString) return 'N/A';
+    return new Date(dateString).toLocaleDateString('en-IN', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric'
+    });
+  };
+  
+  // Handle status update
+  const handleStatusUpdate = async (requestId, newStatus) => {
+    try {
+      await api.put(`/material-requests/${requestId}/status`, { status: newStatus });
+      toast.success(`Request ${newStatus.toLowerCase()} successfully!`);
+      onRefresh(); // Refresh the requests list
+    } catch (err) {
+      console.error(`Error updating request status to ${newStatus}:`, err);
+      toast.error(`Failed to ${newStatus.toLowerCase()} request`);
+    }
+  };
+  
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <FaSpinner className="animate-spin text-indigo-600" size={48} />
+        <span className="ml-4 text-lg text-gray-600">Loading material requests...</span>
+      </div>
+    );
+  }
+  
+  return (
+    <div className="space-y-6">
+      {/* Back Button */}
+      <div className="flex justify-between items-center">
+        <button 
+          onClick={onBack}
+          className="flex items-center px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 transition-colors"
+        >
+          <FaArrowLeft className="mr-2" />
+          ← Back to Stock Report
+        </button>
+        <button 
+          onClick={onRefresh}
+          className="flex items-center px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors"
+        >
+          <FaRedo className="mr-2" />
+          Refresh
+        </button>
+      </div>
+      
+      {/* Search Bar */}
+      <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+          <div className="relative flex-1 max-w-md">
+            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+              <FaSearch className="text-gray-400" />
+            </div>
+            <input
+              type="text"
+              placeholder="Search by product, requester, or request ID..."
+              className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 shadow-sm"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
+        </div>
+      </div>
+      
+      {/* Material Requests Table */}
+      <div className="bg-white rounded-xl shadow-md border border-gray-200 overflow-hidden">
+        <div className="px-6 py-4 border-b border-gray-200">
+          <h3 className="text-lg font-medium text-gray-900">Material Requests</h3>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-100">
+              <tr>
+                <th className="px-6 py-3 text-left text-xs font-medium text-red-600 uppercase tracking-wider">Product</th>
+                <th className="px-6 py-3 text-right text-xs font-medium text-red-600 uppercase tracking-wider">Required Qty</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-red-600 uppercase tracking-wider">Requested By</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-red-600 uppercase tracking-wider">Priority</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-red-600 uppercase tracking-wider">Status</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-red-600 uppercase tracking-wider">Date</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-red-600 uppercase tracking-wider">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {filteredRequests.length === 0 ? (
+                <tr>
+                  <td colSpan="7" className="px-6 py-4 text-center text-gray-500">
+                    No material requests found.
+                  </td>
+                </tr>
+              ) : (
+                filteredRequests.map((request, index) => (
+                  <tr 
+                    key={request._id} 
+                    className={index % 2 === 0 ? 'bg-white hover:bg-blue-50' : 'bg-gray-50 hover:bg-blue-50'}
+                  >
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                      <div className="font-medium">{request.productName}</div>
+                      <div className="text-xs text-gray-500">{request.requestId}</div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700 text-right font-medium">
+                      {request.requiredQty}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                      {request.requester}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm">
+                      <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full 
+                        ${request.priority === 'High' ? 'bg-red-100 text-red-800' : 
+                          request.priority === 'Medium' ? 'bg-yellow-100 text-yellow-800' : 
+                          'bg-green-100 text-green-800'}`}>
+                        {request.priority}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm">
+                      <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full 
+                        ${request.status === 'Pending' ? 'bg-yellow-100 text-yellow-800' : 
+                          request.status === 'Approved' ? 'bg-blue-100 text-blue-800' : 
+                          request.status === 'Rejected' ? 'bg-red-100 text-red-800' : 
+                          'bg-green-100 text-green-800'}`}>
+                        {request.status}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                      {formatDate(request.createdAt)}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-right">
+                      <div className="flex space-x-2">
+                        {request.status === 'Pending' && (
+                          <>
+                            <button
+                              onClick={() => handleStatusUpdate(request._id, 'Approved')}
+                              className="inline-flex items-center px-3 py-1 border border-transparent text-xs font-medium rounded-md shadow-sm text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+                            >
+                              <FaCheck className="mr-1" size={12} />
+                              Approve
+                            </button>
+                            <button
+                              onClick={() => handleStatusUpdate(request._id, 'Rejected')}
+                              className="inline-flex items-center px-3 py-1 border border-transparent text-xs font-medium rounded-md shadow-sm text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+                            >
+                              <FaTimes className="mr-1" size={12} />
+                              Reject
+                            </button>
+                          </>
+                        )}
+                        {request.status === 'Approved' && (
+                          <button
+                            onClick={() => handleStatusUpdate(request._id, 'Completed')}
+                            className="inline-flex items-center px-3 py-1 border border-transparent text-xs font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                          >
+                            <FaTruck className="mr-1" size={12} />
+                            Mark Completed
+                          </button>
+                        )}
+                        <button
+                          onClick={() => {
+                            // In a real implementation, this would show request details
+                            console.log('View details for request:', request);
+                          }}
+                          className="inline-flex items-center px-3 py-1 border border-gray-300 text-xs font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                        >
+                          View
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+        <div className="px-6 py-3 bg-gray-50 border-t border-gray-200">
+          <div className="text-sm text-gray-700">
+            Showing {filteredRequests.length} of {requests.length} requests
+          </div>
+        </div>
       </div>
     </div>
   );

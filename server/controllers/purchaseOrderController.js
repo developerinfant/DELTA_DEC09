@@ -456,10 +456,12 @@ const approvePurchaseOrder = async (req, res) => {
 
         // Update PO status to Approved
         po.status = 'Approved';
-        // Only set approvedBy if user has a valid _id (not for hardcoded admin)
+        // Set approvedBy with the user's name
         if (req.user._id && req.user._id !== 'admin_user_id') {
             po.approvedBy = req.user._id;
         }
+        // Also store the approver's name for display
+        po.approvedByName = req.user.name || 'Unknown User';
         const updatedPO = await po.save();
         
         res.json({ 
@@ -499,10 +501,12 @@ const rejectPurchaseOrder = async (req, res) => {
 
         // Update PO status to Rejected
         po.status = 'Rejected';
-        // Only set approvedBy if user has a valid _id (not for hardcoded admin)
+        // Set approvedBy with the user's ID
         if (req.user._id && req.user._id !== 'admin_user_id') {
             po.approvedBy = req.user._id;
         }
+        // Also store the approver's name for display
+        po.approvedByName = req.user.name || 'Unknown User';
         const updatedPO = await po.save();
         
         res.json({ 

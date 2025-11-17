@@ -66,6 +66,9 @@ import FGInvoicePrintLayout from './pages/fg/FGInvoicePrintLayout';
 // Import FG GRN Details page
 import ViewFGGRN from './pages/fg/ViewFGGRN';
 
+// Import Delivery Challan Print Layout
+import DeltaDCPrintLayout from './pages/purchase/DeltaDCPrintLayout';
+
 // Import the ProtectedRoute component
 import ProtectedRoute from './components/common/ProtectedRoute';
 // Import the new ConditionalRoute component
@@ -364,6 +367,13 @@ function App() {
           <Route path="products/:id/dc" element={
             <ConditionalRoute moduleId="view-products" action="view">
               <ProductDC />
+            </ConditionalRoute>
+          } />
+          
+          {/* Delivery Challan Print Route */}
+          <Route path="delivery-challan/:id/print" element={
+            <ConditionalRoute moduleId="outgoing-materials" action="record-usage">
+              <DeltaDCPrintLayout />
             </ConditionalRoute>
           } />
 

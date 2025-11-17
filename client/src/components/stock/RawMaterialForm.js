@@ -9,6 +9,7 @@ const RawMaterialForm = ({ onMaterialAdded }) => {
     const [perQuantityPrice, setPerQuantityPrice] = useState('');
     const [totalPrice, setTotalPrice] = useState('');
     const [stockAlertThreshold, setStockAlertThreshold] = useState('');
+    const [hsnCode, setHsnCode] = useState(''); // Add HSN Code state
     const [itemCode, setItemCode] = useState(''); // Add itemCode state
     
     // --- State for loading and error handling ---
@@ -56,6 +57,7 @@ const RawMaterialForm = ({ onMaterialAdded }) => {
             quantity: Number(quantity),
             perQuantityPrice: Number(perQuantityPrice),
             stockAlertThreshold: Number(stockAlertThreshold),
+            hsnCode, // Include HSN Code in the material data
         };
         
         try {
@@ -69,6 +71,7 @@ const RawMaterialForm = ({ onMaterialAdded }) => {
             setPerQuantityPrice('');
             setTotalPrice('');
             setStockAlertThreshold('');
+            setHsnCode(''); // Reset HSN Code
             
             // Fetch the next item code for the next material
             try {
@@ -170,6 +173,19 @@ const RawMaterialForm = ({ onMaterialAdded }) => {
                             min="0"
                             className="mt-1 block w-full px-4 py-2 text-dark-700 bg-light-200 border border-transparent rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
                             placeholder="e.g., 20"
+                        />
+                    </div>
+                    
+                    {/* HSN Code */}
+                    <div>
+                        <label htmlFor="hsnCode" className="block text-sm font-medium text-dark-700">HSN Code</label>
+                        <input
+                            type="text"
+                            id="hsnCode"
+                            value={hsnCode}
+                            onChange={(e) => setHsnCode(e.target.value)}
+                            className="mt-1 block w-full px-4 py-2 text-dark-700 bg-light-200 border border-transparent rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                            placeholder="e.g., 123456"
                         />
                     </div>
                 

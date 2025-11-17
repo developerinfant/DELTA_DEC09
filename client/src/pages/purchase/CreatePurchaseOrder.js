@@ -19,7 +19,7 @@ const PurchaseOrderForm = ({ suppliers, materials, rawMaterials, onOrderCreated,
         uom: '',
         rate: '', 
         discountPercent: 0,
-        gstPercent: 0
+        gstPercent: 5 // Set default GST to 5%
     }]);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState('');
@@ -183,15 +183,16 @@ const PurchaseOrderForm = ({ suppliers, materials, rawMaterials, onOrderCreated,
         const newItems = [...items];
         newItems[index][field] = value;
         
-        // If the materialId changes, update the materialModel, rate, and HSN
+        // If the materialId changes, update the materialModel, rate, HSN, Item Code, and set GST to 5%
         if (field === 'materialId') {
             const selectedMaterial = allMaterials.find(m => m._id === value);
             if(selectedMaterial) {
                 newItems[index]['materialModel'] = selectedMaterial.type;
-                newItems[index]['rate'] = selectedMaterial.price || '';
-                newItems[index]['hsn'] = selectedMaterial.hsn || '';
-                newItems[index]['uom'] = selectedMaterial.uom || '';
+                newItems[index]['rate'] = selectedMaterial.price || selectedMaterial.perQuantityPrice || '';
+                newItems[index]['hsn'] = selectedMaterial.hsnCode || selectedMaterial.hsn || '';
+                newItems[index]['uom'] = selectedMaterial.uom || selectedMaterial.unit || '';
                 newItems[index]['itemCode'] = selectedMaterial.itemCode || '';
+                newItems[index]['gstPercent'] = 5; // Set default GST to 5%
             }
         }
         setItems(newItems);
@@ -207,7 +208,7 @@ const PurchaseOrderForm = ({ suppliers, materials, rawMaterials, onOrderCreated,
             uom: '',
             rate: '', 
             discountPercent: 0,
-            gstPercent: 0
+            gstPercent: 5 // Set default GST to 5%
         }]);
     };
 
@@ -556,6 +557,7 @@ const PurchaseOrderForm = ({ suppliers, materials, rawMaterials, onOrderCreated,
                                                     value={item.itemCode || ''} 
                                                     onChange={(e) => handleItemChange(index, 'itemCode', e.target.value)} 
                                                     className="w-24 px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                                    title="Auto-populated from material selection, but can be manually edited"
                                                 />
                                             </td>
                                             <td className="px-4 py-3 text-sm text-gray-700">
@@ -579,6 +581,7 @@ const PurchaseOrderForm = ({ suppliers, materials, rawMaterials, onOrderCreated,
                                                     value={item.hsn} 
                                                     onChange={(e) => handleItemChange(index, 'hsn', e.target.value)} 
                                                     className="w-20 px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                                    title="Auto-populated from material selection, but can be manually edited"
                                                 />
                                             </td>
                                             <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
