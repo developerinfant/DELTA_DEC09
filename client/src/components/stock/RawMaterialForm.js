@@ -131,9 +131,9 @@ const RawMaterialForm = ({ onMaterialAdded }) => {
                         />
                     </div>
 
-                    {/* Per Quantity Price */}
+                    {/* Unit Price */}
                     <div>
-                        <label htmlFor="perQuantityPrice" className="block text-sm font-medium text-dark-700">Per Quantity Price (₹)</label>
+                        <label htmlFor="perQuantityPrice" className="block text-sm font-medium text-dark-700">Unit Price (₹)</label>
                         <input
                             type="number"
                             id="perQuantityPrice"

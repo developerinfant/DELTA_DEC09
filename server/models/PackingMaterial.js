@@ -122,6 +122,20 @@ const packingMaterialSchema = new mongoose.Schema({
         default: 0,
         min: [0, 'Threshold cannot be negative'],
     },
+    // HSN Code field
+    hsnCode: {
+        type: String,
+        required: false,
+        trim: true,
+        default: ''
+    },
+    // Brand Type field for Own Brand / Other Brand distinction
+    brandType: {
+        type: String,
+        required: false,
+        enum: ['own', 'other'],
+        default: 'own'
+    },
     shop: {
         type: String,
         required: false, // Changed from true to false to make it optional

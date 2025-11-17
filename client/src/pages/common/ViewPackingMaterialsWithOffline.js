@@ -63,6 +63,7 @@ const ViewPackingMaterialsWithOffline = () => {
     const [materials, setMaterials] = useState([]);
     const [productMappings, setProductMappings] = useState([]);
     const [searchTerm, setSearchTerm] = useState('');
+    const [brandType, setBrandType] = useState('own'); // 'own' or 'other'
 
     // UI/State management states
     const [isLoading, setIsLoading] = useState(true);
@@ -82,6 +83,10 @@ const ViewPackingMaterialsWithOffline = () => {
     const [isImporting, setIsImporting] = useState(false);
     const [importResult, setImportResult] = useState(null);
     
+    // Duplicate confirmation states
+    const [isDuplicateModalOpen, setIsDuplicateModalOpen] = useState(false);
+    const [duplicateMaterials, setDuplicateMaterials] = useState([]);
+
     // Check permissions
     const canViewMaterials = checkPermission('view-materials', 'view');
     const canAddMaterials = checkPermission('view-materials', 'add');
@@ -109,7 +114,7 @@ const ViewPackingMaterialsWithOffline = () => {
         setError('');
         
         try {
-            const response = await apiWithOfflineSupport.get('/materials');
+            const response = await apiWithOfflineSupport.get(`/materials?brandType=${brandType}`);
             setMaterials(response.data);
             
             // Show offline status message
@@ -139,7 +144,7 @@ const ViewPackingMaterialsWithOffline = () => {
         } finally {
             setIsLoading(false);
         }
-    }, [canViewMaterials]);
+    }, [canViewMaterials, brandType]);
 
     // Fetch product mappings
     const fetchProductMappings = useCallback(async () => {
@@ -155,7 +160,6 @@ const ViewPackingMaterialsWithOffline = () => {
         }
     }, []);
 
-
     
     useEffect(() => {
         fetchMaterials();
@@ -166,7 +170,9 @@ const ViewPackingMaterialsWithOffline = () => {
 
     // CREATE: Called from MaterialForm after a successful API call
     const handleAddMaterial = (newMaterial) => {
-        setMaterials(prevMaterials => [...prevMaterials, newMaterial]);
+        // Ensure the new material has the correct brandType
+        const materialWithBrand = { ...newMaterial, brandType };
+        setMaterials(prevMaterials => [...prevMaterials, materialWithBrand]);
         
         // Show success message based on online status
         if (isOnline) {
@@ -256,13 +262,14 @@ const ViewPackingMaterialsWithOffline = () => {
         }
         
         try {
-            // Ensure numeric values are properly converted
+            // Ensure numeric values are properly converted and brandType is included
             const updatedMaterialData = {
                 ...selectedMaterial,
                 quantity: Number(selectedMaterial.quantity) || 0,
                 perQuantityPrice: Number(selectedMaterial.perQuantityPrice) || 0,
                 stockAlertThreshold: Number(selectedMaterial.stockAlertThreshold) || 0,
-                unit: selectedMaterial.unit || 'pcs'
+                unit: selectedMaterial.unit || 'pcs',
+                brandType: selectedMaterial.brandType || brandType
             };
             
             const response = await apiWithOfflineSupport.put(`/materials/${selectedMaterial._id}`, updatedMaterialData);
@@ -383,24 +390,80 @@ const ViewPackingMaterialsWithOffline = () => {
     // Handle import submission
     const handleImportSubmit = async (e) => {
         e.preventDefault();
-        
         if (!importFile) {
-            toast.error('Please select a file to import');
+            alert('Please select a file to import.');
             return;
         }
-        
+
         setIsImporting(true);
         setImportResult(null);
         
         try {
-            // Send file directly to API for processing
+            // Send file directly to API for processing with brandType
             const formData = new FormData();
             formData.append('file', importFile);
+            formData.append('brandType', brandType); // Include brandType in the import
             
             const response = await apiWithOfflineSupport.post('/materials/import', formData, {
                 headers: {
                     'Content-Type': 'multipart/form-data'
                 }
+            });
+            
+            // Check if duplicates were found
+            if (response.data.duplicates && response.data.duplicates.length > 0) {
+                // Show duplicate confirmation modal
+                setDuplicateMaterials(response.data.duplicates);
+                setIsDuplicateModalOpen(true);
+                setImportResult(null); // Clear previous result
+            } else {
+                // No duplicates, show result normally
+                // Refresh materials list
+                fetchMaterials();
+                
+                // Show result
+                setImportResult({
+                    message: response.data.message,
+                    imported: response.data.imported,
+                    duplicates: response.data.duplicates,
+                    errors: response.data.errors
+                });
+                
+                // Show detailed toast message
+                if (response.data.imported > 0) {
+                    toast.success(`✅ Imported ${response.data.imported} materials successfully`);
+                }
+                if (response.data.duplicates > 0) {
+                    toast.warn(`⚠️ Skipped ${response.data.duplicates} duplicate materials`);
+                }
+                if (response.data.errors > 0) {
+                    toast.error(`❌ Encountered ${response.data.errors} errors during import`);
+                }
+            }
+            
+            // Reset file input
+            setImportFile(null);
+        } catch (err) {
+            console.error("Failed to import materials", err);
+            toast.error('Failed to import materials. Please try again.', {
+                position: "top-right",
+                autoClose: 5000,
+            });
+        } finally {
+            setIsImporting(false);
+        }
+    };
+
+    // Handle duplicate confirmation
+    const handleDuplicateConfirmation = async (action) => {
+        setIsDuplicateModalOpen(false);
+        
+        try {
+            // Send confirmation to server with brandType
+            const response = await apiWithOfflineSupport.post('/materials/import-with-duplicates', {
+                duplicates: duplicateMaterials,
+                action: action, // 'add' or 'skip'
+                brandType: brandType // Include brandType in the request
             });
             
             // Refresh materials list
@@ -410,7 +473,8 @@ const ViewPackingMaterialsWithOffline = () => {
             setImportResult({
                 message: response.data.message,
                 imported: response.data.imported,
-                duplicates: response.data.duplicates,
+                updated: response.data.updated,
+                skipped: response.data.skipped,
                 errors: response.data.errors
             });
             
@@ -418,8 +482,11 @@ const ViewPackingMaterialsWithOffline = () => {
             if (response.data.imported > 0) {
                 toast.success(`✅ Imported ${response.data.imported} materials successfully`);
             }
-            if (response.data.duplicates > 0) {
-                toast.warn(`⚠️ Skipped ${response.data.duplicates} duplicate materials`);
+            if (response.data.updated > 0) {
+                toast.success(`🔄 Updated quantities for ${response.data.updated} existing materials`);
+            }
+            if (response.data.skipped > 0) {
+                toast.warn(`⚠️ Skipped ${response.data.skipped} duplicate materials`);
             }
             if (response.data.errors > 0) {
                 toast.error(`❌ Encountered ${response.data.errors} errors during import`);
@@ -427,17 +494,12 @@ const ViewPackingMaterialsWithOffline = () => {
             
             // Reset file input
             setImportFile(null);
-            
-            // Show success message with detailed info
-            toast.success(`✅ Imported ${response.data.imported} materials successfully (Item codes auto-assigned). ${response.data.duplicates > 0 ? `⚠️ Skipped ${response.data.duplicates} duplicates.` : ''} ${response.data.errors > 0 ? `❌ Errors: ${response.data.errors}.` : ''}`);
         } catch (err) {
-            console.error('Import error:', err);
-            const errorMessage = err.response?.data?.message || err.message || 'Failed to import materials';
-            setImportResult({ error: errorMessage });
-            toast.error('❌ Import failed. Please check your Excel format.');
-        } finally {
-            setIsImporting(false);
-            setIsLoading(false);
+            console.error("Failed to process duplicates", err);
+            toast.error('Failed to process duplicates. Please try again.', {
+                position: "top-right",
+                autoClose: 5000,
+            });
         }
     };
     
@@ -451,9 +513,10 @@ const ViewPackingMaterialsWithOffline = () => {
                 'Material Name': material.name,
                 'Quantity': material.quantity,
                 'Unit': material.unit || 'pcs',
-                'Per Quantity Price (₹)': material.perQuantityPrice,
+                'Unit Price (₹)': material.perQuantityPrice,
                 'Total Price (₹)': (parseFloat(material.quantity) * parseFloat(material.perQuantityPrice)).toFixed(2),
                 'Alert Threshold': material.stockAlertThreshold,
+                'Brand Type': material.brandType === 'own' ? 'Own Brand' : 'Other Brand',
                 'Date Added': material.createdAt ? new Date(material.createdAt).toLocaleDateString() : new Date(material.date).toLocaleDateString()
             }));
             
@@ -466,7 +529,8 @@ const ViewPackingMaterialsWithOffline = () => {
             
             // Export to file with proper filename format
             const dateStr = new Date().toISOString().split('T')[0];
-            XLSX.writeFile(wb, `Packing_Materials_Report_${dateStr}.xlsx`);
+            const brandLabel = brandType === 'own' ? 'OwnBrand' : 'OtherBrand';
+            XLSX.writeFile(wb, `Packing_Materials_${brandLabel}_${dateStr}.xlsx`);
             
             toast.success('Materials exported successfully!');
         } catch (err) {
@@ -481,16 +545,17 @@ const ViewPackingMaterialsWithOffline = () => {
     const handleExportPDF = async () => {
         setIsLoading(true);
         try {
-            const response = await apiWithOfflineSupport.get('/materials/export?format=pdf', {
+            const response = await apiWithOfflineSupport.get(`/materials/export?format=pdf&brandType=${brandType}`, {
                 responseType: 'blob'
             });
             
             // Create download link
             const url = window.URL.createObjectURL(new Blob([response.data], { type: 'application/pdf' }));
             const dateStr = new Date().toISOString().split('T')[0];
+            const brandLabel = brandType === 'own' ? 'OwnBrand' : 'OtherBrand';
             const link = document.createElement('a');
             link.href = url;
-            link.setAttribute('download', `Packing_Materials_Report_${dateStr}.pdf`);
+            link.setAttribute('download', `Packing_Materials_${brandLabel}_${dateStr}.pdf`);
             document.body.appendChild(link);
             link.click();
             link.remove();
@@ -517,6 +582,7 @@ const ViewPackingMaterialsWithOffline = () => {
         { header: 'Unit Price (₹)', key: 'perQuantityPrice', render: (value) => `₹${parseFloat(value).toFixed(2)}` },
         { header: 'Total Value (₹)', key: 'totalValue', render: (value, row) => `₹${(parseFloat(row.quantity) * parseFloat(row.perQuantityPrice)).toFixed(2)}` },
         { header: 'Alert Threshold', key: 'stockAlertThreshold' },
+        { header: 'Brand Type', key: 'brandType', render: (value) => value === 'own' ? 'Own Brand' : 'Other Brand' },
         { header: 'Last Updated', key: 'updatedAt', render: (value) => new Date(value).toLocaleDateString() }
     ];
 
@@ -574,10 +640,40 @@ const ViewPackingMaterialsWithOffline = () => {
                     </div>
                 )}
                 
+                {/* Brand Toggle Switch */}
+                <div className="mb-6 flex justify-center">
+                    <div className="inline-flex rounded-md shadow-sm" role="group">
+                        <button
+                            type="button"
+                            className={`px-6 py-3 text-sm font-medium rounded-l-lg border ${
+                                brandType === 'own'
+                                    ? 'bg-indigo-600 text-white border-indigo-600'
+                                    : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-100'
+                            }`}
+                            onClick={() => setBrandType('own')}
+                        >
+                            Own Brand
+                        </button>
+                        <button
+                            type="button"
+                            className={`px-6 py-3 text-sm font-medium rounded-r-lg border ${
+                                brandType === 'other'
+                                    ? 'bg-indigo-600 text-white border-indigo-600'
+                                    : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-100'
+                            }`}
+                            onClick={() => setBrandType('other')}
+                        >
+                            Other Brand
+                        </button>
+                    </div>
+                </div>
+                
                 {/* Header Section - Add Delivery Challan button */}
                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
                     <div>
-                        <h1 className="text-4xl font-bold text-gray-900 tracking-tight">Packing Materials</h1>
+                        <h1 className="text-4xl font-bold text-gray-900 tracking-tight">
+                            Packing Materials - {brandType === 'own' ? 'Own Brand' : 'Other Brand'}
+                        </h1>
                         <p className="text-gray-600 mt-1 text-sm">Manage your packing materials inventory</p>
                     </div>
                     <div className="flex space-x-2 self-end sm:self-auto">
@@ -627,8 +723,8 @@ const ViewPackingMaterialsWithOffline = () => {
                         {canViewReports && (
                             <ViewReportTools
                                 data={filteredMaterials}
-                                title="Packing Material Stock"
-                                fileName="ViewMaterials"
+                                title={`Packing Material Stock - ${brandType === 'own' ? 'Own Brand' : 'Other Brand'}`}
+                                fileName={`ViewMaterials_${brandType === 'own' ? 'OwnBrand' : 'OtherBrand'}`}
                                 metaDetails={{ user: 'Current User' }}
                                 columns={reportColumns}
                                 searchFilter={searchTerm}
@@ -655,7 +751,7 @@ const ViewPackingMaterialsWithOffline = () => {
                 {/* Add Material Form - Enhanced card styling */}
                 {canAddMaterials && (
                     <div className="mb-8">
-                        <MaterialForm onMaterialAdded={handleAddMaterial} />
+                        <MaterialForm onMaterialAdded={handleAddMaterial} brandType={brandType} />
                     </div>
                 )}
 
@@ -879,7 +975,7 @@ const ViewPackingMaterialsWithOffline = () => {
                                     </select>
                                 </div>
                                 
-                                {/* Per Quantity Price */}
+                                {/* Unit Price */}
                                 <div>
                                     <label htmlFor="edit-perQuantityPrice" className="block text-sm font-semibold text-gray-700 mb-2">
                                         Unit Price (₹) <span className="text-red-500">*</span>
@@ -936,6 +1032,22 @@ const ViewPackingMaterialsWithOffline = () => {
                                                  bg-white text-gray-900 placeholder-gray-400
                                                  focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent
                                                  transition-all duration-200 hover:border-gray-400"
+                                    />
+                                </div>
+                                
+                                {/* Brand Type - Read only in edit mode */}
+                                <div>
+                                    <label htmlFor="edit-brandType" className="block text-sm font-semibold text-gray-700 mb-2">
+                                        Brand Type
+                                    </label>
+                                    <input 
+                                        id="edit-brandType" 
+                                        type="text" 
+                                        value={selectedMaterial?.brandType === 'own' ? 'Own Brand' : 'Other Brand'} 
+                                        readOnly 
+                                        className="block w-full px-4 py-3 border border-gray-200 rounded-lg 
+                                                 bg-gray-50 text-gray-600 cursor-not-allowed
+                                                 focus:outline-none"
                                     />
                                 </div>
                             </div>
@@ -1002,7 +1114,12 @@ const ViewPackingMaterialsWithOffline = () => {
                                         <p className="text-green-700 font-medium">{importResult.message}</p>
                                         <ul className="mt-2 text-green-700">
                                             <li>✅ Imported: {importResult.imported} rows</li>
-                                            <li>⚠️ Duplicates skipped: {importResult.duplicates}</li>
+                                            {importResult.updated !== undefined && (
+                                                <li>🔄 Updated: {importResult.updated} materials</li>
+                                            )}
+                                            {importResult.skipped !== undefined && (
+                                                <li>⚠️ Skipped: {importResult.skipped} duplicates</li>
+                                            )}
                                             <li>❌ Errors: {importResult.errors}</li>
                                         </ul>
                                     </div>
@@ -1044,6 +1161,67 @@ const ViewPackingMaterialsWithOffline = () => {
                             </button>
                         </div>
                     </form>
+                </Modal>
+                
+                {/* Duplicate Confirmation Modal */}
+                <Modal isOpen={isDuplicateModalOpen} onClose={() => setIsDuplicateModalOpen(false)} title="Duplicate Materials Found">
+                    <div className="space-y-6">
+                        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                            <p className="text-yellow-800 font-medium mb-2">⚠️ Duplicate materials detected</p>
+                            <p className="text-yellow-700 text-sm">
+                                The following materials already exist in your inventory. What would you like to do?
+                            </p>
+                        </div>
+                        
+                        <div className="max-h-60 overflow-y-auto border border-gray-200 rounded-lg">
+                            <table className="min-w-full divide-y divide-gray-200">
+                                <thead className="bg-gray-50">
+                                    <tr>
+                                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Material Name</th>
+                                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Existing Qty</th>
+                                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">New Qty</th>
+                                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total Qty</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="bg-white divide-y divide-gray-200">
+                                    {duplicateMaterials.map((material, index) => (
+                                        <tr key={index}>
+                                            <td className="px-4 py-2 text-sm font-medium text-gray-900">{material.name}</td>
+                                            <td className="px-4 py-2 text-sm text-gray-500">{material.existingQuantity}</td>
+                                            <td className="px-4 py-2 text-sm text-gray-500">{material.quantity}</td>
+                                            <td className="px-4 py-2 text-sm font-medium text-indigo-600">{material.existingQuantity + material.quantity}</td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                        
+                        <div className="flex justify-end space-x-3 pt-4">
+                            <button
+                                type="button"
+                                onClick={() => handleDuplicateConfirmation('skip')}
+                                className="px-6 py-2.5 border border-gray-300 rounded-lg 
+                                         text-sm font-medium text-gray-700 bg-white 
+                                         hover:bg-gray-50 hover:border-gray-400
+                                         focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500
+                                         transition-all duration-200 ease-in-out"
+                            >
+                                Skip Duplicates
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => handleDuplicateConfirmation('add')}
+                                className="px-6 py-2.5 border border-transparent rounded-lg 
+                                         text-sm font-medium text-white bg-indigo-600 
+                                         hover:bg-indigo-700 hover:shadow-md
+                                         focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500
+                                         transition-all duration-200 ease-in-out
+                                         transform hover:scale-105"
+                            >
+                                Add Quantities to Existing
+                            </button>
+                        </div>
+                    </div>
                 </Modal>
                 
                 {/* Delete Confirmation Modal - Enhanced design */}

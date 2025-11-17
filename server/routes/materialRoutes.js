@@ -18,6 +18,7 @@ const {
     getStockAlerts,
     getNextItemCode,
     importMaterials,
+    importMaterialsWithDuplicates, // Add the new function
     exportMaterials
 } = require('../controllers/materialController');
 
@@ -31,6 +32,9 @@ router.route('/next-item-code').get(protect, getNextItemCode);
 // Import/Export routes
 router.route('/import')
     .post(protect, upload.single('file'), importMaterials);
+    
+router.route('/import-with-duplicates') // Add the new route
+    .post(protect, importMaterialsWithDuplicates);
     
 router.route('/export')
     .get(protect, exportMaterials);

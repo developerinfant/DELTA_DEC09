@@ -37,13 +37,13 @@ const generateItemCode = async (type) => {
  * @access  Private (Admin/Manager)
  */
 const addMaterial = async (req, res) => {
-    const { name, quantity, perQuantityPrice, stockAlertThreshold, shop, date, availableQty, jobberQty, usedQty, isWithJobber, unit } = req.body;
+    const { name, quantity, perQuantityPrice, stockAlertThreshold, shop, date, availableQty, jobberQty, usedQty, isWithJobber, unit, brandType } = req.body;
 
     try {
         // Check if user is admin or manager with a shop assigned
         // Removed the check that prevented adding materials without a shop
         
-        const materialExists = await PackingMaterial.findOne({ name, shop: shop || null });
+        const materialExists = await PackingMaterial.findOne({ name, shop: shop || null, brandType: brandType || 'own' });
         if (materialExists) {
             return res.status(400).json({ message: 'A material with this name already exists' });
         }
@@ -63,6 +63,7 @@ const addMaterial = async (req, res) => {
             perQuantityPrice, 
             stockAlertThreshold,
             unit: unit || 'pcs', // Default to 'pcs' if not provided
+            brandType: brandType || 'own', // Default to 'own' if not provided
             shop: shop || undefined, // Only set shop if provided
             date: materialDate // Use provided date or current date
         });
@@ -158,6 +159,11 @@ const getMaterials = async (req, res) => {
             filter.name = { $regex: req.query.name, $options: 'i' }; // Case-insensitive search
         }
         
+        // If brandType parameter is provided, add it to the filter
+        if (req.query.brandType) {
+            filter.brandType = req.query.brandType;
+        }
+        
         // Show all materials regardless of shop
         const materials = await PackingMaterial.find(filter).sort({ createdAt: -1 });
         
@@ -196,6 +202,16 @@ const getMaterials = async (req, res) => {
             if (material.isWithJobber === undefined) {
                 material.isWithJobber = false;
             }
+            
+            // Debug: Log material data to check field values
+            console.log('Material data from DB:', {
+                _id: material._id,
+                name: material.name,
+                quantity: material.quantity,
+                perQuantityPrice: material.perQuantityPrice,
+                typeOfQuantity: typeof material.quantity,
+                typeOfPrice: typeof material.perQuantityPrice
+            });
         });
         
         res.json(materials);
@@ -211,17 +227,18 @@ const getMaterials = async (req, res) => {
  * @access  Private (Admin/Manager)
  */
 const updateMaterial = async (req, res) => {
-    const { name, quantity, perQuantityPrice, stockAlertThreshold, shop, date, availableQty, jobberQty, usedQty, isWithJobber, unit } = req.body;
+    const { name, quantity, perQuantityPrice, stockAlertThreshold, shop, date, availableQty, jobberQty, usedQty, isWithJobber, unit, brandType } = req.body;
     try {
         const material = await PackingMaterial.findById(req.params.id);
         if (!material) {
             return res.status(404).json({ message: 'Material not found' });
         }
         
-        // Check if name already exists for this shop (excluding current material)
+        // Check if name already exists for this shop and brandType (excluding current material)
         const existingMaterial = await PackingMaterial.findOne({ 
             name, 
             shop: shop || null,
+            brandType: brandType || 'own',
             _id: { $ne: req.params.id }  // Exclude current material
         });
         
@@ -238,6 +255,7 @@ const updateMaterial = async (req, res) => {
         material.perQuantityPrice = perQuantityPrice || material.perQuantityPrice;
         material.stockAlertThreshold = stockAlertThreshold || material.stockAlertThreshold;
         material.unit = unit || material.unit;
+        material.brandType = brandType || material.brandType;
         // Only update shop if provided in the request
         if (shop !== undefined) {
             material.shop = shop;
@@ -576,6 +594,9 @@ const importMaterials = async (req, res) => {
             return res.status(400).json({ message: 'No file uploaded' });
         }
 
+        // Get brandType from request body, default to 'own'
+        const brandType = req.body.brandType || 'own';
+
         // Read the Excel file
         const workbook = XLSX.read(req.file.buffer, { type: 'buffer' });
         const sheetName = workbook.SheetNames[0];
@@ -586,11 +607,12 @@ const importMaterials = async (req, res) => {
         
         // Smart column mapping configuration
         const columnMap = {
-            name: ["particulars", "material name", "product name", "item name"],
-            quantity: ["quantity", "qty", "stock qty", "closing qty"],
-            perQuantityPrice: ["rate", "unit price", "per qty price", "price", "per quantity price (₹)"],
-            alertThreshold: ["alert threshold", "stock alert threshold", "threshold"],
-            unit: ["unit"]
+            name: ["particulars", "material name", "product name", "item name", "name", "material", "material name"],
+            quantity: ["quantity", "qty", "stock qty", "closing qty", "quantity"],
+            perQuantityPrice: ["rate", "unit price", "per qty price", "price", "per quantity price (₹)", "unit price (₹)", "unit price", "unit price"],
+            alertThreshold: ["alert threshold", "stock alert threshold", "threshold", "stock alert threshold"],
+            unit: ["unit", "unit"],
+            hsnCode: ["hsn", "hsn code", "hsn number", "hsn code"]
         };
         
         // Helper function to convert values to numbers
@@ -662,12 +684,18 @@ const importMaterials = async (req, res) => {
         headers.forEach((header, index) => {
             // Try to match each header with our known fields
             for (const [field, keywords] of Object.entries(columnMap)) {
+                // Make sure we don't map the same column index to multiple fields
                 if (keywords.some(keyword => header.includes(keyword))) {
-                    fieldMapping[field] = index;
-                    break;
+                    // Only set if not already mapped to prevent conflicts
+                    if (fieldMapping[field] === undefined) {
+                        fieldMapping[field] = index;
+                    }
                 }
             }
         });
+        
+        // Debug: Log the field mapping
+        console.log('Field mapping:', fieldMapping);
         
         // Process data rows (skip header row)
         const dataRows = rawData.slice(headerRowIndex + 1);
@@ -712,11 +740,25 @@ const importMaterials = async (req, res) => {
                     cleanRow.unit = detectUnitFromName(cleanRow.name);
                 }
                 
+                // Handle HSN Code field
+                if (fieldMapping.hsnCode !== undefined) {
+                    const hsnValue = row[fieldMapping.hsnCode];
+                    cleanRow.hsnCode = (hsnValue !== undefined && hsnValue !== null) ? 
+                                      String(hsnValue).trim() : '';
+                } else {
+                    cleanRow.hsnCode = '';
+                }
+                
                 // Apply defaults for missing fields
                 if (cleanRow.name === undefined) cleanRow.name = '';
                 if (cleanRow.quantity === undefined) cleanRow.quantity = 0;
                 if (cleanRow.perQuantityPrice === undefined) cleanRow.perQuantityPrice = 0;
                 if (cleanRow.alertThreshold === undefined) cleanRow.alertThreshold = 20;
+                if (cleanRow.hsnCode === undefined) cleanRow.hsnCode = '';
+                
+                // Debug: Log each row mapping
+                console.log('Row mapping - Raw row:', row);
+                console.log('Row mapping - Clean row:', cleanRow);
                 
                 return cleanRow;
             })
@@ -726,6 +768,7 @@ const importMaterials = async (req, res) => {
         let duplicateCount = 0;
         let errorCount = 0;
         const errors = [];
+        const duplicates = []; // Store duplicate materials for confirmation
         
         // Get the latest item code to continue numbering
         const latestMaterial = await PackingMaterial
@@ -748,12 +791,21 @@ const importMaterials = async (req, res) => {
                     continue;
                 }
                 
-                // Check for duplicates
+                // Check for duplicates within the same brandType
                 const existingMaterial = await PackingMaterial.findOne({ 
-                    name: row.name
+                    name: row.name,
+                    brandType: brandType
                 });
                 
                 if (existingMaterial) {
+                    // Instead of skipping, add to duplicates list for confirmation
+                    duplicates.push({
+                        name: row.name,
+                        quantity: row.quantity,
+                        perQuantityPrice: row.perQuantityPrice,
+                        existingQuantity: existingMaterial.quantity,
+                        existingPrice: existingMaterial.perQuantityPrice
+                    });
                     duplicateCount++;
                     continue;
                 }
@@ -777,18 +829,25 @@ const importMaterials = async (req, res) => {
                 // Update next counter for efficiency
                 nextCounter = counter + 1;
                 
-                // Create new material
+                // Validate data to ensure quantity and price are numbers
+                const validatedQuantity = typeof row.quantity === 'number' ? row.quantity : 0;
+                const validatedPrice = typeof row.perQuantityPrice === 'number' ? row.perQuantityPrice : 0;
+                const validatedHsnCode = typeof row.hsnCode === 'string' ? row.hsnCode : '';
+                
+                // Create new material with brandType
                 const material = new PackingMaterial({
                     itemCode: finalItemCode,
                     name: row.name,
-                    quantity: row.quantity,
-                    availableQty: row.quantity,
+                    quantity: validatedQuantity,
+                    availableQty: validatedQuantity,
                     jobberQty: 0,
                     usedQty: 0,
                     isWithJobber: false,
-                    perQuantityPrice: row.perQuantityPrice,
+                    perQuantityPrice: validatedPrice,
                     stockAlertThreshold: row.alertThreshold || 20, // Use provided value or default
                     unit: row.unit || 'pcs', // Use provided unit or default to 'pcs'
+                    hsnCode: validatedHsnCode, // Add HSN code
+                    brandType: brandType, // Include brandType
                     date: new Date()
                 });
                 
@@ -799,9 +858,9 @@ const importMaterials = async (req, res) => {
                     supplier: 'Initial Stock (Import)',
                     poNumber: 'N/A',
                     grnNumber: 'N/A',
-                    qty: row.quantity,
-                    unitPrice: row.perQuantityPrice,
-                    total: row.quantity * row.perQuantityPrice
+                    qty: validatedQuantity,
+                    unitPrice: validatedPrice,
+                    total: validatedQuantity * validatedPrice
                 };
                 
                 material.priceHistory.push(initialHistoryEntry);
@@ -812,6 +871,18 @@ const importMaterials = async (req, res) => {
                 errors.push(`Row import failed: ${error.message}`);
                 console.error(`Error importing row: ${error.message}`);
             }
+        }
+        
+        // If there are duplicates, return them for confirmation
+        if (duplicates.length > 0) {
+            return res.json({
+                message: 'Duplicates found',
+                duplicates: duplicates,
+                imported: importedCount,
+                duplicateCount: duplicateCount,
+                errors: errorCount,
+                errorDetails: errors
+            });
         }
         
         res.json({
@@ -828,6 +899,101 @@ const importMaterials = async (req, res) => {
 };
 
 /**
+ * @desc    Import packing materials from Excel with confirmation for duplicates
+ * @route   POST /api/materials/import-with-duplicates
+ * @access  Private (Admin/Manager)
+ */
+const importMaterialsWithDuplicates = async (req, res) => {
+    try {
+        const { duplicates, action, brandType = 'own' } = req.body; // action can be 'add' or 'skip'
+        
+        if (!duplicates || !Array.isArray(duplicates)) {
+            return res.status(400).json({ message: 'Invalid duplicates data' });
+        }
+        
+        if (action !== 'add' && action !== 'skip') {
+            return res.status(400).json({ message: 'Invalid action. Must be "add" or "skip"' });
+        }
+        
+        let importedCount = 0;
+        let updatedCount = 0;
+        let skippedCount = 0;
+        let errorCount = 0;
+        const errors = [];
+        
+        // Process each duplicate based on action
+        for (const duplicate of duplicates) {
+            try {
+                const existingMaterial = await PackingMaterial.findOne({ 
+                    name: duplicate.name,
+                    brandType: brandType // Filter by brandType
+                });
+                
+                if (!existingMaterial) {
+                    // This shouldn't happen, but just in case
+                    errorCount++;
+                    errors.push(`Material not found: ${duplicate.name}`);
+                    continue;
+                }
+                
+                if (action === 'add') {
+                    // Add quantities to existing material
+                    const newQuantity = existingMaterial.quantity + duplicate.quantity;
+                    const newAvailableQty = existingMaterial.availableQty + duplicate.quantity;
+                    
+                    // Update the material
+                    existingMaterial.quantity = newQuantity;
+                    existingMaterial.availableQty = newAvailableQty;
+                    
+                    // Add to price history
+                    const historyEntry = {
+                        date: new Date(),
+                        type: 'New GRN',
+                        supplier: 'Duplicate Import',
+                        poNumber: 'N/A',
+                        grnNumber: 'N/A',
+                        qty: duplicate.quantity,
+                        unitPrice: duplicate.perQuantityPrice,
+                        total: duplicate.quantity * duplicate.perQuantityPrice
+                    };
+                    
+                    existingMaterial.priceHistory.push(historyEntry);
+                    await existingMaterial.save();
+                    updatedCount++;
+                } else {
+                    // Skip the duplicate
+                    skippedCount++;
+                }
+            } catch (error) {
+                errorCount++;
+                errors.push(`Failed to process duplicate ${duplicate.name}: ${error.message}`);
+                console.error(`Error processing duplicate: ${error.message}`);
+            }
+        }
+        
+        // Prepare success message based on action
+        let message = 'Import completed successfully';
+        if (action === 'add') {
+            message = `Import completed successfully. Added quantities to ${updatedCount} existing materials.`;
+        } else {
+            message = `Import completed successfully. Skipped ${skippedCount} duplicate materials.`;
+        }
+        
+        res.json({
+            message: message,
+            imported: importedCount,
+            updated: updatedCount,
+            skipped: skippedCount,
+            errors: errorCount,
+            errorDetails: errors
+        });
+    } catch (error) {
+        console.error(`Error importing materials with duplicates: ${error.message}`);
+        res.status(500).json({ message: 'Server error while importing materials', error: error.message });
+    }
+};
+
+/**
  * @desc    Export packing materials to Excel or PDF
  * @route   GET /api/materials/export?format=excel|pdf
  * @access  Private (Admin/Manager)
@@ -835,9 +1001,10 @@ const importMaterials = async (req, res) => {
 const exportMaterials = async (req, res) => {
     try {
         const format = req.query.format || 'excel';
+        const brandType = req.query.brandType || 'own'; // Default to 'own' brand
         
-        // Get all packing materials
-        const materials = await PackingMaterial.find({}).sort({ name: 1 });
+        // Get packing materials filtered by brandType
+        const materials = await PackingMaterial.find({ brandType }).sort({ name: 1 });
         
         // Prepare data for export
         const exportData = materials.map(material => ({
@@ -845,10 +1012,12 @@ const exportMaterials = async (req, res) => {
             'Material Name': material.name,
             'Quantity': material.quantity,
             'Unit': material.unit || 'pcs',
-            'Per Quantity Price (₹)': material.perQuantityPrice,
-            'Total Price (₹)': material.quantity * material.perQuantityPrice,
-            'Alert Threshold': material.stockAlertThreshold,
-            'Date Added': material.createdAt ? material.createdAt.toISOString().split('T')[0] : material.date.toISOString().split('T')[0]
+            'Unit Price': material.perQuantityPrice,
+            'Total Price': material.quantity * material.perQuantityPrice,
+            'Stock Alert Threshold': material.stockAlertThreshold,
+            'HSN Code': material.hsnCode || '', // Add HSN Code to export
+            'Brand Type': material.brandType === 'own' ? 'Own Brand' : 'Other Brand',
+            'View History': 'Click View History button'
         }));
 
         if (format === 'excel') {
@@ -862,8 +1031,9 @@ const exportMaterials = async (req, res) => {
             
             // Set headers for download
             const dateStr = new Date().toISOString().split('T')[0];
+            const brandLabel = brandType === 'own' ? 'OwnBrand' : 'OtherBrand';
             res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-            res.setHeader('Content-Disposition', `attachment; filename=Packing_Materials_Report_${dateStr}.xlsx`);
+            res.setHeader('Content-Disposition', `attachment; filename=Packing_Materials_${brandLabel}_${dateStr}.xlsx`);
             
             // Send buffer
             res.send(buf);
@@ -893,5 +1063,6 @@ module.exports = {
     getPackingMaterialStockReport,
     getPackingMaterialStockByName, // Add this new function
     importMaterials,
+    importMaterialsWithDuplicates, // Add the new function
     exportMaterials
 };
