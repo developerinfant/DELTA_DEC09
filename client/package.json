@@ -13,6 +13,7 @@
         "jspdf": "^3.0.3",
         "jspdf-autotable": "^5.0.2",
         "jwt-decode": "^4.0.0",
+        "lucide-react": "^0.553.0",
         "multer": "^2.0.2",
         "react": "^18.3.1",
         "react-device-detect": "^2.2.3",

@@ -10,16 +10,6 @@ const PurchaseOrderForm = ({ suppliers, materials, rawMaterials, onOrderCreated,
     const [supplier, setSupplier] = useState('');
     const [expectedDeliveryDate, setExpectedDeliveryDate] = useState('');
     const [paymentTerms, setPaymentTerms] = useState('Net 30');
-    const [dispatchFrom, setDispatchFrom] = useState('');
-    const [destination, setDestination] = useState('');
-    const [vehicleNo, setVehicleNo] = useState('');
-
-    const [noOfPacks, setNoOfPacks] = useState('');
-    const [transport, setTransport] = useState('');
-    const [salesman, setSalesman] = useState('');
-    const [dcNo, setDcNo] = useState('');
-    const [dcDate, setDcDate] = useState('');
-    const [deliveryTerms, setDeliveryTerms] = useState('');
     const [items, setItems] = useState([{ 
         materialId: '', 
         materialModel: '', 
@@ -379,15 +369,6 @@ const PurchaseOrderForm = ({ suppliers, materials, rawMaterials, onOrderCreated,
             })),
             expectedDeliveryDate,
             paymentTerms,
-            dispatchFrom,
-            destination,
-            vehicleNo,
-            noOfPacks: noOfPacks ? Number(noOfPacks) : null,
-            transport,
-            salesman,
-            dcNo,
-            dcDate,
-            deliveryTerms
         };
 
         try {
@@ -529,119 +510,6 @@ const PurchaseOrderForm = ({ suppliers, materials, rawMaterials, onOrderCreated,
                                 <option value="Cash on Delivery">Cash on Delivery</option>
                                 <option value="Immediate">Immediate</option>
                             </select>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Dispatch Details */}
-                <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm">
-                    <h3 className="text-lg font-semibold text-gray-800 mb-4 pb-2 border-b border-gray-100">Dispatch Information</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
-                        <div>
-                            <label htmlFor="dispatchFrom" className="block text-sm font-medium text-gray-700 mb-2">Dispatch From</label>
-                            <input 
-                                type="text" 
-                                id="dispatchFrom" 
-                                value={dispatchFrom} 
-                                onChange={(e) => setDispatchFrom(e.target.value)} 
-                                className="w-full px-4 py-2.5 text-gray-700 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
-                            />
-                        </div>
-                        <div>
-                            <label htmlFor="destination" className="block text-sm font-medium text-gray-700 mb-2">Destination</label>
-                            <input 
-                                type="text" 
-                                id="destination" 
-                                value={destination} 
-                                onChange={(e) => setDestination(e.target.value)} 
-                                className="w-full px-4 py-2.5 text-gray-700 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
-                            />
-                        </div>
-                        <div>
-                            <label htmlFor="vehicleNo" className="block text-sm font-medium text-gray-700 mb-2">Vehicle No</label>
-                            <input 
-                                type="text" 
-                                id="vehicleNo" 
-                                value={vehicleNo} 
-                                onChange={(e) => setVehicleNo(e.target.value)} 
-                                className="w-full px-4 py-2.5 text-gray-700 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
-                            />
-                        </div>
-
-                    </div>
-                </div>
-
-                {/* Additional Dispatch Details */}
-                <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm">
-                    <h3 className="text-lg font-semibold text-gray-800 mb-4 pb-2 border-b border-gray-100">Additional Details</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
-
-                        <div>
-                            <label htmlFor="noOfPacks" className="block text-sm font-medium text-gray-700 mb-2">No. of Packs</label>
-                            <input 
-                                type="number" 
-                                id="noOfPacks" 
-                                value={noOfPacks} 
-                                onChange={(e) => setNoOfPacks(e.target.value)} 
-                                className="w-full px-4 py-2.5 text-gray-700 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
-                            />
-                        </div>
-                        <div>
-                            <label htmlFor="transport" className="block text-sm font-medium text-gray-700 mb-2">Transport</label>
-                            <input 
-                                type="text" 
-                                id="transport" 
-                                value={transport} 
-                                onChange={(e) => setTransport(e.target.value)} 
-                                className="w-full px-4 py-2.5 text-gray-700 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
-                            />
-                        </div>
-                        <div>
-                            <label htmlFor="salesman" className="block text-sm font-medium text-gray-700 mb-2">Salesman</label>
-                            <input 
-                                type="text" 
-                                id="salesman" 
-                                value={salesman} 
-                                onChange={(e) => setSalesman(e.target.value)} 
-                                className="w-full px-4 py-2.5 text-gray-700 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
-                            />
-                        </div>
-                    </div>
-                </div>
-
-                {/* DC Details */}
-                <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm">
-                    <h3 className="text-lg font-semibold text-gray-800 mb-4 pb-2 border-b border-gray-100">DC Information</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
-                        <div>
-                            <label htmlFor="dcNo" className="block text-sm font-medium text-gray-700 mb-2">DC No</label>
-                            <input 
-                                type="text" 
-                                id="dcNo" 
-                                value={dcNo} 
-                                onChange={(e) => setDcNo(e.target.value)} 
-                                className="w-full px-4 py-2.5 text-gray-700 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
-                            />
-                        </div>
-                        <div>
-                            <label htmlFor="dcDate" className="block text-sm font-medium text-gray-700 mb-2">DC Date</label>
-                            <input 
-                                type="date" 
-                                id="dcDate" 
-                                value={dcDate} 
-                                onChange={(e) => setDcDate(e.target.value)} 
-                                className="w-full px-4 py-2.5 text-gray-700 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
-                            />
-                        </div>
-                        <div className="lg:col-span-2">
-                            <label htmlFor="deliveryTerms" className="block text-sm font-medium text-gray-700 mb-2">Delivery Terms</label>
-                            <input 
-                                type="text" 
-                                id="deliveryTerms" 
-                                value={deliveryTerms} 
-                                onChange={(e) => setDeliveryTerms(e.target.value)} 
-                                className="w-full px-4 py-2.5 text-gray-700 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
-                            />
                         </div>
                     </div>
                 </div>

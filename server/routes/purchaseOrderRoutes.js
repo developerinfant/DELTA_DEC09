@@ -6,6 +6,8 @@ const {
     getPurchaseOrderById,
     updatePurchaseOrder,
     updatePurchaseOrderStatus,
+    approvePurchaseOrder,
+    rejectPurchaseOrder,
     deletePurchaseOrder,
     getWeeklyPOStats
 } = require('../controllers/purchaseOrderController');
@@ -24,6 +26,18 @@ router.route('/weekly-stats')
 router.route('/')
     .get(protect, getPurchaseOrders)
     .post(protect, createPurchaseOrder);
+
+// @desc    Approve a Purchase Order
+// @route   PUT /api/purchase-orders/:id/approve
+// @access  Private
+router.route('/:id/approve')
+    .put(protect, approvePurchaseOrder);
+
+// @desc    Reject a Purchase Order
+// @route   PUT /api/purchase-orders/:id/reject
+// @access  Private
+router.route('/:id/reject')
+    .put(protect, rejectPurchaseOrder);
 
 // @desc    Update PO status (cancel/re-order)
 // @route   PUT /api/purchase-orders/:id/status

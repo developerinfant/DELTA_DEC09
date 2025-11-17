@@ -165,7 +165,7 @@ const createPurchaseOrder = async (req, res) => {
             totalAmount: parseFloat(finalTotal.toFixed(2)),
             expectedDeliveryDate,
             paymentTerms: paymentTerms || 'Net 30',
-            status: 'Ordered',
+            status: 'Pending',
             preparedBy: req.user.name || ''
         };
 
@@ -432,6 +432,92 @@ const updatePurchaseOrderStatus = async (req, res) => {
 };
 
 /**
+ * @desc    Approve a Purchase Order
+ * @route   PUT /api/purchase-orders/:id/approve
+ * @access  Private/Admin
+ */
+const approvePurchaseOrder = async (req, res) => {
+    try {
+        const po = await PurchaseOrder.findById(req.params.id);
+
+        if (!po) {
+            return res.status(404).json({ message: 'Purchase Order not found.' });
+        }
+
+        // Check if PO is already approved
+        if (po.status === 'Approved') {
+            return res.status(400).json({ message: 'Purchase Order is already approved.' });
+        }
+
+        // Check if PO is cancelled
+        if (po.status === 'Cancelled') {
+            return res.status(400).json({ message: 'Cannot approve a cancelled Purchase Order.' });
+        }
+
+        // Update PO status to Approved
+        po.status = 'Approved';
+        // Only set approvedBy if user has a valid _id (not for hardcoded admin)
+        if (req.user._id && req.user._id !== 'admin_user_id') {
+            po.approvedBy = req.user._id;
+        }
+        const updatedPO = await po.save();
+        
+        res.json({ 
+            success: true, 
+            status: updatedPO.status,
+            message: `PO ${po.poNumber} has been approved successfully.`
+        });
+
+    } catch (error) {
+        console.error(`Error approving PO: ${error.message}`);
+        res.status(500).json({ message: 'Server error while approving purchase order.' });
+    }
+};
+
+/**
+ * @desc    Reject a Purchase Order
+ * @route   PUT /api/purchase-orders/:id/reject
+ * @access  Private/Admin
+ */
+const rejectPurchaseOrder = async (req, res) => {
+    try {
+        const po = await PurchaseOrder.findById(req.params.id);
+
+        if (!po) {
+            return res.status(404).json({ message: 'Purchase Order not found.' });
+        }
+
+        // Check if PO is already approved
+        if (po.status === 'Approved') {
+            return res.status(400).json({ message: 'Cannot reject an already approved Purchase Order.' });
+        }
+
+        // Check if PO is cancelled
+        if (po.status === 'Cancelled') {
+            return res.status(400).json({ message: 'Cannot reject a cancelled Purchase Order.' });
+        }
+
+        // Update PO status to Rejected
+        po.status = 'Rejected';
+        // Only set approvedBy if user has a valid _id (not for hardcoded admin)
+        if (req.user._id && req.user._id !== 'admin_user_id') {
+            po.approvedBy = req.user._id;
+        }
+        const updatedPO = await po.save();
+        
+        res.json({ 
+            success: true, 
+            status: updatedPO.status,
+            message: `PO ${po.poNumber} has been rejected.`
+        });
+
+    } catch (error) {
+        console.error(`Error rejecting PO: ${error.message}`);
+        res.status(500).json({ message: 'Server error while rejecting purchase order.' });
+    }
+};
+
+/**
  * @desc    Delete a Purchase Order
  * @route   DELETE /api/purchase-orders/:id
  * @access  Private/Admin
@@ -490,7 +576,7 @@ const getWeeklyPOStats = async (req, res) => {
                 stats[dayName].created += 1;
                 if (po.status === 'Approved') {
                     stats[dayName].approved += 1;
-                } else if (po.status === 'Ordered' || po.status === 'Pending') {
+                } else if (po.status === 'Ordered' || po.status === 'Pending' || po.status === 'Rejected') {
                     stats[dayName].pending += 1;
                 }
             }
@@ -511,6 +597,8 @@ module.exports = {
     getPurchaseOrderById,
     updatePurchaseOrder,
     updatePurchaseOrderStatus,
+    approvePurchaseOrder,
+    rejectPurchaseOrder,
     deletePurchaseOrder,
     getWeeklyPOStats,
 };

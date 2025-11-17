@@ -773,9 +773,9 @@ const CreateGRN = () => {
         try {
             setIsLoading(true);
             setError('');
-            // Fetch ALL POs, including cancelled ones, filtered by material type
+            // Fetch only Approved POs, filtered by material type
             const materialType = getMaterialType();
-            const { data } = await api.get(`/purchase-orders?materialType=${materialType}`);
+            const { data } = await api.get(`/purchase-orders?materialType=${materialType}&status=Approved`);
             setPurchaseOrders(data);
             setLastUpdated(new Date());
         } catch (err) {
