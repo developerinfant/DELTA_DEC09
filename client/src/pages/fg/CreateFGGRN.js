@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation, Link } from 'react-router-dom';
 import api from '../../api';
 import Card from '../../components/common/Card';
 import { FaSpinner, FaInfoCircle, FaExclamationTriangle, FaRedo, FaBan } from 'react-icons/fa';
 import { toast } from 'react-toastify';
 import Select from 'react-select';
+import { ArrowLeft } from 'lucide-react';
 
 const CreateFGGRN = () => {
     const location = useLocation();
@@ -29,6 +30,7 @@ const CreateFGGRN = () => {
     const [cartonsReturned, setCartonsReturned] = useState('');
     const [status, setStatus] = useState('');
     const [materialUsage, setMaterialUsage] = useState([]);
+    const [isDamagedStockSaved, setIsDamagedStockSaved] = useState(false); // New state to track if damaged stock has been saved
     const navigate = useNavigate();
 
     const selectedDC = deliveryChallans.find(dc => dc._id === selectedDCOption?.value);
@@ -140,42 +142,53 @@ const CreateFGGRN = () => {
                     // Filter to only jobber GRNs
                     const jobberGRNs = existingGRNs.filter(grn => grn.sourceType === 'jobber');
                     
-                    // If there are existing GRNs, get the latest one
-                    const latestGRN = jobberGRNs.length > 0 ? 
-                        jobberGRNs.reduce((latest, current) => 
-                            new Date(current.createdAt) > new Date(latest.createdAt) ? current : latest
-                        ) : null;
+                    // Calculate total sent quantity from DC
+                    const totalSentQty = dcData.carton_qty || 0;
                     
-                    // Calculate total cartons already received
-                    const totalReceived = jobberGRNs.reduce((sum, grn) => sum + (grn.cartonsReturned || 0), 0);
-                    const cartonsSent = dcData.carton_qty || 0;
-                    const pendingCartons = cartonsSent - totalReceived;
+                    // Calculate total received quantity from all existing GRNs for this DC
+                    const totalReceivedQty = jobberGRNs.reduce((sum, grn) => sum + (grn.cartonsReturned || 0), 0);
+                    
+                    // Calculate pending quantity
+                    const pendingQty = totalSentQty - totalReceivedQty;
                     
                     // Set initial values based on existing GRNs
-                    if (latestGRN && latestGRN.status === 'Partial') {
-                        // If there's a partial GRN, show previous data and pre-fill with existing cartons returned
-                        setCartonsReturned(latestGRN.cartonsReturned || '');
+                    if (jobberGRNs.length > 0) {
+                        // Get the latest GRN
+                        const latestGRN = jobberGRNs.reduce((latest, current) => 
+                            new Date(current.createdAt) > new Date(latest.createdAt) ? current : latest
+                        );
                         
                         // Show previous data section
                         setHasExistingGRN(true);
                         setExistingGRNStatus(latestGRN.status);
-                        setExistingGRNId(latestGRN._id);
-                        setIsEditingPartialGRN(true);
                         
-                        // Set previous data for display
-                        // For editing, we show the current GRN's data, not the cumulative total
+                        // If the latest GRN is partial, we're editing it
+                        setExistingGRNId(null);
+                        setIsEditingPartialGRN(false);
+
+                        // This logic correctly calculates and displays the pending quantity.
                         setPartialGRN({
-                            totalSent: cartonsSent,
-                            totalReceived: latestGRN.cartonsReturned || 0,
-                            pending: cartonsSent - (latestGRN.cartonsReturned || 0)
+                            totalSent: totalSentQty,
+                            totalReceived: totalReceivedQty,
+                            pending: pendingQty,
+                            currentGRNReceived: 0
                         });
+                        
+                        // Always start with an empty input for the new receipt.
+                        setCartonsReturned('');
                     } else {
+                        // No existing GRNs
                         setCartonsReturned('');
                         setHasExistingGRN(false);
                         setExistingGRNStatus(null);
                         setExistingGRNId(null);
                         setIsEditingPartialGRN(false);
-                        setPartialGRN(null);
+                        setPartialGRN({
+                            totalSent: totalSentQty,
+                            totalReceived: 0,
+                            pending: totalSentQty,
+                            currentGRNReceived: 0
+                        });
                     }
                     
                     setStatus('');
@@ -193,12 +206,19 @@ const CreateFGGRN = () => {
                             
                             // If we're editing a partial GRN, use the received quantity from the latest GRN
                             let receivedQuantity = '';
-                            if (latestGRN && latestGRN.items) {
-                                const grnItem = latestGRN.items.find(item => 
-                                    typeof item.material === 'string' ? item.material === material.material_name : item.material.name === material.material_name
+                            if (jobberGRNs.length > 0) {
+                                // Get the latest GRN
+                                const latestGRN = jobberGRNs.reduce((latest, current) => 
+                                    new Date(current.createdAt) > new Date(latest.createdAt) ? current : latest
                                 );
-                                if (grnItem) {
-                                    receivedQuantity = grnItem.receivedQuantity;
+                                
+                                if (latestGRN && latestGRN.items) {
+                                    const grnItem = latestGRN.items.find(item => 
+                                        typeof item.material === 'string' ? item.material === material.material_name : item.material.name === material.material_name
+                                    );
+                                    if (grnItem) {
+                                        receivedQuantity = grnItem.receivedQuantity;
+                                    }
                                 }
                             }
                             
@@ -217,12 +237,19 @@ const CreateFGGRN = () => {
                             
                             // If we're editing a partial GRN, use the received quantity from the latest GRN
                             let receivedQuantity = '';
-                            if (latestGRN && latestGRN.items) {
-                                const grnItem = latestGRN.items.find(item => 
-                                    typeof item.material === 'string' ? item.material === material.material_name : item.material.name === material.material_name
+                            if (jobberGRNs.length > 0) {
+                                // Get the latest GRN
+                                const latestGRN = jobberGRNs.reduce((latest, current) => 
+                                    new Date(current.createdAt) > new Date(latest.createdAt) ? current : latest
                                 );
-                                if (grnItem) {
-                                    receivedQuantity = grnItem.receivedQuantity;
+                                
+                                if (latestGRN && latestGRN.items) {
+                                    const grnItem = latestGRN.items.find(item => 
+                                        typeof item.material === 'string' ? item.material === material.material_name : item.material.name === material.material_name
+                                    );
+                                    if (grnItem) {
+                                        receivedQuantity = grnItem.receivedQuantity;
+                                    }
                                 }
                             }
                             
@@ -284,6 +311,50 @@ const CreateFGGRN = () => {
         const damagedQty = Math.max(0, Math.min(receivedQty, parseInt(value) || 0));
         newDamagedStock[index].damaged_qty = damagedQty;
         setDamagedStock(newDamagedStock);
+        setIsDamagedStockSaved(false); // Reset saved state when user makes changes
+    };
+
+    // New function to handle saving damaged stock
+    const handleSaveDamagedStock = async () => {
+        setIsLoading(true);
+        setError('');
+        
+        try {
+            // Filter items with damaged quantity > 0
+            const itemsWithDamage = damagedStock.filter(item => item.damaged_qty > 0);
+            
+            if (itemsWithDamage.length === 0) {
+                toast.warn('No damaged items to record');
+                return;
+            }
+            
+            // Since we're creating a new GRN, we can't save damaged stock to the database yet
+            // We'll just mark it as saved and include it in the GRN submission
+            setIsDamagedStockSaved(true);
+            toast.success('Damaged stock entries saved. They will be recorded when you create the GRN.');
+        } catch (err) {
+            console.error('Failed to save damaged stock entries:', err);
+            const errorMessage = err.response?.data?.message || 
+                                err.message || 
+                                'Failed to save damaged stock entries. Please try again.';
+            setError(errorMessage);
+            toast.error(errorMessage);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    // New function to reset damaged stock
+    const handleResetDamagedStock = () => {
+        if (dcDetails) {
+            const resetDamagedStock = dcDetails.materials.map(material => ({
+                material_name: material.material_name,
+                received_qty: material.received_qty !== undefined ? material.received_qty : (material.total_qty || 0),
+                damaged_qty: 0
+            }));
+            setDamagedStock(resetDamagedStock);
+            setIsDamagedStockSaved(false);
+        }
     };
 
     const handleSubmit = async (e) => {
@@ -304,20 +375,18 @@ const CreateFGGRN = () => {
             const cartonsReturnedNum = parseInt(cartonsReturned);
             const cartonsSent = dcDetails.carton_qty || 0;
             
-            // Calculate total cartons already received
+            // Calculate total received quantity from all existing GRNs for this DC (excluding current GRN if editing)
             let totalReceived = 0;
             if (hasExistingGRN && partialGRN) {
-                totalReceived = partialGRN.totalSent - partialGRN.pending;
+                totalReceived = partialGRN.totalReceived;
+                // If we're editing a partial GRN, subtract the current GRN's cartonsReturned
+                if (isEditingPartialGRN && partialGRN.currentGRNReceived) {
+                    totalReceived = totalReceived - partialGRN.currentGRNReceived;
+                }
             }
             
             // Calculate pending cartons based on existing GRNs
-            // When editing, we need to consider the total pending, not just the current GRN's pending
-            let pendingCartons = cartonsSent - totalReceived;
-            if (isEditingPartialGRN && existingGRNId && partialGRN) {
-                // When editing, add back the current GRN's cartons to get the actual pending
-                // Fix: Use the correct property names
-                pendingCartons = partialGRN.pending + (cartonsReturnedNum || 0);
-            }
+            const pendingCartons = cartonsSent - totalReceived;
             
             if (cartonsReturned === '') {
                 setError('Please enter the number of cartons returned.');
@@ -325,14 +394,15 @@ const CreateFGGRN = () => {
                 return;
             }
             
-            if (cartonsReturnedNum > pendingCartons) {
-                setError(`Returned cartons cannot exceed pending cartons. Pending: ${pendingCartons}`);
+            // Validate that newReceivedQty > 0 and ≤ pendingQty
+            if (cartonsReturnedNum <= 0) {
+                setError('Returned cartons must be greater than zero.');
                 setIsLoading(false);
                 return;
             }
             
-            if (cartonsReturnedNum <= 0) {
-                setError('Returned cartons must be greater than zero.');
+            if (cartonsReturnedNum > pendingCartons) {
+                setError(`Returned cartons cannot exceed pending cartons. Pending: ${pendingCartons}`);
                 setIsLoading(false);
                 return;
             }
@@ -379,19 +449,13 @@ const CreateFGGRN = () => {
             damagedStock, // Include damaged stock data
         };
 
+        
         try {
-            let response;
-            if (isEditingPartialGRN && existingGRNId) {
-                // Update existing partial GRN
-                response = await api.put(`/grn/${existingGRNId}`, grnData);
-                toast.success('GRN updated successfully!');
-            } else {
-                // Create new GRN
-                response = await api.post('/grn', grnData);
-                toast.success('GRN created successfully!');
-            }
+            // We are now ALWAYS creating a new GRN, so we only need the api.post call.
+            const response = await api.post('/grn', grnData);
+            toast.success('GRN created successfully!');
             
-            setSuccess('GRN created/updated successfully!');
+            setSuccess('GRN created successfully!');
             // Redirect to FG GRN view page
             setTimeout(() => {
                 navigate('/fg/grn/view');
@@ -424,6 +488,7 @@ const CreateFGGRN = () => {
         setPartialGRN(null);
         setExistingGRNId(null);
         setIsEditingPartialGRN(false);
+        setIsDamagedStockSaved(false); // Reset damaged stock saved state
     };
 
     if (isLoading && !dcDetails) {
@@ -436,8 +501,19 @@ const CreateFGGRN = () => {
 
     return (
         <div className="space-y-6">
-            <div className="flex justify-between items-center">
-                <h1 className="text-3xl font-bold text-dark-700">Create Finished Goods GRN (DC-based)</h1>
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-5">
+                <div className="flex items-center gap-4">
+                    <Link 
+                        to="/fg/grn/view"
+                        className="bg-gray-600 hover:bg-gray-700 text-white font-semibold px-5 py-2.5 rounded-lg flex items-center gap-2"
+                    >
+                        <ArrowLeft size={18} /> Back to GRN List
+                    </Link>
+                    <div>
+                        <h1 className="text-2xl font-bold text-gray-900">Create Finished Goods GRN (DC-based)</h1>
+                        <p className="text-gray-600 text-sm mt-1">Create a new GRN entry based on a Delivery Challan</p>
+                    </div>
+                </div>
             </div>
 
             <Card>
@@ -501,7 +577,7 @@ const CreateFGGRN = () => {
                             {hasExistingGRN && partialGRN && (
                                 <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
                                     <h3 className="font-medium text-orange-800 mb-3">Previous GRN Data</h3>
-                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4 text-sm">
                                         <div>
                                             <span className="font-medium">Total Sent:</span> {partialGRN.totalSent}
                                         </div>
@@ -511,6 +587,11 @@ const CreateFGGRN = () => {
                                         <div>
                                             <span className="font-medium">Pending:</span> {partialGRN.pending}
                                         </div>
+                                        {isEditingPartialGRN && partialGRN.currentGRNReceived !== undefined && (
+                                            <div>
+                                                <span className="font-medium">Current GRN Received:</span> {partialGRN.currentGRNReceived}
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
                             )}
@@ -591,7 +672,7 @@ const CreateFGGRN = () => {
                             </div>
 
                             {/* Material Usage Calculation */}
-                            {materialUsage.length > 0 && (
+                            {/* {materialUsage.length > 0 && (
                                 <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
                                     <h3 className="font-medium text-gray-800 mb-3">Material Usage Calculation</h3>
                                     <div className="overflow-x-auto">
@@ -617,25 +698,34 @@ const CreateFGGRN = () => {
                                         </table>
                                     </div>
                                 </div>
-                            )}
+                            )} */}
                             
                             {/* Record Damaged Stock */}
-                            <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
-                                <h3 className="font-medium text-amber-800 mb-3">Record Damaged Stock</h3>
+                            <div className="bg-white border border-gray-200 rounded-lg p-4">
+                                <h3 className="font-medium text-gray-900 mb-3">Record Damaged Stock</h3>
+                                {error && (
+                                    <div className="p-3 bg-red-50 text-red-700 rounded-md mb-4">
+                                        {error}
+                                    </div>
+                                )}
                                 <div className="overflow-x-auto">
-                                    <table className="min-w-full divide-y divide-amber-200">
-                                        <thead className="bg-amber-100">
+                                    <table className="min-w-full divide-y divide-gray-200">
+                                        <thead className="bg-gray-50">
                                             <tr>
-                                                <th className="px-4 py-2 text-left text-xs font-medium text-amber-800 uppercase tracking-wider">MATERIAL NAME</th>
-                                                <th className="px-4 py-2 text-right text-xs font-medium text-amber-800 uppercase tracking-wider">RECEIVED QTY</th>
-                                                <th className="px-4 py-2 text-right text-xs font-medium text-amber-800 uppercase tracking-wider">DAMAGED QTY</th>
+                                                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Material</th>
+                                                <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Received Qty</th>
+                                                <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Damaged Qty</th>
                                             </tr>
                                         </thead>
-                                        <tbody className="bg-white divide-y divide-amber-200">
+                                        <tbody className="bg-white divide-y divide-gray-200">
                                             {damagedStock.map((item, index) => (
                                                 <tr key={index}>
-                                                    <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">{item.material_name}</td>
-                                                    <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900 text-right">{item.received_qty}</td>
+                                                    <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">
+                                                        {item.material_name}
+                                                    </td>
+                                                    <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900 text-right">
+                                                        {item.received_qty}
+                                                    </td>
                                                     <td className="px-4 py-2 whitespace-nowrap text-sm">
                                                         <input
                                                             type="number"
@@ -643,7 +733,7 @@ const CreateFGGRN = () => {
                                                             max={item.received_qty}
                                                             value={item.damaged_qty}
                                                             onChange={(e) => handleDamagedQtyChange(index, e.target.value)}
-                                                            className="w-20 px-2 py-1 border border-amber-300 rounded-md shadow-sm focus:outline-none focus:ring-amber-500 focus:border-amber-500 text-right"
+                                                            className="w-20 px-2 py-1 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 text-right"
                                                         />
                                                     </td>
                                                 </tr>
@@ -651,12 +741,30 @@ const CreateFGGRN = () => {
                                         </tbody>
                                     </table>
                                 </div>
-                                <div className="mt-4 flex justify-end">
+                                
+                                <div className="flex justify-end space-x-3 mt-4">
                                     <button
                                         type="button"
-                                        className="px-4 py-2 bg-amber-600 text-white rounded-md hover:bg-amber-700 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                                        onClick={handleResetDamagedStock}
+                                        className="px-4 py-2 text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-500"
+                                        disabled={isLoading}
                                     >
-                                        Save Damaged Stock
+                                        Reset
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={handleSaveDamagedStock}
+                                        className="px-4 py-2 text-white bg-amber-600 rounded-md hover:bg-amber-700 focus:outline-none focus:ring-2 focus:ring-amber-500 flex items-center"
+                                        disabled={isLoading}
+                                    >
+                                        {isLoading ? (
+                                            <>
+                                                <FaSpinner className="animate-spin mr-2" />
+                                                Saving...
+                                            </>
+                                        ) : (
+                                            'Save Damaged Stock'
+                                        )}
                                     </button>
                                 </div>
                             </div>

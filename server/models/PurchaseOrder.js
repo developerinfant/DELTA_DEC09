@@ -153,8 +153,8 @@ const purchaseOrderSchema = new mongoose.Schema({
     },
     status: {
         type: String,
-        enum: ['Pending', 'Approved', 'Ordered', 'Partially Received', 'Completed', 'Cancelled'],
-        default: 'Ordered',
+        enum: ['Pending', 'Approved', 'Rejected', 'Ordered', 'Partially Received', 'Completed', 'Cancelled'],
+        default: 'Pending',
     },
     expectedDeliveryDate: {
         type: Date,
