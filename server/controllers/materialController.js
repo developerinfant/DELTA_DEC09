@@ -37,7 +37,7 @@ const generateItemCode = async (type) => {
  * @access  Private (Admin/Manager)
  */
 const addMaterial = async (req, res) => {
-    const { name, quantity, perQuantityPrice, stockAlertThreshold, shop, date, availableQty, jobberQty, usedQty, isWithJobber, unit, brandType, hsnCode } = req.body;
+    const { name, quantity, perQuantityPrice, stockAlertThreshold, shop, date, availableQty, jobberQty, usedQty, isWithJobber, unit, brandType } = req.body;
 
     try {
         // Check if user is admin or manager with a shop assigned
@@ -62,7 +62,6 @@ const addMaterial = async (req, res) => {
             isWithJobber: isWithJobber || false,
             perQuantityPrice, 
             stockAlertThreshold,
-            hsnCode: hsnCode || '',
             unit: unit || 'pcs', // Default to 'pcs' if not provided
             brandType: brandType || 'own', // Default to 'own' if not provided
             shop: shop || undefined, // Only set shop if provided
@@ -228,7 +227,7 @@ const getMaterials = async (req, res) => {
  * @access  Private (Admin/Manager)
  */
 const updateMaterial = async (req, res) => {
-    const { name, quantity, perQuantityPrice, stockAlertThreshold, shop, date, availableQty, jobberQty, usedQty, isWithJobber, unit, brandType, hsnCode } = req.body;
+    const { name, quantity, perQuantityPrice, stockAlertThreshold, shop, date, availableQty, jobberQty, usedQty, isWithJobber, unit, brandType } = req.body;
     try {
         const material = await PackingMaterial.findById(req.params.id);
         if (!material) {
@@ -255,7 +254,6 @@ const updateMaterial = async (req, res) => {
         material.isWithJobber = isWithJobber !== undefined ? isWithJobber : material.isWithJobber;
         material.perQuantityPrice = perQuantityPrice || material.perQuantityPrice;
         material.stockAlertThreshold = stockAlertThreshold || material.stockAlertThreshold;
-        material.hsnCode = hsnCode || material.hsnCode;
         material.unit = unit || material.unit;
         material.brandType = brandType || material.brandType;
         // Only update shop if provided in the request

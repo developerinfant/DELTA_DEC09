@@ -775,7 +775,6 @@ const ViewPackingMaterialsWithOffline = () => {
                                     <tr>
                                         <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">#</th>
                                         <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Product Name</th>
-                                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">HSN Code</th>
                                         <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Units per Carton</th>
                                         <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Materials Mapped</th>
                                         <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
@@ -786,7 +785,6 @@ const ViewPackingMaterialsWithOffline = () => {
                                         <tr key={mapping._id}>
                                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{index + 1}</td>
                                             <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{mapping.product_name}</td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{mapping.hsn_code || 'N/A'}</td>
                                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{mapping.units_per_carton || 1}</td>
                                             <td className="px-6 py-4 text-sm text-gray-500">
                                                 <div className="flex flex-wrap gap-1">

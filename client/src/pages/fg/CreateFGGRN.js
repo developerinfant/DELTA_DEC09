@@ -630,18 +630,24 @@ const CreateFGGRN = () => {
 
                             {/* Carton Information */}
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                                <div>
+                                
+                                    <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+                                        <div className="bg-blue-100 text-blue-800 px-3 py-3 rounded-lg font-medium whitespace-nowrap">
+                                            Cartons Sent: {dcDetails.carton_qty || 0}
+                                        </div>
+                                        <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">
                                         Cartons Received *
                                     </label>
-                                    <input
-                                        type="number"
-                                        value={cartonsReturned}
-                                        onChange={(e) => setCartonsReturned(e.target.value)}
-                                        className="w-full px-4 py-3 text-gray-700 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                                        min="0"
-                                        disabled={isLoading || isGRNLocked}
-                                    />
+                                        <input
+                                            type="number"
+                                            value={cartonsReturned}
+                                            onChange={(e) => setCartonsReturned(e.target.value)}
+                                            className="flex-1 w-full sm:w-auto px-4 py-3 text-gray-700 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                                            min="0"
+                                            disabled={isLoading || isGRNLocked}
+                                        />
+                                    </div>
                                 </div>
                                 
                                 <div>

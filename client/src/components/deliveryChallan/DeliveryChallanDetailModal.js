@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import api from '../../api';
 import Card from '../../components/common/Card';
 import Modal from '../../components/common/Modal';
-import { FaSpinner, FaEdit, FaSave, FaBan, FaFilePdf, FaFileExcel } from 'react-icons/fa';
+import { FaSpinner, FaFilePdf, FaFileExcel } from 'react-icons/fa';
 import { useAuth } from '../../context/AuthContext';
 import * as XLSX from 'xlsx';
 
@@ -13,9 +13,6 @@ const DeliveryChallanDetailModal = ({ isOpen, onClose, deliveryChallanId, onStat
     const [dc, setDc] = useState(null);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState('');
-    const [isProcessing, setIsProcessing] = useState(false);
-    const [isEditing, setIsEditing] = useState(false);
-    const [editedItems, setEditedItems] = useState([]);
 
     const fetchDeliveryChallan = useCallback(async () => {
         if (!deliveryChallanId) return;
@@ -25,12 +22,6 @@ const DeliveryChallanDetailModal = ({ isOpen, onClose, deliveryChallanId, onStat
         try {
             const { data } = await api.get(`/delivery-challan/${deliveryChallanId}`);
             setDc(data);
-            // Initialize edited items with current values
-            if (data && data.materials) {
-                setEditedItems(data.materials.map(item => ({ ...item })));
-            } else {
-                setEditedItems([]);
-            }
         } catch (err) {
             console.error('Failed to fetch Delivery Challan details:', err);
             const errorMessage = err.response?.data?.message || 
@@ -59,102 +50,6 @@ const DeliveryChallanDetailModal = ({ isOpen, onClose, deliveryChallanId, onStat
         };
     }, [isOpen, deliveryChallanId, fetchDeliveryChallan]);
 
-    const handleEditToggle = () => {
-        if (isEditing) {
-            // Cancel editing, reset to original values
-            if (dc && dc.materials) {
-                setEditedItems(dc.materials.map(item => ({ ...item })));
-            }
-        }
-        setIsEditing(!isEditing);
-    };
-    
-    const handleItemChange = useCallback((index, field, value) => {
-        setEditedItems(prevItems => {
-            const newItems = [...prevItems];
-            // Ensure the item exists and create a new object reference
-            if (newItems[index]) {
-                newItems[index] = { ...newItems[index] };
-                
-                // Validate that received quantity doesn't exceed sent quantity
-                if (field === 'total_qty') {
-                    const sentQty = newItems[index].qty_per_carton * dc.carton_qty;
-                    const receivedQty = Number(value);
-                    const validatedQty = Math.min(Math.max(0, receivedQty), sentQty);
-                    newItems[index][field] = validatedQty;
-                } else {
-                    newItems[index][field] = value;
-                }
-            }
-            return newItems;
-        });
-    }, [dc]);
-    
-    const handleSaveEdit = async (e) => {
-        e.preventDefault(); // Prevent any default form behavior
-        setIsProcessing(true);
-        try {
-            // Prevent saving if DC is completed
-            if (dc?.status === 'Completed') {
-                alert('This Delivery Challan is completed and cannot be modified.');
-                setIsProcessing(false);
-                return;
-            }
-            
-            // Ensure we have the required data
-            if (!dc || !editedItems || !deliveryChallanId) {
-                alert('Missing required data.');
-                setIsProcessing(false);
-                return;
-            }
-            
-            // Check if user is admin
-            if (!user || user.role !== 'Admin') {
-                alert('Editing allowed for Admin users only.');
-                setIsProcessing(false);
-                return;
-            }
-            
-            // Check if any quantities have changed
-            let hasChanges = false;
-            for (let i = 0; i < editedItems.length; i++) {
-                if (editedItems[i].total_qty !== dc.materials[i].total_qty) {
-                    hasChanges = true;
-                    break;
-                }
-            }
-            
-            if (!hasChanges) {
-                alert('No changes detected.');
-                setIsProcessing(false);
-                return;
-            }
-            
-            // Update the delivery challan
-            const updateData = {
-                materials: editedItems
-            };
-            
-            const response = await api.put(`/delivery-challan/${deliveryChallanId}`, updateData);
-            
-            // Update the local state with the response
-            setDc(response.data);
-            setEditedItems(response.data.materials.map(item => ({ ...item })));
-            setIsEditing(false);
-            
-            // Notify parent component of status update
-            if (onStatusUpdate) {
-                onStatusUpdate(response.data);
-            }
-            
-            alert('Delivery Challan updated successfully!');
-        } catch (err) {
-            alert(err.response?.data?.message || 'Failed to update the Delivery Challan.');
-        } finally {
-            setIsProcessing(false);
-        }
-    };
-    
     const getStatusClass = (status) => {
         switch (status) {
             case 'Pending': return 'bg-yellow-100 text-yellow-800';
@@ -170,9 +65,6 @@ const DeliveryChallanDetailModal = ({ isOpen, onClose, deliveryChallanId, onStat
         const date = new Date(dateString);
         return isNaN(date.getTime()) ? 'Invalid Date' : date.toLocaleDateString();
     };
-
-    // Check if DC can be edited (Partial status and user is Admin)
-    const canEditDC = dc && dc.status === 'Partial' && user && user.role === 'Admin';
 
     // Determine modal title based on unit type
     const getModalTitle = () => {
@@ -207,10 +99,13 @@ const DeliveryChallanDetailModal = ({ isOpen, onClose, deliveryChallanId, onStat
             { 'Field': 'Date', 'Value': formatDate(dc.date) }
         ];
 
-        const materialsData = editedItems.map((item, index) => {
-            const sentQty = item.qty_per_carton * dc.carton_qty;
-            const receivedQty = item.received_qty !== undefined ? item.received_qty : item.total_qty;
-            const balance = item.balance_qty !== undefined ? item.balance_qty : (sentQty - receivedQty);
+        const materialsData = dc.materials.map((item, index) => {
+            // Use the total_qty directly from the database as Sent Qty (same as orderedQuantity in GRN)
+            const sentQty = item.total_qty || 0;
+            // Use the received_qty directly from the database (updated by GRN controller)
+            const receivedQty = item.received_qty || 0;
+            // Use the balance_qty directly from the database (updated by GRN controller)
+            const balance = item.balance_qty || 0;
             
             // Calculate item status
             let itemStatus = 'Completed';
@@ -232,11 +127,9 @@ const DeliveryChallanDetailModal = ({ isOpen, onClose, deliveryChallanId, onStat
         });
 
         // Add totals row
-        const totalSent = editedItems.reduce((sum, item) => sum + (item.qty_per_carton * dc.carton_qty), 0);
-        const totalReceived = editedItems.reduce((sum, item) => sum + (item.received_qty !== undefined ? item.received_qty : (item.total_qty || 0)), 0);
-        const totalBalance = editedItems.reduce((sum, item) => {
-            return sum + (item.balance_qty !== undefined ? item.balance_qty : ((item.qty_per_carton * dc.carton_qty) - (item.received_qty !== undefined ? item.received_qty : (item.total_qty || 0))));
-        }, 0);
+        const totalSent = dc.materials.reduce((sum, item) => sum + (item.total_qty || 0), 0);
+        const totalReceived = dc.materials.reduce((sum, item) => sum + (item.received_qty || 0), 0);
+        const totalBalance = dc.materials.reduce((sum, item) => sum + (item.balance_qty || 0), 0);
 
         materialsData.push({
             'S.No': '',
@@ -330,64 +223,13 @@ const DeliveryChallanDetailModal = ({ isOpen, onClose, deliveryChallanId, onStat
                 </button>
             </div>
 
-            {/* Edit Mode Banner for Partial DCs */}
-            {canEditDC && (
-                <Card className="bg-gradient-to-r from-purple-50 to-indigo-50 border-l-4 border-purple-500 mb-6">
-                    <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4">
-                        <div>
-                            <h3 className="font-bold text-lg text-purple-800">Editable Partial Delivery Challan</h3>
-                            <p className="text-purple-700">Update quantities to complete this record.</p>
-                        </div>
-                        <div className="flex space-x-3">
-                            {isEditing ? (
-                                <>
-                                    <button 
-                                        onClick={handleEditToggle} 
-                                        disabled={isProcessing} 
-                                        className="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 disabled:opacity-50 flex items-center"
-                                    >
-                                        Cancel
-                                    </button>
-                                    <button 
-                                        onClick={handleSaveEdit} 
-                                        disabled={isProcessing} 
-                                        className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 disabled:opacity-50 flex items-center"
-                                    >
-                                        {isProcessing ? (
-                                            <>
-                                                <FaSpinner className="animate-spin mr-2" />
-                                                Saving...
-                                            </>
-                                        ) : (
-                                            <>
-                                                <FaSave className="mr-2" />
-                                                Save Changes
-                                            </>
-                                        )}
-                                    </button>
-                                </>
-                            ) : (
-                                <button 
-                                    onClick={handleEditToggle} 
-                                    className="px-4 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600 flex items-center"
-                                >
-                                    <FaEdit className="mr-2" />
-                                    Edit Quantities
-                                </button>
-                            )}
-                        </div>
-                    </div>
-                </Card>
-            )}
-
             {/* Completed DC Banner */}
-            {dc && dc.status === 'Completed' && (
+            {dc && (
                 <Card className="bg-gradient-to-r from-green-50 to-emerald-50 border-l-4 border-green-500 mb-6">
                     <div className="flex items-center">
-                        <FaBan className="mr-3 text-xl text-green-700" />
                         <div>
-                            <h3 className="font-bold text-lg text-green-800">Completed Delivery Challan</h3>
-                            <p className="text-green-700">This Delivery Challan is marked as Completed and cannot be edited.</p>
+                            <h3 className="font-bold text-lg text-green-800">Delivery Challan Details</h3>
+                            <p className="text-green-700">Viewing delivery challan information.</p>
                         </div>
                     </div>
                 </Card>
@@ -453,17 +295,16 @@ const DeliveryChallanDetailModal = ({ isOpen, onClose, deliveryChallanId, onStat
                                 <th className="px-6 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider">Received Qty</th>
                                 <th className="px-6 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider">Balance</th>
                                 <th className="px-6 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider">Status</th>
-                                {isEditing && (
-                                    <th className="px-6 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider">Actions</th>
-                                )}
                             </tr>
                         </thead>
                         <tbody className="bg-white divide-y divide-gray-200">
-                            {editedItems.map((item, index) => {
-                                const sentQty = item.qty_per_carton * dc.carton_qty;
-                                // Use the received_qty and balance_qty from the database if available, otherwise calculate
-                                const receivedQty = item.received_qty !== undefined ? item.received_qty : item.total_qty;
-                                const balance = item.balance_qty !== undefined ? item.balance_qty : (sentQty - receivedQty);
+                            {dc.materials.map((item, index) => {
+                                // Use the total_qty directly from the database as Sent Qty (same as orderedQuantity in GRN)
+                                const sentQty = item.total_qty || 0;
+                                // Use the received_qty directly from the database (updated by GRN controller)
+                                const receivedQty = item.received_qty || 0;
+                                // Use the balance_qty directly from the database (updated by GRN controller)
+                                const balance = item.balance_qty || 0;
                                 
                                 // Calculate item status based on quantities
                                 let itemStatus = 'Completed';
@@ -490,21 +331,7 @@ const DeliveryChallanDetailModal = ({ isOpen, onClose, deliveryChallanId, onStat
                                             <div className="text-sm font-bold text-gray-900">{sentQty}</div>
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap text-center">
-                                            {isEditing ? (
-                                                <input
-                                                    type="number"
-                                                    min="0"
-                                                    max={sentQty}
-                                                    value={receivedQty}
-                                                    onChange={(e) => {
-                                                        const value = Math.min(parseFloat(e.target.value) || 0, sentQty);
-                                                        handleItemChange(index, 'total_qty', value);
-                                                    }}
-                                                    className="w-20 px-2 py-1 border border-gray-300 rounded text-center"
-                                                />
-                                            ) : (
-                                                <div className="text-sm font-bold text-green-600">{receivedQty}</div>
-                                            )}
+                                            <div className="text-sm font-bold text-green-600">{receivedQty}</div>
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap text-center">
                                             <div className={`text-sm font-bold ${balance > 0 ? 'text-red-600' : 'text-gray-600'}`}>
@@ -516,21 +343,6 @@ const DeliveryChallanDetailModal = ({ isOpen, onClose, deliveryChallanId, onStat
                                                 {itemStatus}
                                             </span>
                                         </td>
-                                        {isEditing && (
-                                            <td className="px-6 py-4 whitespace-nowrap text-center">
-                                                <button 
-                                                    onClick={() => {
-                                                        const newItems = [...editedItems];
-                                                        newItems[index] = { ...dc.materials[index] }; // Reset to original
-                                                        setEditedItems(newItems);
-                                                    }}
-                                                    className="text-red-500 hover:text-red-700"
-                                                    title="Reset to original"
-                                                >
-                                                    <FaBan />
-                                                </button>
-                                            </td>
-                                        )}
                                     </tr>
                                 );
                             })}
@@ -542,27 +354,25 @@ const DeliveryChallanDetailModal = ({ isOpen, onClose, deliveryChallanId, onStat
                 <div className="mt-4 pt-4 border-t border-gray-200">
                     <div className="flex justify-between items-center">
                         <div className="text-sm text-gray-500">
-                            Total Items: {editedItems.length}
+                            Total Items: {dc.materials.length}
                         </div>
                         <div className="flex space-x-4">
                             <div className="text-sm">
                                 <span className="text-gray-500">Total Sent: </span>
                                 <span className="font-bold text-gray-900">
-                                    {editedItems.reduce((sum, item) => sum + (item.qty_per_carton * dc.carton_qty), 0)}
+                                    {dc.materials.reduce((sum, item) => sum + (item.total_qty || 0), 0)}
                                 </span>
                             </div>
                             <div className="text-sm">
                                 <span className="text-gray-500">Total Received: </span>
                                 <span className="font-bold text-green-600">
-                                    {editedItems.reduce((sum, item) => sum + (item.received_qty !== undefined ? item.received_qty : (item.total_qty || 0)), 0)}
+                                    {dc.materials.reduce((sum, item) => sum + (item.received_qty || 0), 0)}
                                 </span>
                             </div>
                             <div className="text-sm">
                                 <span className="text-gray-500">Total Balance: </span>
                                 <span className="font-bold text-red-600">
-                                    {editedItems.reduce((sum, item) => {
-                                        return sum + (item.balance_qty !== undefined ? item.balance_qty : ((item.qty_per_carton * dc.carton_qty) - (item.received_qty !== undefined ? item.received_qty : (item.total_qty || 0))));
-                                    }, 0)}
+                                    {dc.materials.reduce((sum, item) => sum + (item.balance_qty || 0), 0)}
                                 </span>
                             </div>
                         </div>
@@ -572,45 +382,6 @@ const DeliveryChallanDetailModal = ({ isOpen, onClose, deliveryChallanId, onStat
 
             {/* Action Buttons */}
             <div className="flex justify-end space-x-3 mt-6">
-                {canEditDC && !isEditing && (
-                    <button
-                        onClick={handleEditToggle}
-                        className="flex items-center px-4 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600"
-                    >
-                        <FaEdit className="mr-2" />
-                        Edit Quantities
-                    </button>
-                )}
-                
-                {isEditing && (
-                    <>
-                        <button
-                            onClick={handleEditToggle}
-                            disabled={isProcessing}
-                            className="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 disabled:opacity-50"
-                        >
-                            Cancel
-                        </button>
-                        <button
-                            onClick={handleSaveEdit}
-                            disabled={isProcessing}
-                            className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 disabled:opacity-50 flex items-center"
-                        >
-                            {isProcessing ? (
-                                <>
-                                    <FaSpinner className="animate-spin mr-2" />
-                                    Saving...
-                                </>
-                            ) : (
-                                <>
-                                    <FaSave className="mr-2" />
-                                    Save Changes
-                                </>
-                            )}
-                        </button>
-                    </>
-                )}
-                
                 <button
                     onClick={onClose}
                     className="px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400"

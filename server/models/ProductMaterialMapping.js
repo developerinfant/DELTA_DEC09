@@ -7,11 +7,6 @@ const productMaterialMappingSchema = new mongoose.Schema({
         unique: true,
         trim: true,
     },
-    hsn_code: {
-        type: String,
-        trim: true,
-        default: ''
-    },
     units_per_carton: {
         type: Number,
         required: [true, 'Units per carton is required'],

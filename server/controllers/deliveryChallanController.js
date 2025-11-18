@@ -261,7 +261,46 @@ const getDeliveryChallanById = async (req, res) => {
             .populate('supplier_id', 'name supplierCode');
 
         if (challan) {
-            res.json(challan);
+            // Populate GRN data to get actual received quantities
+            const GRN = require('../models/GRN');
+            const grns = await GRN.find({ deliveryChallan: challan._id });
+            
+            // Calculate actual received quantities from GRNs
+            const materialReceivedTotals = {};
+            
+            // Sum up received quantities for each material from all GRNs
+            for (const grn of grns) {
+                for (const item of grn.items) {
+                    const materialName = typeof item.material === 'string' ? item.material : item.material.name;
+                    const receivedQty = item.receivedQuantity || 0;
+                    
+                    if (!materialReceivedTotals[materialName]) {
+                        materialReceivedTotals[materialName] = 0;
+                    }
+                    materialReceivedTotals[materialName] += receivedQty;
+                }
+            }
+            
+            // Update materials with actual received quantities
+            const updatedMaterials = challan.materials.map(material => {
+                const materialName = material.material_name;
+                const actualReceivedQty = materialReceivedTotals[materialName] || 0;
+                const balanceQty = material.total_qty - actualReceivedQty;
+                
+                return {
+                    ...material.toObject(),
+                    received_qty: actualReceivedQty,
+                    balance_qty: balanceQty
+                };
+            });
+            
+            // Create a new object with updated materials
+            const updatedChallan = {
+                ...challan.toObject(),
+                materials: updatedMaterials
+            };
+            
+            res.json(updatedChallan);
         } else {
             res.status(404).json({ message: 'Delivery challan not found' });
         }

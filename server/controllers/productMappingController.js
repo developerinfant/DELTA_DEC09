@@ -6,7 +6,7 @@ const ProductMaterialMapping = require('../models/ProductMaterialMapping');
  * @access  Private (Admin/Manager)
  */
 const createProductMapping = async (req, res) => {
-    const { product_name, hsn_code, units_per_carton, materials } = req.body;
+    const { product_name, units_per_carton, materials } = req.body;
 
     try {
         // Check if a mapping with this product name already exists
@@ -30,7 +30,6 @@ const createProductMapping = async (req, res) => {
         // Create the new product mapping
         const productMapping = new ProductMaterialMapping({
             product_name,
-            hsn_code: hsn_code || '',
             units_per_carton: units_per_carton || 1, // Default to 1 if not provided
             materials
         });
@@ -83,7 +82,7 @@ const getProductMappingById = async (req, res) => {
  * @access  Private (Admin/Manager)
  */
 const updateProductMapping = async (req, res) => {
-    const { product_name, hsn_code, units_per_carton, materials } = req.body;
+    const { product_name, units_per_carton, materials } = req.body;
 
     try {
         const mapping = await ProductMaterialMapping.findById(req.params.id);
@@ -113,7 +112,6 @@ const updateProductMapping = async (req, res) => {
         }
 
         mapping.product_name = product_name;
-        mapping.hsn_code = hsn_code || '';
         mapping.units_per_carton = units_per_carton || 1; // Default to 1 if not provided
         mapping.materials = materials;
 
