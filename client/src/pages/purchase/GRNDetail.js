@@ -4,7 +4,7 @@ import api from '../../api';
 import { useAuth } from '../../context/AuthContext';
 import Card from '../../components/common/Card';
 import Modal from '../../components/common/Modal';
-import { FaSpinner, FaArrowLeft, FaCheck, FaTimes, FaEdit, FaSave, FaBan } from 'react-icons/fa';
+import { FaSpinner, FaArrowLeft, FaCheck, FaTimes, FaEdit, FaBan } from 'react-icons/fa';
 
 // Add a helper function to validate ObjectId
 const isValidObjectId = (id) => {
@@ -21,7 +21,7 @@ const GRNDetail = () => {
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState('');
     const [isProcessing, setIsProcessing] = useState(false);
-    const [isEditing, setIsEditing] = useState(false);
+    // Keep editedItems and cartonsReturned for display purposes, but they won't be used for editing
     const [editedItems, setEditedItems] = useState([]);
     const [cartonsReturned, setCartonsReturned] = useState('');
     
@@ -114,123 +114,6 @@ const GRNDetail = () => {
         }
     };
     
-    const handleEditToggle = () => {
-        if (isEditing) {
-            // Cancel editing, reset to original values
-            if (grn && grn.items) {
-                setEditedItems(grn.items.map(item => ({ ...item })));
-            }
-            // Reset cartons returned for carton-based GRNs
-            if (grn && grn.cartonsReturned !== undefined) {
-                setCartonsReturned(grn.cartonsReturned.toString());
-            }
-        }
-        setIsEditing(!isEditing);
-    };
-    
-    const handleItemChange = useCallback((index, field, value) => {
-        setEditedItems(prevItems => {
-            const newItems = [...prevItems];
-            // Ensure the item exists and create a new object reference
-            if (newItems[index]) {
-                newItems[index] = { ...newItems[index] };
-                
-                // Handle quantity fields specifically
-                if (field.includes('Quantity')) {
-                    const numValue = Number(value) >= 0 ? Number(value) : 0;
-                    newItems[index][field] = numValue;
-                } else {
-                    newItems[index][field] = value;
-                }
-            }
-            return newItems;
-        });
-    }, []);
-    
-    const handleSaveEdit = async (e) => {
-        e.preventDefault(); // Prevent any default form behavior
-        
-        // Validate that the ID is a valid ObjectId
-        if (!id || !isValidObjectId(id)) {
-            alert('Invalid GRN ID format.');
-            return;
-        }
-        
-        setIsProcessing(true);
-        try {
-            // Prevent saving if GRN is locked
-            if (grn?.isLocked) {
-                alert('This GRN is locked and cannot be modified.');
-                setIsProcessing(false);
-                return;
-            }
-            
-            // Ensure we have the required data
-            if (!grn || !id) {
-                alert('Missing required data.');
-                setIsProcessing(false);
-                return;
-            }
-            
-            // Prepare the data for update
-            const updateData = {
-                receivedBy: grn.receivedBy,
-                dateReceived: grn.dateReceived
-            };
-            
-            // Handle carton-based GRN update
-            if (grn.sourceType === 'jobber' && grn.cartonsReturned !== undefined) {
-                // Validate carton quantities
-                const cartonsReturnedNum = parseInt(cartonsReturned);
-                const cartonsSent = grn.cartonsSent || 0;
-                
-                if (cartonsReturnedNum > cartonsSent) {
-                    alert('Returned cartons cannot exceed sent cartons.');
-                    setIsProcessing(false);
-                    return;
-                }
-                
-                updateData.cartonsReturned = cartonsReturnedNum;
-            } else {
-                // Handle material-based GRN update
-                // Validate that received quantity doesn't exceed sent quantity
-                for (const item of editedItems) {
-                    const sentQty = item.orderedQuantity || 0;
-                    const receivedQty = item.receivedQuantity || 0;
-                    if (receivedQty > sentQty) {
-                        alert(`Received quantity cannot exceed sent quantity for ${item.material?.name || 'material'}.`);
-                        setIsProcessing(false);
-                        return;
-                    }
-                }
-                
-                updateData.items = editedItems;
-            }
-            
-            // Send the update request
-            const response = await api.put(`/grn/${id}`, updateData);
-            
-            // Update the local state with the response
-            setGrn(response.data);
-            if (response.data.items) {
-                setEditedItems(response.data.items.map(item => ({ ...item })));
-            }
-            if (response.data.cartonsReturned !== undefined) {
-                setCartonsReturned(response.data.cartonsReturned.toString());
-            }
-            setIsEditing(false);
-            
-            // Dispatch a custom event to notify other components of the update
-            window.dispatchEvent(new CustomEvent('grnUpdated'));
-            
-            alert('GRN updated successfully!');
-        } catch (err) {
-            alert(err.response?.data?.message || 'Failed to update the GRN.');
-        } finally {
-            setIsProcessing(false);
-        }
-    };
-    
     const getStatusClass = (status) => {
         switch (status) {
             case 'Pending Admin Approval': return 'bg-yellow-100 text-yellow-800';
@@ -255,8 +138,8 @@ const GRNDetail = () => {
         } else if (location?.pathname?.includes('/packing/')) {
             return '/packing/grn/view';
         }
-        // Default to general GRN view
-        return '/grn/view';
+        // Default to packing GRN view
+        return '/packing/grn/view';
     };
 
     const backPath = getBackPath();
@@ -283,9 +166,6 @@ const GRNDetail = () => {
         </Card>
     );
     if (!grn) return <Card><p className="text-center py-8">GRN not found.</p></Card>;
-
-    // Check if GRN can be edited (Partial status and not locked)
-    const canEditGRN = grn && grn.status === 'Partial' && !grn.isLocked && user && user.role === 'Admin';
 
     // Determine the reference label and value based on source type
     const getReferenceInfo = () => {
@@ -341,13 +221,11 @@ const GRNDetail = () => {
                         <div>
                             <h3 className="font-bold text-lg text-purple-800">
                                 {grn.sourceType === 'jobber' && grn.cartonsReturned !== undefined 
-                                    ? 'Editable Partial Delivery Challan' 
-                                    : 'Editable Partial GRN'}
+                                    ? 'Partial Delivery Challan' 
+                                    : 'Partial GRN'}
                             </h3>
                             <p className="text-purple-700">
-                                {grn.sourceType === 'jobber' && grn.cartonsReturned !== undefined
-                                    ? 'Update returned cartons to complete this record.'
-                                    : 'Update received quantities to complete this record.'}
+                                This record is partially completed. To make changes, please use the Create GRN page.
                             </p>
                         </div>
                     </div>
@@ -360,7 +238,7 @@ const GRNDetail = () => {
                         <FaCheck className="mr-3 text-xl text-gray-700" />
                         <div>
                             <h3 className="font-bold text-lg text-gray-800">Completed GRN</h3>
-                            <p className="text-gray-700">This GRN is Completed and cannot be modified.</p>
+                            <p className="text-gray-700">This GRN is Completed.</p>
                         </div>
                     </div>
                 </Card>
@@ -373,7 +251,7 @@ const GRNDetail = () => {
                         <FaBan className="mr-3 text-xl text-gray-700" />
                         <div>
                             <h3 className="font-bold text-lg text-gray-800">Locked GRN</h3>
-                            <p className="text-gray-700">This GRN is locked and cannot be edited.</p>
+                            <p className="text-gray-700">This GRN is locked.</p>
                         </div>
                     </div>
                 </Card>
@@ -437,9 +315,6 @@ const GRNDetail = () => {
                                     <th className="px-6 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider">Cartons Returned</th>
                                     <th className="px-6 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider">Balance</th>
                                     <th className="px-6 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider">Status</th>
-                                    {isEditing && (
-                                        <th className="px-6 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider">Actions</th>
-                                    )}
                                 </tr>
                             </thead>
                             <tbody className="bg-white divide-y divide-gray-200">
@@ -451,23 +326,7 @@ const GRNDetail = () => {
                                         <div className="text-sm font-bold text-blue-600">{grn.cartonsSent || 0}</div>
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap text-center">
-                                        {isEditing ? (
-                                            <input
-                                                type="number"
-                                                min="0"
-                                                max={grn.cartonsSent || 0}
-                                                value={cartonsReturned}
-                                                onChange={(e) => {
-                                                    // Prevent returning more than sent
-                                                    const value = Math.min(parseInt(e.target.value) || 0, grn.cartonsSent || 0);
-                                                    setCartonsReturned(value.toString());
-                                                }}
-                                                className="w-24 px-3 py-1 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 text-center"
-                                                disabled={grn?.isLocked}
-                                            />
-                                        ) : (
-                                            <div className="text-sm font-bold text-green-600">{grn.cartonsReturned || 0}</div>
-                                        )}
+                                        <div className="text-sm font-bold text-green-600">{grn.cartonsReturned || 0}</div>
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap text-center">
                                         <div className={`text-sm font-bold ${cartonBalance > 0 ? 'text-red-600' : 'text-gray-600'}`}>
@@ -483,18 +342,6 @@ const GRNDetail = () => {
                                             {grn.cartonsReturned === grn.cartonsSent ? 'Completed' : 'Partial'}
                                         </span>
                                     </td>
-                                    {isEditing && (
-                                        <td className="px-6 py-4 whitespace-nowrap text-center">
-                                            <button 
-                                                onClick={() => setCartonsReturned((grn.cartonsReturned || 0).toString())}
-                                                className="text-red-500 hover:text-red-700"
-                                                title="Reset to original"
-                                                disabled={grn?.isLocked}
-                                            >
-                                                <FaBan />
-                                            </button>
-                                        </td>
-                                    )}
                                 </tr>
                             </tbody>
                         </table>
@@ -508,56 +355,55 @@ const GRNDetail = () => {
                             <thead className="bg-gray-50">
                                 <tr>
                                     <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Material Name</th>
-                                    <th className="px-6 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider">Sent Qty</th>
+                                    <th className="px-6 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider">Ordered Qty</th>
+                                    <th className="px-6 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider">Previous Received</th>
+                                    <th className="px-6 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider">Pending Qty</th>
                                     <th className="px-6 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider">Received Qty</th>
                                     <th className="px-6 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider">Balance</th>
                                     <th className="px-6 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider">Status</th>
                                     <th className="px-6 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider">Damaged</th>
-                                    {isEditing && (
-                                        <th className="px-6 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider">Actions</th>
-                                    )}
                                 </tr>
                             </thead>
                             <tbody className="bg-white divide-y divide-gray-200">
                                 {editedItems.map((item, index) => {
-                                    // Calculate item status based on quantities
+                                    // Calculate item status and quantities based on the actual GRN record data
                                     let itemStatus = 'Completed';
                                     let itemStatusClass = 'bg-green-100 text-green-800';
-                                    const sentQty = item?.orderedQuantity || 0;
-                                    const receivedQty = item?.receivedQuantity || 0;
-                                    const balanceQty = sentQty - receivedQty;
                                     
-                                    if (receivedQty < sentQty) {
+                                    // Use the actual values from the GRN record
+                                    const orderedQty = item?.orderedQuantity || 0;
+                                    const receivedQty = item?.receivedQuantity || 0;
+                                    const previousReceived = item?.previousReceived || 0;
+                                    const pendingQty = orderedQty - previousReceived;  // Pending is based on previous received
+                                    // Use the balanceQuantity from the GRN record if available, otherwise calculate it
+                                    const balanceQty = item?.balanceQuantity !== undefined ? item.balanceQuantity : (orderedQty - (previousReceived + receivedQty));
+                                    
+                                    // Status logic based on the actual GRN record
+                                    if (balanceQty > 0) {
                                         itemStatus = 'Partial';
                                         itemStatusClass = 'bg-orange-100 text-orange-800';
+                                    } else {
+                                        itemStatus = 'Completed';
+                                        itemStatusClass = 'bg-green-100 text-green-800';
                                     }
                                     
                                     return (
                                         <tr key={item._id} className="hover:bg-gray-50">
                                             <td className="px-6 py-4 whitespace-nowrap">
-                                                <div className="text-sm font-medium text-gray-900">{item.material?.name || 'N/A'}</div>
-                                                <div className="text-xs text-gray-500">{item.materialModel ? item.materialModel.replace('Material', '') : 'N/A'}</div>
+                                                <div className="text-sm font-medium text-gray-900">{item.material?.name || item.material || 'N/A'}</div>
+                                                <div className="text-xs text-gray-500">{item.material?.itemCode ? `(${item.material.itemCode})` : ''} {item.material?.unit ? `(${item.material.unit})` : ''}</div>
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap text-center">
-                                                <div className="text-sm font-bold text-blue-600">{sentQty}</div>
+                                                <div className="text-sm font-bold text-blue-600">{orderedQty}</div>
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap text-center">
-                                                {isEditing ? (
-                                                    <input
-                                                        type="number"
-                                                        min="0"
-                                                        max={sentQty} // Prevent receiving more than sent
-                                                        value={receivedQty}
-                                                        onChange={(e) => {
-                                                            const value = Math.min(parseFloat(e.target.value) || 0, sentQty);
-                                                            handleItemChange(index, 'receivedQuantity', value);
-                                                        }}
-                                                        className="w-20 px-2 py-1 border border-gray-300 rounded text-center"
-                                                        disabled={grn?.isLocked}
-                                                    />
-                                                ) : (
-                                                    <div className="text-sm font-bold text-green-600">{receivedQty}</div>
-                                                )}
+                                                <div className="text-sm font-bold text-yellow-600">{previousReceived}</div>
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-center">
+                                                <div className="text-sm font-bold text-orange-600">{pendingQty}</div>
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-center">
+                                                <div className="text-sm font-bold text-green-600">{receivedQty}</div>
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap text-center">
                                                 <div className={`text-sm font-bold ${balanceQty > 0 ? 'text-red-600' : 'text-gray-600'}`}>
@@ -570,42 +416,8 @@ const GRNDetail = () => {
                                                 </span>
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap text-center">
-                                                {isEditing ? (
-                                                    <input
-                                                        type="number"
-                                                        min="0"
-                                                        max={receivedQty} // Damaged can't exceed received
-                                                        value={item?.damagedQuantity || 0}
-                                                        onChange={(e) => {
-                                                            const value = Math.min(parseFloat(e.target.value) || 0, receivedQty);
-                                                            handleItemChange(index, 'damagedQuantity', value);
-                                                        }}
-                                                        className="w-20 px-2 py-1 border border-gray-300 rounded text-center"
-                                                        disabled={grn?.isLocked}
-                                                    />
-                                                ) : (
-                                                    <div className="text-sm font-bold text-red-600">{item?.damagedQuantity || 0}</div>
-                                                )}
+                                                <div className="text-sm font-bold text-red-600">{item?.damagedQuantity || 0}</div>
                                             </td>
-                                            {isEditing && (
-                                                <td className="px-6 py-4 whitespace-nowrap text-center">
-                                                    <button 
-                                                        onClick={() => {
-                                                            // Ensure both arrays exist and the index is valid
-                                                            if (editedItems && grn?.items && grn.items[index]) {
-                                                                const newItems = [...editedItems];
-                                                                newItems[index] = { ...grn.items[index] }; // Reset to original
-                                                                setEditedItems(newItems);
-                                                            }
-                                                        }}
-                                                        className="text-red-500 hover:text-red-700"
-                                                        title="Reset to original"
-                                                        disabled={grn?.isLocked}
-                                                    >
-                                                        <FaBan />
-                                                    </button>
-                                                </td>
-                                            )}
                                         </tr>
                                     );
                                 })}
@@ -621,9 +433,21 @@ const GRNDetail = () => {
                             </div>
                             <div className="flex space-x-4">
                                 <div className="text-sm">
-                                    <span className="text-gray-500">Total Sent: </span>
+                                    <span className="text-gray-500">Total Ordered: </span>
                                     <span className="font-bold text-blue-600">
                                         {editedItems.reduce((sum, item) => sum + (item?.orderedQuantity || 0), 0)}
+                                    </span>
+                                </div>
+                                <div className="text-sm">
+                                    <span className="text-gray-500">Total Previous Received: </span>
+                                    <span className="font-bold text-yellow-600">
+                                        {editedItems.reduce((sum, item) => sum + (item?.previousReceived || 0), 0)}
+                                    </span>
+                                </div>
+                                <div className="text-sm">
+                                    <span className="text-gray-500">Total Pending: </span>
+                                    <span className="font-bold text-orange-600">
+                                        {editedItems.reduce((sum, item) => sum + ((item?.orderedQuantity || 0) - (item?.previousReceived || 0)), 0)}
                                     </span>
                                 </div>
                                 <div className="text-sm">
@@ -635,7 +459,7 @@ const GRNDetail = () => {
                                 <div className="text-sm">
                                     <span className="text-gray-500">Total Balance: </span>
                                     <span className="font-bold text-red-600">
-                                        {editedItems.reduce((sum, item) => sum + ((item?.orderedQuantity || 0) - (item?.receivedQuantity || 0)), 0)}
+                                        {editedItems.reduce((sum, item) => sum + ((item?.orderedQuantity || 0) - ((item?.previousReceived || 0) + (item?.receivedQuantity || 0))), 0)}
                                     </span>
                                 </div>
                             </div>
@@ -644,49 +468,8 @@ const GRNDetail = () => {
                 </Card>
             )}
 
-            {/* Action Buttons */}
+            {/* Action Buttons - Remove all edit buttons, keep only approval buttons for admins */}
             <div className="flex flex-wrap gap-3 justify-end">
-                {canEditGRN && !isEditing && (
-                    <button
-                        onClick={handleEditToggle}
-                        disabled={isProcessing || grn?.isLocked}
-                        className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
-                    >
-                        <FaEdit className="mr-2" />
-                        Edit GRN
-                    </button>
-                )}
-                
-                {isEditing && (
-                    <>
-                        <button
-                            onClick={handleEditToggle}
-                            disabled={isProcessing}
-                            className="flex items-center px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 disabled:opacity-50"
-                        >
-                            <FaTimes className="mr-2" />
-                            Cancel
-                        </button>
-                        <button
-                            onClick={handleSaveEdit}
-                            disabled={isProcessing}
-                            className="flex items-center px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:opacity-50"
-                        >
-                            {isProcessing ? (
-                                <>
-                                    <FaSpinner className="animate-spin mr-2" />
-                                    Saving...
-                                </>
-                            ) : (
-                                <>
-                                    <FaSave className="mr-2" />
-                                    Save Changes
-                                </>
-                            )}
-                        </button>
-                    </>
-                )}
-                
                 {grn?.status === 'Pending Admin Approval' && user?.role === 'Admin' && (
                     <>
                         <button

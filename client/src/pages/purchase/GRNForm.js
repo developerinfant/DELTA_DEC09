@@ -24,15 +24,52 @@ const GRNForm = ({ purchaseOrders, onCreate }) => {
                 try {
                     const { data } = await api.get(`/purchase-orders/${selectedPOId}`);
                     setPoDetails(data);
-                    // Pre-fill items based on PO details
-                    setItems(data.items.map(item => ({
-                        material: item.material._id,
-                        materialModel: item.materialModel,
-                        orderedQuantity: item.quantity,
-                        receivedQuantity: item.quantity - (item.quantityReceived || 0), // Default to remaining quantity
-                        damagedQuantity: 0,
-                        remarks: '',
-                    })));
+                    
+                    // Fetch existing GRNs for this PO to calculate previous received quantities
+                    const grnResponse = await api.get(`/grn?purchaseOrder=${selectedPOId}`);
+                    const existingGRNs = grnResponse.data;
+                    
+                    // Pre-fill items based on PO details and calculate previous received quantities
+                    const updatedItems = data.items.map(poItem => {
+                        // Calculate total received quantity for this material from all existing GRNs
+                        let previousReceived = 0;
+                        const grnHistory = [];
+                        
+                        existingGRNs.forEach(grn => {
+                            grn.items.forEach(grnItem => {
+                                // Match by material ID and model
+                                const poMaterialId = typeof poItem.material === 'object' ? poItem.material._id : poItem.material;
+                                const grnMaterialId = typeof grnItem.material === 'object' ? grnItem.material._id : grnItem.material;
+                                
+                                if (grnMaterialId === poMaterialId && grnItem.materialModel === poItem.materialModel) {
+                                    previousReceived += grnItem.receivedQuantity || 0;
+                                    
+                                    // Add to history
+                                    grnHistory.push({
+                                        date: grn.dateReceived,
+                                        receivedQuantity: grnItem.receivedQuantity || 0,
+                                        grnNumber: grn.grnNumber
+                                    });
+                                }
+                            });
+                        });
+                        
+                        // Sort history by date (newest first)
+                        grnHistory.sort((a, b) => new Date(b.date) - new Date(a.date));
+                        
+                        return {
+                            material: poItem.material._id,
+                            materialModel: poItem.materialModel,
+                            orderedQuantity: poItem.quantity,
+                            previousReceived: previousReceived,
+                            grnHistory: grnHistory, // Add history to item
+                            receivedQuantity: poItem.quantity - previousReceived, // Default to remaining quantity
+                            damagedQuantity: 0,
+                            remarks: '',
+                        };
+                    });
+                    
+                    setItems(updatedItems);
                 } catch (err) {
                     setError('Failed to fetch PO details.');
                 }
@@ -78,7 +115,7 @@ const GRNForm = ({ purchaseOrders, onCreate }) => {
             if (onCreate) onCreate();
             // Redirect to the GRN list after a short delay
             setTimeout(() => {
-                navigate('/grn/view');
+                navigate('/packing/grn/view');
             }, 1500);
         } catch (err) {
             setError(err.response?.data?.message || 'Failed to create GRN.');
@@ -204,24 +241,36 @@ const GRNForm = ({ purchaseOrders, onCreate }) => {
                                         </div>
                                         <div className="p-4">
                                             <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-center">
-                                                <div className="md:col-span-4 text-center bg-blue-50 p-3 rounded-lg">
+                                                <div className="md:col-span-3 text-center bg-blue-50 p-3 rounded-lg">
                                                     <p className="text-xs text-gray-500 uppercase">Ordered</p>
                                                     <p className="font-bold text-lg">{item.orderedQuantity}</p>
                                                 </div>
-                                                <div className="md:col-span-4">
+                                                <div className="md:col-span-3 text-center bg-yellow-50 p-3 rounded-lg">
+                                                    <p className="text-xs text-gray-500 uppercase">Previous Received</p>
+                                                    <p className="font-bold text-lg">{item.previousReceived || 0}</p>
+                                                </div>
+                                                <div className="md:col-span-3 text-center bg-orange-50 p-3 rounded-lg">
+                                                    <p className="text-xs text-gray-500 uppercase">Pending</p>
+                                                    <p className="font-bold text-lg">{(item.orderedQuantity - (item.previousReceived || 0))}</p>
+                                                </div>
+                                                <div className="md:col-span-3">
                                                     <label htmlFor={`received-${index}`} className="block text-xs font-medium text-dark-700 mb-1">Received Quantity</label>
                                                     <input 
                                                         id={`received-${index}`} 
                                                         type="text" 
                                                         min="0"
-                                                        max={item.orderedQuantity}
+                                                        max={item.orderedQuantity - (item.previousReceived || 0)}
                                                         value={item.receivedQuantity} 
                                                         onChange={e => handleItemChange(index, 'receivedQuantity', e.target.value)} 
                                                         required 
                                                         className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
                                                     />
                                                 </div>
-                                                <div className="md:col-span-4">
+                                            </div>
+                                            
+                                            <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-center mt-2">
+                                                <div className="md:col-span-9"></div>
+                                                <div className="md:col-span-3">
                                                     <label htmlFor={`damaged-${index}`} className="block text-xs font-medium text-dark-700 mb-1">Damaged Qty</label>
                                                     <input 
                                                         id={`damaged-${index}`} 
@@ -234,6 +283,46 @@ const GRNForm = ({ purchaseOrders, onCreate }) => {
                                                     />
                                                 </div>
                                             </div>
+                                            
+                                            {/* Dropdown history view for previous GRNs */}
+                                            {item.previousReceived > 0 && (
+                                                <div className="mt-4">
+                                                    <details className="bg-gray-50 rounded-lg border border-gray-200">
+                                                        <summary className="p-3 font-medium text-sm cursor-pointer hover:bg-gray-100 flex justify-between items-center">
+                                                            <span>View Previous GRN History</span>
+                                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path>
+                                                            </svg>
+                                                        </summary>
+                                                        <div className="p-3 border-t border-gray-200">
+                                                            <div className="text-xs text-gray-600 mb-2">
+                                                                <div className="grid grid-cols-4 gap-2 font-semibold py-2 border-b">
+                                                                    <span>Date</span>
+                                                                    <span>GRN #</span>
+                                                                    <span className="text-right">Received Qty</span>
+                                                                    <span className="text-right">Pending Qty</span>
+                                                                </div>
+                                                                {item.grnHistory && item.grnHistory.map((historyItem, historyIndex) => (
+                                                                    <div key={historyIndex} className="grid grid-cols-4 gap-2 py-2 border-b border-gray-100 last:border-0">
+                                                                        <span>{historyItem.date ? new Date(historyItem.date).toLocaleDateString() : 'N/A'}</span>
+                                                                        <span>{historyItem.grnNumber || 'N/A'}</span>
+                                                                        <span className="text-right">{historyItem.receivedQuantity}</span>
+                                                                        <span className="text-right">
+                                                                            {item.orderedQuantity - 
+                                                                            item.grnHistory.slice(0, historyIndex + 1).reduce((sum, h) => sum + h.receivedQuantity, 0)}
+                                                                        </span>
+                                                                    </div>
+                                                                ))}
+                                                            </div>
+                                                            <div className="text-xs text-gray-500 mt-2">
+                                                                <p><span className="font-semibold">Total Ordered:</span> {item.orderedQuantity}</p>
+                                                                <p><span className="font-semibold">Total Received:</span> {item.previousReceived}</p>
+                                                                <p><span className="font-semibold">Pending Qty:</span> {item.orderedQuantity - item.previousReceived}</p>
+                                                            </div>
+                                                        </div>
+                                                    </details>
+                                                </div>
+                                            )}
                                         </div>
                                     </div>
                                 ))}
