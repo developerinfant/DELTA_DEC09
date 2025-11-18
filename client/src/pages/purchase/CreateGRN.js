@@ -57,7 +57,7 @@ const CreateGRN = () => {
             return '/packing/grn/view';
         }
         // Default to packing GRNs view
-        return '/grn/view';
+        return '/packing/grn/view';
     };
 
     if (isLoading) return (

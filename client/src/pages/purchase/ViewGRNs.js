@@ -167,35 +167,51 @@ const JobberGRNDetailsModal = ({ isOpen, onClose, grn }) => {
                             <thead className="bg-gray-50">
                                 <tr>
                                     <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Material</th>
-                                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Sent Qty</th>
+                                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ordered Qty</th>
+                                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Previous Received</th>
+                                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Pending Qty</th>
                                     <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Received Qty</th>
                                     <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Balance</th>
                                     <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                                 </tr>
                             </thead>
                             <tbody className="bg-white divide-y divide-gray-200">
-                                {grn.items.map((item, index) => (
-                                    <tr key={index}>
-                                        <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">
-                                            {item.material?.name || 'N/A'}
-                                        </td>
-                                        <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">
-                                            {item.orderedQuantity}
-                                        </td>
-                                        <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">
-                                            {item.receivedQuantity}
-                                        </td>
-                                        <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">
-                                            {item.balanceQuantity}
-                                        </td>
-                                        <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">
-                                            <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
-                                                ${item.receivedQuantity === item.orderedQuantity ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
-                                                {item.receivedQuantity === item.orderedQuantity ? 'Completed' : 'Partial'}
-                                            </span>
-                                        </td>
-                                    </tr>
-                                ))}
+                                {grn.items.map((item, index) => {
+                                    const orderedQty = item.orderedQuantity || 0;
+                                    const previousReceived = item.previousReceived || 0;
+                                    const pendingQty = orderedQty - previousReceived;
+                                    const receivedQty = item.receivedQuantity || 0;
+                                    const balanceQty = pendingQty - receivedQty;
+                                    
+                                    return (
+                                        <tr key={index}>
+                                            <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">
+                                                {item.material?.name || 'N/A'}
+                                            </td>
+                                            <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">
+                                                {orderedQty}
+                                            </td>
+                                            <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">
+                                                {previousReceived}
+                                            </td>
+                                            <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">
+                                                {pendingQty}
+                                            </td>
+                                            <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">
+                                                {receivedQty}
+                                            </td>
+                                            <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">
+                                                {balanceQty}
+                                            </td>
+                                            <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">
+                                                <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
+                                                    ${receivedQty === pendingQty ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
+                                                    {receivedQty === pendingQty ? 'Completed' : 'Partial'}
+                                                </span>
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
                             </tbody>
                         </table>
                     </div>
