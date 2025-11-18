@@ -52,7 +52,7 @@ const Login = () => {
                 <div className="text-center mb-4">
                     <img src={logo} alt="Delta Logo" className="mx-auto h-44 w-44 object-contain" />
                     <h1 className="text-2xl font-bold text-dark-800 mt-1 bg-gradient-to-r from-primary-600 to-accent-600 bg-clip-text text-transparent">
-                        Welcome Back
+                        Welcome Back.
                     </h1>
                     <p className="text-secondary-600 mt-1">Please login to your account.</p>
                 </div>
