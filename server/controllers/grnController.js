@@ -763,7 +763,14 @@ const createGRN = async (req, res) => {
 
         const newGRN = new GRN(grnData);
         const savedGRN = await newGRN.save();
-        
+        for (const item of processedItems) {
+    if (item.materialModel === 'PackingMaterial') {
+        await PackingMaterial.findByIdAndUpdate(
+            item.material,
+            { $inc: { quantity: item.receivedQuantity } }
+        );
+    }
+}
         // Update stock for each item in the GRN immediately upon submission
         for (const item of processedItems) {
             const Model = item.materialModel === 'PackingMaterial' ? PackingMaterial : RawMaterial;

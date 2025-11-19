@@ -15,12 +15,6 @@ const PackingMaterialStockAlerts = () => {
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState('');
 
-    // Modal and form states
-    const [isModalOpen, setIsModalOpen] = useState(false);
-    const [selectedMaterial, setSelectedMaterial] = useState(null);
-    const [stockToAdd, setStockToAdd] = useState('');
-    const [isUpdating, setIsUpdating] = useState(false);
-
     // Function to fetch alerts from the API
     const fetchStockAlerts = async () => {
         setIsLoading(true);
@@ -41,18 +35,12 @@ const PackingMaterialStockAlerts = () => {
         fetchStockAlerts();
     }, []);
 
-    // --- Modal Handlers ---
-    const handleOpenAddStockModal = (material) => {
-        setSelectedMaterial(material);
-        setStockToAdd(''); // Reset the input field
-        setIsModalOpen(true);
+    // --- Handler for redirecting to Item Master with editId ---
+    const handleAddStockRedirect = (material) => {
+        // Navigate to the Item Master page with the editId parameter
+        navigate(`/materials?editId=${material.itemCode}`);
     };
 
-    const handleCloseModal = () => {
-        setIsModalOpen(false);
-        setSelectedMaterial(null);
-    };
-    
     // --- New Handler for Creating a PO ---
     const handleCreatePO = (material) => {
         navigate('/purchase-orders/create', { 
@@ -60,36 +48,6 @@ const PackingMaterialStockAlerts = () => {
                 materialId: material._id,
             } 
         });
-    };
-
-    // --- Form Submission Handler for Adding Stock ---
-    const handleAddStockSubmit = async (e) => {
-        e.preventDefault();
-        if (!stockToAdd || Number(stockToAdd) <= 0) {
-            alert('Please enter a valid quantity to add.');
-            return;
-        }
-
-        setIsUpdating(true);
-        const newQuantity = selectedMaterial.quantity + Number(stockToAdd);
-
-        try {
-            // Send the entire material object with the updated quantity
-            await api.put(`/materials/${selectedMaterial._id}`, {
-                ...selectedMaterial,
-                quantity: newQuantity,
-            });
-            
-            handleCloseModal();
-            // Re-fetch the alerts list to see if this material is still low on stock
-            fetchStockAlerts(); 
-
-        } catch (err) {
-            console.error("Failed to add stock:", err);
-            alert("There was an error adding stock. Please try again.");
-        } finally {
-            setIsUpdating(false);
-        }
     };
 
     // --- Report Columns Configuration ---
@@ -135,7 +93,7 @@ const PackingMaterialStockAlerts = () => {
                     <StockAlertCard 
                         key={material._id} 
                         material={material} 
-                        onAddStock={handleOpenAddStockModal}
+                        onAddStock={handleAddStockRedirect} // <-- Updated handler
                         onCreatePO={handleCreatePO} // <-- Pass the new handler
                     />
                 ))}
@@ -159,38 +117,6 @@ const PackingMaterialStockAlerts = () => {
             </div>
             
             {renderContent()}
-
-            {/* Modal for adding stock */}
-            <Modal 
-                isOpen={isModalOpen} 
-                onClose={handleCloseModal} 
-                title={`Add Stock for "${selectedMaterial?.name}"`}
-            >
-                <form onSubmit={handleAddStockSubmit}>
-                    <p className="text-sm text-gray-600">
-                        Current quantity: <span className="font-bold">{selectedMaterial?.quantity}</span>
-                    </p>
-                    <div className="mt-4">
-                        <label htmlFor="stock-to-add" className="block text-sm font-medium text-gray-700">Quantity to Add</label>
-                        <input
-                            id="stock-to-add"
-                            type="number"
-                            value={stockToAdd}
-                            onChange={(e) => setStockToAdd(e.target.value)}
-                            min="1"
-                            className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm"
-                            placeholder="e.g., 50"
-                            autoFocus
-                        />
-                    </div>
-                    <div className="mt-6 flex justify-end space-x-3">
-                        <button type="button" onClick={handleCloseModal} className="px-4 py-2 bg-gray-200 rounded-md text-gray-700 hover:bg-gray-300">Cancel</button>
-                        <button type="submit" disabled={isUpdating} className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:bg-indigo-300">
-                            {isUpdating ? 'Adding...' : 'Add Stock'}
-                        </button>
-                    </div>
-                </form>
-            </Modal>
         </div>
     );
 };

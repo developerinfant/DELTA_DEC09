@@ -431,31 +431,16 @@ const getPackingMaterialStockReport = async (req, res) => {
         // Get all packing materials from the database
         const materials = await PackingMaterial.find({}).sort({ name: 1 });
         
-        // Get all completed delivery challans for packing materials
-        const deliveryChallans = await DeliveryChallan.find({ 
-            status: 'Completed' 
-        }).populate('supplier_id', 'name');
+        // Get all delivery challans for packing materials (not just completed ones)
+        const deliveryChallans = await DeliveryChallan.find({}).populate('supplier_id', 'name');
         
         // Process materials to calculate stock distribution
         const stockReport = materials.map(material => {
-            // Initialize stock counts
-            let ownUnitStock = 0;
-            let jobberStock = 0;
+            // Get WIP stock directly from material fields
+            const ownUnitStock = material.ownUnitWIP || 0;
+            const jobberStock = material.jobberWIP || 0;
             
-            // Calculate stock distribution based on completed DCs
-            deliveryChallans.forEach(dc => {
-                // Find material in DC
-                const dcMaterial = dc.materials.find(m => m.material_name === material.name);
-                if (dcMaterial) {
-                    if (dc.unit_type === 'Own Unit') {
-                        ownUnitStock += dcMaterial.total_qty;
-                    } else if (dc.unit_type === 'Jobber') {
-                        jobberStock += dcMaterial.total_qty;
-                    }
-                }
-            });
-            
-            // Our stock is the current quantity minus what's been issued
+            // Our stock is the current quantity in PM Store
             const ourStock = material.quantity;
             
             // Calculate values

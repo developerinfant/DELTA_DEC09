@@ -58,9 +58,9 @@ const MaterialStockReport = () => {
     const newSocket = io();
     setSocket(newSocket);
     
-    // Listen for DC completion events
-    newSocket.on('dcCompleted', (data) => {
-      console.log('DC completed, refreshing material stock report...', data);
+    // Listen for DC creation events
+    newSocket.on('dcCreated', (data) => {
+      console.log('DC created, refreshing material stock report...', data);
       fetchData();
     });
     
@@ -198,7 +198,7 @@ const MaterialStockReport = () => {
       {activeView === '' && (
         <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-4 border border-blue-100 shadow-sm">
           <p className="text-gray-600 text-sm">
-            Real-time tracking of packing material stock movements between PM Store, Own Unit WIP, and Job work WIP based on completed Delivery Challans.
+            Real-time tracking of packing material stock movements between PM Store, Own Unit WIP, and Job work WIP based on created Delivery Challans.
           </p>
           <p className="text-gray-600 text-sm mt-2">
             Select "Job Stock Report" or "Own Unit Report" to view detailed delivery information.
