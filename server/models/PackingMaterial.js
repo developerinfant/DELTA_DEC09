@@ -101,6 +101,19 @@ const packingMaterialSchema = new mongoose.Schema({
         default: 0,
         min: [0, 'Used quantity cannot be negative'],
     },
+    // WIP tracking fields
+    ownUnitWIP: {
+        type: Number,
+        required: [true, 'Own Unit WIP is required'],
+        default: 0,
+        min: [0, 'Own Unit WIP cannot be negative'],
+    },
+    jobberWIP: {
+        type: Number,
+        required: [true, 'Jobber WIP is required'],
+        default: 0,
+        min: [0, 'Jobber WIP cannot be negative'],
+    },
     isWithJobber: {
         type: Boolean,
         default: false,

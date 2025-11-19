@@ -139,15 +139,25 @@ const createDeliveryChallan = async (req, res) => {
 
         // Deduct stock from each material and create ledger entries
         for (const material of materials) {
-            // Deduct stock
+            // Prepare update object
+            const updateObj = {
+                $inc: { 
+                    quantity: -material.total_qty,
+                    usedQty: material.total_qty
+                }
+            };
+            
+            // Add WIP tracking based on unit type
+            if (unit_type === 'Own Unit') {
+                updateObj.$inc.ownUnitWIP = material.total_qty;
+            } else if (unit_type === 'Jobber') {
+                updateObj.$inc.jobberWIP = material.total_qty;
+            }
+            
+            // Deduct stock and update WIP
             const updatedMaterial = await PackingMaterial.findOneAndUpdate(
                 { name: material.material_name },
-                { 
-                    $inc: { 
-                        quantity: -material.total_qty,
-                        usedQty: material.total_qty
-                    }
-                },
+                updateObj,
                 { new: true }
             );
             

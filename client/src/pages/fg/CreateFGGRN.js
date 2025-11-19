@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useContext } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import api from '../../api';
 import Card from '../../components/common/Card';
@@ -6,8 +6,10 @@ import { FaSpinner, FaInfoCircle, FaExclamationTriangle, FaRedo, FaBan } from 'r
 import { toast } from 'react-toastify';
 import Select from 'react-select';
 import { ArrowLeft } from 'lucide-react';
+import { useAuth } from '../../context/AuthContext';
 
 const CreateFGGRN = () => {
+    const { user } = useAuth(); // Get user from AuthContext
     const location = useLocation();
     const [deliveryChallans, setDeliveryChallans] = useState([]);
     const [dcOptions, setDcOptions] = useState([]);
@@ -491,6 +493,17 @@ const CreateFGGRN = () => {
         setIsDamagedStockSaved(false); // Reset damaged stock saved state
     };
 
+    // Initialize receivedBy with user's name when component mounts
+    useEffect(() => {
+        if (user) {
+            if (user.role === 'Admin') {
+                setReceivedBy('Admin');
+            } else {
+                setReceivedBy(user.name || '');
+            }
+        }
+    }, [user]);
+
     if (isLoading && !dcDetails) {
         return (
             <div className="flex justify-center items-center h-64">
@@ -659,7 +672,8 @@ const CreateFGGRN = () => {
                                         value={receivedBy}
                                         onChange={(e) => setReceivedBy(e.target.value)}
                                         className="w-full px-4 py-3 text-gray-700 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                                        disabled={isLoading || isGRNLocked}
+                                        disabled={isLoading || isGRNLocked || !!user} // Read-only if user is logged in
+                                        readOnly={!!user} // Read-only if user is logged in
                                     />
                                 </div>
                                 

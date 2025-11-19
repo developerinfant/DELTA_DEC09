@@ -260,19 +260,16 @@ const checkPOForGRN = async (req, res) => {
         
         if (existingGRN) {
             if (existingGRN.status === 'Completed') {
-                return res.status(200).json({
-                    action: 'block',
-                    message: `⚠️ GRN already completed for this Purchase Order. You cannot create another GRN for ${po.poNumber}.`
-                });
-            } else if (existingGRN.status === 'Partial') {
-                return res.status(200).json({
-                    action: 'redirect_to_edit',
-                    grnId: existingGRN._id,
-                    message: '⚠️ A Partial GRN already exists for this PO. Redirecting to edit mode...'
+                return res.status(400).json({ 
+                    message: `⚠️ GRN already completed for this Purchase Order. You cannot create another GRN for ${po.poNumber}.` 
                 });
             }
+            // For Partial status, we should allow creating new GRNs (partial receiving should be allowed)
+            // The check for Partial status has been removed to allow multiple partial GRNs for the same PO
         }
-        
+
+        const grnNumber = await getNextGRNNumber();
+
         // No existing GRN or existing GRN is not blocking
         return res.status(200).json({ 
             action: 'allow_new', 
@@ -618,9 +615,11 @@ const createGRN = async (req, res) => {
                     message: `⚠️ GRN already completed for this Purchase Order. You cannot create another GRN for ${po.poNumber}.` 
                 });
             } else if (existingGRN.status === 'Partial') {
-                return res.status(400).json({ 
-                    message: '⚠️ A Partial GRN already exists for this PO. Please edit the existing GRN instead of creating a new one.'
-                });
+                // For Partial status, we should allow creating new GRNs (partial receiving should be allowed)
+                // The check for Partial status has been removed to allow multiple partial GRNs for the same PO
+                // return res.status(400).json({ 
+                //     message: '⚠️ A Partial GRN already exists for this PO. Please edit the existing GRN instead of creating a new one.'
+                // });
             }
         }
 
@@ -668,13 +667,45 @@ const createGRN = async (req, res) => {
                 return res.status(400).json({ message: `Item not found in Purchase Order: ${material}` });
             }
             
-            // Check if received quantity differs from ordered quantity
-            if (receivedQuantity !== poItem.quantity) {
+            // Calculate total received quantities for this material from all previous GRNs for this PO
+            const existingGRNs = await GRN.find({ 
+                purchaseOrder: purchaseOrderId,
+                'items.material': material,
+                'items.materialModel': materialModel
+            });
+            
+            let previousReceived = 0;
+            for (const existingGRN of existingGRNs) {
+                for (const grnItem of existingGRN.items) {
+                    const grnItemId = typeof grnItem.material === 'object' ? grnItem.material.toString() : grnItem.material;
+                    const itemMaterialId = typeof material === 'object' ? material.toString() : material;
+                    if (grnItemId === itemMaterialId && grnItem.materialModel === materialModel) {
+                        previousReceived += grnItem.receivedQuantity || 0;
+                    }
+                }
+            }
+            
+            // Calculate pending quantity
+            const pendingQuantity = poItem.quantity - previousReceived;
+            
+            // Check if received quantity exceeds pending quantity
+            if (receivedQuantity > pendingQuantity) {
+                return res.status(400).json({ 
+                    message: `Received quantity (${receivedQuantity}) cannot exceed pending quantity (${pendingQuantity}) for material ${poItem.material.name || material}.` 
+                });
+            }
+            
+            // Check if all items are fully received to determine status
+            // We need to check if the current item plus previous received equals the ordered quantity
+            if (previousReceived + receivedQuantity !== poItem.quantity) {
                 allItemsMatch = false;
             }
             
             // Calculate price difference using the (possibly updated) unitPrice
             const priceData = await calculatePriceDifference(material, materialModel, unitPrice);
+            
+            // Calculate balance quantity (ordered - (previous received + current received))
+            const balanceQuantity = poItem.quantity - (previousReceived + receivedQuantity);
             
             processedItems.push({
                 material,
@@ -688,19 +719,20 @@ const createGRN = async (req, res) => {
                 lastUnitPrice: priceData.lastUnitPrice,
                 priceDifference: priceData.priceDifference,
                 priceDifferencePercentage: priceData.priceDifferencePercentage,
-                balanceQuantity: poItem.quantity - receivedQuantity
+                balanceQuantity: balanceQuantity,
+                previousReceived: previousReceived
             });
         }
         
-        // Determine GRN status based on quantity match:
-        // 1. If all quantities match exactly → "Completed"
-        // 2. If quantities differ → "Partial"
+        // Determine GRN status based on whether all items are fully received:
+        // 1. If all quantities are fully received → "Completed"
+        // 2. If quantities are partially received → "Partial"
         let status;
         if (allItemsMatch) {
-            // All quantities match exactly - set to Completed
+            // All quantities fully received - set to Completed
             status = 'Completed';
         } else {
-            // Quantity mismatch - set to Partial
+            // Quantity partially received - set to Partial
             status = 'Partial';
         }
 
@@ -732,7 +764,7 @@ const createGRN = async (req, res) => {
         const newGRN = new GRN(grnData);
         const savedGRN = await newGRN.save();
         
-        // Update stock for each item in the GRN
+        // Update stock for each item in the GRN immediately upon submission
         for (const item of processedItems) {
             const Model = item.materialModel === 'PackingMaterial' ? PackingMaterial : RawMaterial;
             
@@ -830,9 +862,51 @@ const createGRN = async (req, res) => {
             });
         }
         
-        // Update the PO status to Completed if all items were received
-        if (status === 'Completed') {
-            await PurchaseOrder.findByIdAndUpdate(purchaseOrderId, { status: 'Completed' });
+        // Update the quantityReceived on the PO for each item immediately
+        for (const item of processedItems) {
+            const materialId = typeof item.material === 'object' ? item.material._id || item.material : item.material;
+            await PurchaseOrder.updateOne(
+                { "_id": purchaseOrderId, "items.material": materialId, "items.materialModel": item.materialModel },
+                { "$inc": { "items.$.quantityReceived": item.receivedQuantity } }
+            );
+        }
+        
+        // Check if all quantities have been received across all GRNs for this PO and update PO status
+        const purchaseOrder = await PurchaseOrder.findById(purchaseOrderId);
+        if (purchaseOrder) {
+            let allItemsCompleted = true;
+            
+            // For each item in the PO, check if total received across all GRNs equals ordered quantity
+            for (const poItem of purchaseOrder.items) {
+                // Calculate total received for this material across all GRNs for this PO
+                const existingGRNs = await GRN.find({ 
+                    purchaseOrder: purchaseOrderId,
+                    'items.material': poItem.material,
+                    'items.materialModel': poItem.materialModel
+                });
+                
+                let totalReceived = 0;
+                for (const existingGRN of existingGRNs) {
+                    for (const grnItem of existingGRN.items) {
+                        const grnItemId = typeof grnItem.material === 'object' ? grnItem.material.toString() : grnItem.material;
+                        const poItemId = typeof poItem.material === 'object' ? poItem.material.toString() : poItem.material;
+                        if (grnItemId === poItemId && grnItem.materialModel === poItem.materialModel) {
+                            totalReceived += grnItem.receivedQuantity || 0;
+                        }
+                    }
+                }
+                
+                // If total received doesn't match ordered quantity, not all items are completed
+                if (totalReceived !== poItem.quantity) {
+                    allItemsCompleted = false;
+                    break;
+                }
+            }
+            
+            if (allItemsCompleted) {
+                // Update PO status to Completed
+                await PurchaseOrder.findByIdAndUpdate(purchaseOrderId, { status: 'Completed' });
+            }
         }
         
         return res.status(201).json(savedGRN);
@@ -1041,10 +1115,24 @@ const getGRNById = async (req, res) => {
             .populate('supplier')
             .populate('purchaseOrder')
             .populate('deliveryChallan', 'dc_no supplier_id person_name unit_type status') // Populate delivery challan for jobber GRNs
-            // Note: We don't populate 'items.material' here because for jobber GRNs, 
-            // the material field contains string names, not ObjectIds
             .populate('createdBy', 'name')
             .populate('approvedBy', 'name');
+        
+        // For PO-based GRNs, populate material details
+        if (grn && grn.sourceType === 'purchase_order' && grn.items) {
+            // Populate material details for each item
+            for (let i = 0; i < grn.items.length; i++) {
+                const item = grn.items[i];
+                if (item.material && mongoose.Types.ObjectId.isValid(item.material)) {
+                    const Model = item.materialModel === 'PackingMaterial' ? PackingMaterial : RawMaterial;
+                    const material = await Model.findById(item.material);
+                    if (material) {
+                        // Replace the material ID with the full material object
+                        grn.items[i].material = material;
+                    }
+                }
+            }
+        }
 
         if (grn) {
             console.log(`Found GRN: ${grn.grnNumber}`); // Add logging for debugging
@@ -1346,8 +1434,37 @@ const updateGRN = async (req, res) => {
                     return poItemId === itemMaterialId && poItem.materialModel === materialModel;
                 });
                 
-                // Check if received quantity differs from ordered quantity
-                if (poItem && receivedQuantity !== poItem.quantity) {
+                // Calculate total received quantities for this material from all previous GRNs for this PO (excluding current GRN)
+                const existingGRNs = await GRN.find({ 
+                    purchaseOrder: grn.purchaseOrder._id,
+                    'items.material': material,
+                    'items.materialModel': materialModel,
+                    _id: { $ne: grn._id } // Exclude current GRN
+                });
+                
+                let previousReceived = 0;
+                for (const existingGRN of existingGRNs) {
+                    for (const grnItem of existingGRN.items) {
+                        const grnItemId = typeof grnItem.material === 'object' ? grnItem.material.toString() : grnItem.material;
+                        const itemMaterialId = typeof material === 'object' ? material.toString() : material;
+                        if (grnItemId === itemMaterialId && grnItem.materialModel === materialModel) {
+                            previousReceived += grnItem.receivedQuantity || 0;
+                        }
+                    }
+                }
+                
+                // Calculate pending quantity
+                const pendingQuantity = poItem.quantity - previousReceived;
+                
+                // Check if received quantity exceeds pending quantity
+                if (receivedQuantity > pendingQuantity) {
+                    return res.status(400).json({ 
+                        message: `Received quantity (${receivedQuantity}) cannot exceed pending quantity (${pendingQuantity}) for material ${poItem.material.name || material}.` 
+                    });
+                }
+                
+                // Check if all items are fully received to determine status
+                if (previousReceived + receivedQuantity !== poItem.quantity) {
                     allItemsMatch = false;
                 }
             } else if (grn.sourceType === 'jobber' && grn.deliveryChallan) {
@@ -1404,7 +1521,8 @@ const updateGRN = async (req, res) => {
             
             // Preserve the original ordered quantity (sent quantity) and calculate balance
             const orderedQuantity = poItem ? poItem.quantity : receivedQuantity;
-            const balanceQuantity = orderedQuantity - receivedQuantity;
+            // Calculate balance quantity (ordered - (previous received + current received))
+            const balanceQuantity = orderedQuantity - (previousReceived + receivedQuantity);
             
             processedItems.push({
                 ...item,
@@ -1414,7 +1532,8 @@ const updateGRN = async (req, res) => {
                 totalPrice,
                 lastUnitPrice: priceData.lastUnitPrice,
                 priceDifference: priceData.priceDifference,
-                priceDifferencePercentage: priceData.priceDifferencePercentage
+                priceDifferencePercentage: priceData.priceDifferencePercentage,
+                previousReceived: previousReceived || 0
             });
         }
         
@@ -1448,6 +1567,17 @@ const updateGRN = async (req, res) => {
         }
 
         const updatedGRN = await grn.save();
+        
+        // Update the quantityReceived on the PO for each item immediately (for PO-based GRNs)
+        if (grn.sourceType === 'purchase_order' && grn.purchaseOrder) {
+            for (const item of processedItems) {
+                const materialId = typeof item.material === 'object' ? item.material._id || item.material : item.material;
+                await PurchaseOrder.updateOne(
+                    { "_id": grn.purchaseOrder._id, "items.material": materialId, "items.materialModel": item.materialModel },
+                    { "$inc": { "items.$.quantityReceived": item.receivedQuantity } }
+                );
+            }
+        }
 
         // Create damaged stock records if any (for PO-based GRNs)
         if (damagedStock && Array.isArray(damagedStock) && damagedStock.length > 0) {
@@ -1486,111 +1616,119 @@ const updateGRN = async (req, res) => {
             }
         }
 
-        // Update stock for jobber GRNs
-        if (grn.sourceType === 'jobber') {
-            for (const item of processedItems) {
-                const Model = item.materialModel === 'PackingMaterial' ? PackingMaterial : RawMaterial;
-                
-                // For jobber GRNs, item.material is a string (material name), not an ObjectId
-                // We need to find the material by name instead of ID
-                const material = await Model.findOne({ name: item.material });
-                if (!material) continue;
-                
-                // Calculate weighted average price
-                const existingQuantity = material.quantity || 0;
-                const existingPrice = material.perQuantityPrice || 0;
-                const newQuantity = item.receivedQuantity;
-                const newPrice = item.unitPrice || 0; // Use the provided unitPrice or 0
-                
-                // Calculate total values
-                const existingTotalValue = existingQuantity * existingPrice;
-                const newTotalValue = newQuantity * newPrice;
-                const totalQuantityAfter = existingQuantity + newQuantity;
-                const totalValueAfter = existingTotalValue + newTotalValue;
-                
-                // Calculate new weighted average price
-                const newAveragePrice = totalQuantityAfter > 0 ? totalValueAfter / totalQuantityAfter : 0;
-                
-                // Update material quantity and price
-                await Model.findByIdAndUpdate(material._id, { 
-                    quantity: totalQuantityAfter,
-                    perQuantityPrice: newAveragePrice
-                });
-                
-                // Get the supplier info
-                let supplierName = 'Jobber';
-                if (grn.deliveryChallan && grn.deliveryChallan.supplier_id) {
-                    supplierName = grn.deliveryChallan.supplier_id.name;
-                }
-                
-                // Create new GRN history entry with correct prices
-                const grnHistoryEntry = {
-                    date: new Date(dateReceived), // Use the GRN date, not current date
-                    type: 'New GRN',
-                    supplier: supplierName,
-                    poNumber: grn.deliveryChallan ? grn.deliveryChallan.dc_no : 'N/A',
-                    grnNumber: grn.grnNumber,
-                    qty: item.receivedQuantity,
-                    unitPrice: newPrice,
-                    total: newTotalValue
-                };
-                
-                // Update material history with the new logic
-                // First, get the current material to work with its history
-                const updatedMaterial = await Model.findById(material._id);
-                
-                // Filter out existing "New Average Price (Updated)" entries
-                const filteredHistory = updatedMaterial.priceHistory.filter(entry => 
-                    entry.type !== 'New Average Price (Updated)'
-                );
-                
-                // Add the new GRN entry
-                filteredHistory.push(grnHistoryEntry);
-                
-                // Calculate new totals for all entries (Existing Stock + New GRN entries only)
-                const entries = filteredHistory.filter(h => 
-                    h.type === 'Existing Stock' || h.type === 'New GRN'
-                );
-                
-                // Calculate new weighted average price from all entries
-                let totalQty = 0;
-                let totalValue = 0;
-                entries.forEach(entry => {
-                    totalQty += entry.qty || 0;
-                    totalValue += entry.total || 0;
-                });
-                
-                const newWeightedAveragePrice = totalQty > 0 ? totalValue / totalQty : 0;
-                
-                // Add the "New Average Price (Updated)" entry
-                filteredHistory.push({
-                    date: new Date(),
-                    type: 'New Average Price (Updated)',
-                    supplier: supplierName,
-                    poNumber: grn.deliveryChallan ? grn.deliveryChallan.dc_no : 'N/A',
-                    grnNumber: grn.grnNumber,
-                    qty: totalQty,
-                    unitPrice: newWeightedAveragePrice,
-                    total: totalValue
-                });
-                
-                // Update the material with the new history
-                await Model.findByIdAndUpdate(material._id, {
-                    priceHistory: filteredHistory
-                });
+        // Update stock for each item in the GRN immediately upon submission
+        // This ensures that packing material stock is updated in real-time for every GRN submission,
+        // including partial GRNs, and correctly increments the existing stock value
+        for (const item of processedItems) {
+            const Model = item.materialModel === 'PackingMaterial' ? PackingMaterial : RawMaterial;
+            
+            // Handle both ObjectId and string material references
+            let material;
+            if (typeof item.material === 'string') {
+                // For jobber GRNs, item.material is a string (material name)
+                material = await Model.findOne({ name: item.material });
+            } else {
+                // For PO-based GRNs, item.material is an ObjectId
+                material = await Model.findById(item.material);
             }
             
-            // Update Delivery Challan quantities for jobber GRNs
-            if (grn.deliveryChallan) {
-                try {
-                    await updateDeliveryChallanQuantities(grn.deliveryChallan._id, processedItems);
-                } catch (dcUpdateError) {
-                    console.error(`Error updating Delivery Challan quantities: ${dcUpdateError.message}`);
-                    // Don't fail the GRN update if DC update fails, just log it
-                }
+            if (!material) continue;
+            
+            // Calculate weighted average price
+            const existingQuantity = material.quantity || 0;
+            const existingPrice = material.perQuantityPrice || 0;
+            const newQuantity = item.receivedQuantity;
+            const newPrice = item.unitPrice || 0; // Use the provided unitPrice or 0
+            
+            // Calculate total values
+            const existingTotalValue = existingQuantity * existingPrice;
+            const newTotalValue = newQuantity * newPrice;
+            const totalQuantityAfter = existingQuantity + newQuantity;
+            const totalValueAfter = existingTotalValue + newTotalValue;
+            
+            // Calculate new weighted average price
+            const newAveragePrice = totalQuantityAfter > 0 ? totalValueAfter / totalQuantityAfter : 0;
+            
+            // Update material quantity and price
+            const materialId = typeof item.material === 'string' ? material._id : item.material;
+            await Model.findByIdAndUpdate(materialId, { 
+                quantity: totalQuantityAfter,
+                perQuantityPrice: newAveragePrice
+            });
+            
+            // Log the stock update for debugging purposes
+            console.log(`Updated stock for ${item.materialModel} ${material.name || materialId}: ${existingQuantity} -> ${totalQuantityAfter}`);
+            
+            // Get the supplier info
+            const supplierName = grn.purchaseOrder.supplier.name;
+            
+            // Create new GRN history entry with correct prices
+            const grnHistoryEntry = {
+                date: new Date(dateReceived), // Use the GRN date, not current date
+                type: 'New GRN',
+                supplier: supplierName,
+                poNumber: grn.purchaseOrder.poNumber, // Use purchase order number
+                grnNumber: grn.grnNumber,
+                qty: item.receivedQuantity,
+                unitPrice: newPrice,
+                total: newTotalValue
+            };
+            
+            // Update material history with the new logic
+            // First, get the current material to work with its history
+            const updatedMaterial = await Model.findById(materialId);
+            
+            // Filter out existing "New Average Price (Updated)" entries
+            const filteredHistory = updatedMaterial.priceHistory.filter(entry => 
+                entry.type !== 'New Average Price (Updated)'
+            );
+            
+            // Add the new GRN entry
+            filteredHistory.push(grnHistoryEntry);
+            
+            // Calculate new totals for all entries (Existing Stock + New GRN entries only)
+            const entries = filteredHistory.filter(h => 
+                h.type === 'Existing Stock' || h.type === 'New GRN'
+            );
+            
+            // Calculate new weighted average price from all entries
+            let totalQty = 0;
+            let totalValue = 0;
+            entries.forEach(entry => {
+                totalQty += entry.qty || 0;
+                totalValue += entry.total || 0;
+            });
+            
+            const newWeightedAveragePrice = totalQty > 0 ? totalValue / totalQty : 0;
+            
+            // Add the "New Average Price (Updated)" entry
+            filteredHistory.push({
+                date: new Date(),
+                type: 'New Average Price (Updated)',
+                supplier: supplierName,
+                poNumber: grn.purchaseOrder.poNumber,
+                grnNumber: grn.grnNumber,
+                qty: totalQty,
+                unitPrice: newWeightedAveragePrice,
+                total: totalValue
+            });
+            
+            // Update the material with the new history
+            await Model.findByIdAndUpdate(materialId, {
+                priceHistory: filteredHistory
+            });
+        }
+        
+        // Update Delivery Challan quantities for jobber GRNs
+        if (grn.deliveryChallan) {
+            try {
+                await updateDeliveryChallanQuantities(grn.deliveryChallan._id, processedItems);
+            } catch (dcUpdateError) {
+                console.error(`Error updating Delivery Challan quantities: ${dcUpdateError.message}`);
+                // Don't fail the GRN update if DC update fails, just log it
             }
         }
-
+        
         // Sync status with Delivery Challan (only for jobber GRNs)
         if (grn.sourceType === 'jobber' && grn.deliveryChallan) {
             const dcStatus = status; // Use the same status as the GRN
@@ -1603,6 +1741,48 @@ const updateGRN = async (req, res) => {
                 } catch (stockError) {
                     console.error(`Error updating product stock: ${stockError.message}`);
                     // Don't fail the GRN update if stock update fails, just log it
+                }
+            }
+        }
+        
+        // For PO-based GRNs, check if all quantities have been received across all GRNs and update PO status
+        if (grn.sourceType === 'purchase_order' && grn.purchaseOrder) {
+            // Check if all quantities have been received across all GRNs for this PO
+            let allItemsCompleted = true;
+            
+            // Get the PO to check its items
+            const purchaseOrder = await PurchaseOrder.findById(grn.purchaseOrder._id);
+            if (purchaseOrder) {
+                // For each item in the PO, check if total received across all GRNs equals ordered quantity
+                for (const poItem of purchaseOrder.items) {
+                    // Calculate total received for this material across all GRNs for this PO
+                    const existingGRNs = await GRN.find({ 
+                        purchaseOrder: grn.purchaseOrder._id,
+                        'items.material': poItem.material,
+                        'items.materialModel': poItem.materialModel
+                    });
+                    
+                    let totalReceived = 0;
+                    for (const existingGRN of existingGRNs) {
+                        for (const grnItem of existingGRN.items) {
+                            const grnItemId = typeof grnItem.material === 'object' ? grnItem.material.toString() : grnItem.material;
+                            const poItemId = typeof poItem.material === 'object' ? poItem.material.toString() : poItem.material;
+                            if (grnItemId === poItemId && grnItem.materialModel === poItem.materialModel) {
+                                totalReceived += grnItem.receivedQuantity || 0;
+                            }
+                        }
+                    }
+                    
+                    // If total received doesn't match ordered quantity, not all items are completed
+                    if (totalReceived !== poItem.quantity) {
+                        allItemsCompleted = false;
+                        break;
+                    }
+                }
+                
+                if (allItemsCompleted) {
+                    // Update PO status to Completed
+                    await PurchaseOrder.findByIdAndUpdate(grn.purchaseOrder._id, { status: 'Completed' });
                 }
             }
         }
@@ -1648,7 +1828,7 @@ const approveOrRejectGRN = async (req, res) => {
             grn.approvedBy = req.user._id;
             grn.approvalDate = Date.now();
 
-            // Update the stock for approved GRNs
+            // Update the stock for approved GRNs immediately upon approval
             for (const item of grn.items) {
                 const Model = item.materialModel === 'PackingMaterial' ? PackingMaterial : RawMaterial;
                 
@@ -1774,25 +1954,39 @@ const approveOrRejectGRN = async (req, res) => {
                 });
             }
 
-            // If it's a PO-based GRN and all quantities match, update PO status
+            // If it's a PO-based GRN, check if all quantities have been received across all GRNs and update PO status
             if (grn.sourceType === 'purchase_order') {
-                // Check if all quantities match
-                let allItemsMatch = true;
-                for (const item of grn.items) {
-                    const poItem = grn.purchaseOrder.items.find(poItem => {
-                        if (!poItem || !poItem.material) return false;
-                        const poItemId = typeof poItem.material === 'object' ? poItem.material.toString() : poItem.material;
-                        const itemMaterialId = typeof item.material === 'object' ? item.material.toString() : item.material;
-                        return poItemId === itemMaterialId && poItem.materialModel === item.materialModel;
+                // Check if all quantities have been received across all GRNs for this PO
+                let allItemsCompleted = true;
+                
+                // For each item in the PO, check if total received across all GRNs equals ordered quantity
+                for (const poItem of grn.purchaseOrder.items) {
+                    // Calculate total received for this material across all GRNs for this PO
+                    const existingGRNs = await GRN.find({ 
+                        purchaseOrder: grn.purchaseOrder._id,
+                        'items.material': poItem.material,
+                        'items.materialModel': poItem.materialModel
                     });
                     
-                    if (!poItem || item.receivedQuantity !== poItem.quantity) {
-                        allItemsMatch = false;
+                    let totalReceived = 0;
+                    for (const existingGRN of existingGRNs) {
+                        for (const grnItem of existingGRN.items) {
+                            const grnItemId = typeof grnItem.material === 'object' ? grnItem.material.toString() : grnItem.material;
+                            const poItemId = typeof poItem.material === 'object' ? poItem.material.toString() : poItem.material;
+                            if (grnItemId === poItemId && grnItem.materialModel === poItem.materialModel) {
+                                totalReceived += grnItem.receivedQuantity || 0;
+                            }
+                        }
+                    }
+                    
+                    // If total received doesn't match ordered quantity, not all items are completed
+                    if (totalReceived !== poItem.quantity) {
+                        allItemsCompleted = false;
                         break;
                     }
                 }
                 
-                if (allItemsMatch) {
+                if (allItemsCompleted) {
                     // Update PO status to Completed
                     await PurchaseOrder.findByIdAndUpdate(grn.purchaseOrder._id, { status: 'Completed' });
                     

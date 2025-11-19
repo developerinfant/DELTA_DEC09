@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback, useContext } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import apiWithOfflineSupport from '../../utils/apiWithOfflineSupport';
 import MaterialForm from '../../components/packing/MaterialForm';
 import MaterialsTable from '../../components/packing/MaterialsTable';
@@ -58,6 +59,7 @@ const ViewPackingMaterialsWithOffline = () => {
     const { isOnline } = usePWA();
     const { isAccessDisabledOpen, accessDisabledMessage, showAccessDisabled, hideAccessDisabled } = useAccessDisabled();
     const { checkPermission, withAccessControl } = useAccessControl();
+    const [searchParams, setSearchParams] = useSearchParams(); // Add this line
     
     // Data states
     const [materials, setMaterials] = useState([]);
@@ -165,6 +167,19 @@ const ViewPackingMaterialsWithOffline = () => {
         fetchMaterials();
         fetchProductMappings();
     }, [fetchMaterials, fetchProductMappings]);
+
+    // Add this useEffect to handle editId parameter
+    useEffect(() => {
+        const editId = searchParams.get('editId');
+        if (editId && materials.length > 0) {
+            const materialToEdit = materials.find(material => material.itemCode === editId);
+            if (materialToEdit) {
+                openEditModal(materialToEdit);
+                // Remove the editId parameter from URL
+                setSearchParams({});
+            }
+        }
+    }, [searchParams, materials]);
 
     // --- CRUD Handlers with Offline Support ---
 
