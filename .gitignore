@@ -1,5 +1,8 @@
 # Node modules
+
 node_modules/
+client/build/
+
 
 # Logs
 npm-debug.log*
