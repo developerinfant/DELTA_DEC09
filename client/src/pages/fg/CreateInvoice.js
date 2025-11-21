@@ -244,6 +244,9 @@ const CreateInvoice = () => {
                             updatedItem.units_per_carton = selectedProduct.units_per_carton || 1;
                             // Reset quantities when changing product
                             updatedItem.qty = 0;
+                            
+                            // Fetch the correct units per carton from product mapping
+                            fetchProductMapping(value, id);
                         }
                     }
                     
@@ -261,6 +264,34 @@ const CreateInvoice = () => {
                 return item;
             })
         );
+    };
+
+    // Fetch product mapping to get units per carton
+    const fetchProductMapping = async (productName, itemId) => {
+        try {
+            const response = await api.get(`/product-mapping/name/${encodeURIComponent(productName)}`);
+            if (response.data && response.data.units_per_carton) {
+                setItems(prevItems => 
+                    prevItems.map(item => {
+                        if (item.id === itemId) {
+                            return {
+                                ...item,
+                                units_per_carton: response.data.units_per_carton
+                            };
+                        }
+                        return item;
+                    })
+                );
+            }
+        } catch (error) {
+            console.error('Error fetching product mapping:', error);
+            // Check if it's a 404 error (product mapping not found)
+            if (error.response && error.response.status === 404) {
+                console.info(`Product mapping not found for ${productName}. Using units per carton from stock data.`);
+            } else {
+                console.warn(`Error fetching product mapping for ${productName}. Using units per carton from stock data.`);
+            }
+        }
     };
 
     // Add new item

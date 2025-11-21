@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useContext } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import api from '../../api';
 import Card from '../../components/common/Card';
-import { FaSpinner, FaInfoCircle, FaExclamationTriangle, FaRedo, FaBan, FaTrash, FaCheck, FaPlus } from 'react-icons/fa';
+import { FaSpinner, FaInfoCircle, FaExclamationTriangle, FaRedo, FaBan, FaTrash, FaCheck } from 'react-icons/fa';
 import { toast } from 'react-toastify';
 import Select from 'react-select';
 import { ArrowLeft } from 'lucide-react';
@@ -34,7 +34,6 @@ const CreateFGGRN = () => {
     const [status, setStatus] = useState('');
     const [materialUsage, setMaterialUsage] = useState([]);
     const [isDamagedStockSaved, setIsDamagedStockSaved] = useState(false); // New state to track if damaged stock has been saved
-    const [showDamagedStockSection, setShowDamagedStockSection] = useState(false); // New state to control visibility of damaged stock section
     const navigate = useNavigate();
 
     const selectedDC = deliveryChallans.find(dc => dc._id === selectedDCOption?.value);
@@ -320,33 +319,11 @@ const CreateFGGRN = () => {
         setItems(newItems);
     };
     
-    // Calculate remaining quantity for each material based on saved damaged stock entries
-    const calculateRemainingQty = (materialName, sentQty) => {
-        const savedEntries = savedDamagedStock.filter(entry => entry.material_name === materialName);
-        const totalDamaged = savedEntries.reduce((sum, entry) => sum + (entry.damaged_qty || 0), 0);
-        return sentQty - totalDamaged;
-    };
-    
-    // Handle damaged quantity change with validation
     const handleDamagedQtyChange = (index, value) => {
         const newDamagedStock = [...damagedStock];
-        const materialName = newDamagedStock[index].material_name;
-        const sentQty = newDamagedStock[index].received_qty;
-        
-        // Calculate remaining quantity for this material
-        const remainingQty = calculateRemainingQty(materialName, sentQty);
-        
-        // Parse the input value
-        const inputValue = parseInt(value) || 0;
-        
-        // Validate that the input doesn't exceed remaining quantity
-        if (inputValue > remainingQty) {
-            toast.error(`Damaged quantity cannot exceed remaining quantity (${remainingQty}) for ${materialName}.`);
-            return;
-        }
-        
-        // Update the damaged quantity
-        newDamagedStock[index].damaged_qty = inputValue;
+        const receivedQty = newDamagedStock[index].received_qty;
+        const damagedQty = Math.max(0, Math.min(receivedQty, parseInt(value) || 0));
+        newDamagedStock[index].damaged_qty = damagedQty;
         setDamagedStock(newDamagedStock);
         setIsDamagedStockSaved(false); // Reset saved state when user makes changes
     };
@@ -370,14 +347,15 @@ const CreateFGGRN = () => {
                 return;
             }
             
-            // Validate each item against remaining quantities
-            for (const item of itemsWithDamage) {
-                const remainingQty = calculateRemainingQty(item.material_name, item.received_qty);
-                if (item.damaged_qty > remainingQty) {
-                    toast.error(`Damaged quantity for ${item.material_name} cannot exceed remaining quantity (${remainingQty}).`);
-                    return;
-                }
-            }
+            // Create a temporary GRN to get an ID for damaged stock entries
+            // In a real implementation, we would save damaged stock with a reference to the DC
+            const grnData = {
+                deliveryChallanId: selectedDCOption?.value,
+                cartonsReturned: 0, // Temporary value
+                receivedBy: receivedBy || 'System',
+                dateReceived: dateReceived,
+                status: 'Draft' // Temporary status
+            };
             
             // Create damaged stock entries for each item
             const promises = itemsWithDamage.map(item => {
@@ -413,9 +391,6 @@ const CreateFGGRN = () => {
                 damaged_qty: 0
             }));
             setDamagedStock(resetDamagedStock);
-            
-            // Hide the damaged stock section after saving
-            setShowDamagedStockSection(false);
         } catch (err) {
             console.error('Failed to save damaged stock entries:', err);
             const errorMessage = err.response?.data?.message || 
@@ -595,7 +570,6 @@ const CreateFGGRN = () => {
         setIsDamagedStockSaved(false); // Reset damaged stock saved state
         setDamagedStock([]);
         setSavedDamagedStock([]);
-        setShowDamagedStockSection(false); // Hide damaged stock section on reset
     };
 
     // Initialize receivedBy with user's name when component mounts
@@ -825,100 +799,73 @@ const CreateFGGRN = () => {
                                 </div>
                             )} */}
                             
-                            {/* Record Damaged Stock Button */}
+                            {/* Record Damaged Stock */}
                             <div className="bg-white border border-gray-200 rounded-lg p-4">
-                                <button
-                                    type="button"
-                                    onClick={() => setShowDamagedStockSection(!showDamagedStockSection)}
-                                    className="px-4 py-2 text-white bg-amber-600 rounded-md hover:bg-amber-700 focus:outline-none focus:ring-2 focus:ring-amber-500 flex items-center"
-                                >
-                                    <FaPlus className="mr-2" />
-                                    Record Damaged Stock
-                                </button>
-                                
-                                {/* Damaged Stock Section - Only shown when button is clicked */}
-                                {showDamagedStockSection && (
-                                    <div className="mt-4 border-t border-gray-200 pt-4">
-                                        <h3 className="font-medium text-gray-900 mb-3">Record Damaged Stock</h3>
-                                        {error && (
-                                            <div className="p-3 bg-red-50 text-red-700 rounded-md mb-4">
-                                                {error}
-                                            </div>
-                                        )}
-                                        <div className="overflow-x-auto">
-                                            <table className="min-w-full divide-y divide-gray-200">
-                                                <thead className="bg-gray-50">
-                                                    <tr>
-                                                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Material</th>
-                                                        <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Sent Qty</th>
-                                                        <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Remaining Qty</th>
-                                                        <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Damaged Qty</th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody className="bg-white divide-y divide-gray-200">
-                                                    {damagedStock.map((item, index) => {
-                                                        const remainingQty = calculateRemainingQty(item.material_name, item.received_qty);
-                                                        const isDisabled = remainingQty === 0;
-                                                        
-                                                        return (
-                                                            <tr key={index}>
-                                                                <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">
-                                                                    {item.material_name}
-                                                                </td>
-                                                                <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900 text-right">
-                                                                    {item.received_qty}
-                                                                </td>
-                                                                <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900 text-right">
-                                                                    {remainingQty}
-                                                                </td>
-                                                                <td className="px-4 py-2 whitespace-nowrap text-sm">
-                                                                    <input
-                                                                        type="number"
-                                                                        min="0"
-                                                                        max={remainingQty}
-                                                                        value={item.damaged_qty}
-                                                                        onChange={(e) => handleDamagedQtyChange(index, e.target.value)}
-                                                                        className="w-20 px-2 py-1 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 text-right"
-                                                                        disabled={isDisabled}
-                                                                    />
-                                                                    {isDisabled && (
-                                                                        <div className="text-xs text-gray-500 mt-1">No remaining qty</div>
-                                                                    )}
-                                                                </td>
-                                                            </tr>
-                                                        );
-                                                    })}
-                                                </tbody>
-                                            </table>
-                                        </div>
-                                        
-                                        <div className="flex justify-end space-x-3 mt-4">
-                                            <button
-                                                type="button"
-                                                onClick={handleResetDamagedStock}
-                                                className="px-4 py-2 text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-500"
-                                                disabled={isLoading}
-                                            >
-                                                Reset
-                                            </button>
-                                            <button
-                                                type="button"
-                                                onClick={handleSaveDamagedStock}
-                                                className="px-4 py-2 text-white bg-amber-600 rounded-md hover:bg-amber-700 focus:outline-none focus:ring-2 focus:ring-amber-500 flex items-center"
-                                                disabled={isLoading}
-                                            >
-                                                {isLoading ? (
-                                                    <>
-                                                        <FaSpinner className="animate-spin mr-2" />
-                                                        Saving...
-                                                    </>
-                                                ) : (
-                                                    'Save Damaged Stock'
-                                                )}
-                                            </button>
-                                        </div>
+                                <h3 className="font-medium text-gray-900 mb-3">Record Damaged Stock</h3>
+                                {error && (
+                                    <div className="p-3 bg-red-50 text-red-700 rounded-md mb-4">
+                                        {error}
                                     </div>
                                 )}
+                                <div className="overflow-x-auto">
+                                    <table className="min-w-full divide-y divide-gray-200">
+                                        <thead className="bg-gray-50">
+                                            <tr>
+                                                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Material</th>
+                                                <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Sent Qty</th>
+                                                <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Damaged Qty</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="bg-white divide-y divide-gray-200">
+                                            {damagedStock.map((item, index) => (
+                                                <tr key={index}>
+                                                    <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">
+                                                        {item.material_name}
+                                                    </td>
+                                                    <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900 text-right">
+                                                        {item.received_qty}
+                                                    </td>
+                                                    <td className="px-4 py-2 whitespace-nowrap text-sm">
+                                                        <input
+                                                            type="number"
+                                                            min="0"
+                                                            max={item.received_qty}
+                                                            value={item.damaged_qty}
+                                                            onChange={(e) => handleDamagedQtyChange(index, e.target.value)}
+                                                            className="w-20 px-2 py-1 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 text-right"
+                                                        />
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                                
+                                <div className="flex justify-end space-x-3 mt-4">
+                                    <button
+                                        type="button"
+                                        onClick={handleResetDamagedStock}
+                                        className="px-4 py-2 text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-500"
+                                        disabled={isLoading}
+                                    >
+                                        Reset
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={handleSaveDamagedStock}
+                                        className="px-4 py-2 text-white bg-amber-600 rounded-md hover:bg-amber-700 focus:outline-none focus:ring-2 focus:ring-amber-500 flex items-center"
+                                        disabled={isLoading}
+                                    >
+                                        {isLoading ? (
+                                            <>
+                                                <FaSpinner className="animate-spin mr-2" />
+                                                Saving...
+                                            </>
+                                        ) : (
+                                            'Save Damaged Stock'
+                                        )}
+                                    </button>
+                                </div>
                             </div>
                             
                             {/* Saved Damaged Stock Entries */}

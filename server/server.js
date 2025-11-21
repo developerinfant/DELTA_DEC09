@@ -56,6 +56,11 @@ const packingStockRoutes = require('./routes/packingStockRoutes');
 const fgStockRoutes = require('./routes/fgStockRoutes');
 const damagedStockRoutes = require('./routes/damagedStockRoutes');
 const materialRequestRoutes = require('./routes/materialRequestRoutes');
+const personNameRoutes = require('./routes/personNameRoutes'); // Add this line
+// Add this line for DamagedStockMaster routes
+const damagedStockMasterRoutes = require('./routes/damagedStockMasterRoutes');
+// Import dashboard routes
+const dashboardRoutes = require('./routes/dashboardRoutes');
 
 // 4. Connect to MongoDB Database
 mongoose.connect(process.env.MONGO_URI)
@@ -102,6 +107,9 @@ app.use('/api/packing', packingStockRoutes);
 app.use('/api/fg', fgStockRoutes);
 app.use('/api/damaged-stock', damagedStockRoutes);
 app.use('/api/material-requests', materialRequestRoutes);
+app.use('/api/person-names', personNameRoutes); // Add this line
+app.use('/api/damaged-stock-master', damagedStockMasterRoutes); // Add this line
+app.use('/api/dashboard', dashboardRoutes); // Add dashboard routes
 
 // Basic route for testing if the server is up
 app.get('/', (req, res) => {

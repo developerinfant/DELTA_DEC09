@@ -4,7 +4,7 @@ const damagedStockSchema = new mongoose.Schema({
     grn_id: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'GRN',
-        required: true
+        required: false // Changed from true to false to make it optional
     },
     dc_no: {
         type: String,

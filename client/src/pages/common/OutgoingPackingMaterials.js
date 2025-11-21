@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import apiWithOfflineSupport from '../../utils/apiWithOfflineSupport';
 import Card from '../../components/common/Card';
-import { FaSpinner, FaExclamationTriangle, FaEye } from 'react-icons/fa';
+import { FaSpinner, FaExclamationTriangle, FaEye, FaPlus, FaTimes } from 'react-icons/fa';
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import DeliveryChallanDetailModal from '../../components/deliveryChallan/DeliveryChallanDetailModal';
+import { useAuth } from '../../context/AuthContext'; // Add this import
 
 const OutgoingPackingMaterials = () => {
     // State for materials, product mappings, suppliers, and delivery challan records
@@ -22,6 +23,13 @@ const OutgoingPackingMaterials = () => {
     const [remarks, setRemarks] = useState('');
     const [personName, setPersonName] = useState(''); // Add person name state
     
+    // Add new states for person names functionality
+    const [personNames, setPersonNames] = useState([]); // List of stored person names
+    const [isPersonNamePopupOpen, setIsPersonNamePopupOpen] = useState(false);
+    const [newPersonName, setNewPersonName] = useState('');
+    const [editingPersonName, setEditingPersonName] = useState(null);
+    const [isPersonNamesLoading, setIsPersonNamesLoading] = useState(false);
+    
     // Calculated materials based on product mapping and carton quantity
     const [calculatedMaterials, setCalculatedMaterials] = useState([]);
     
@@ -34,6 +42,9 @@ const OutgoingPackingMaterials = () => {
     // Delivery Challan Detail Modal state
     const [isDCDetailModalOpen, setIsDCDetailModalOpen] = useState(false);
     const [selectedDCId, setSelectedDCId] = useState(null);
+    
+    // Add auth context to get logged-in user
+    const { user } = useAuth();
 
     // Calculate materials when product and carton quantity change
     useEffect(() => {
@@ -60,17 +71,19 @@ const OutgoingPackingMaterials = () => {
             setIsLoading(true);
             try {
                 // Fetch all data in parallel for better performance
-                const [materialsResponse, mappingsResponse, suppliersResponse, historyResponse] = await Promise.all([
+                const [materialsResponse, mappingsResponse, suppliersResponse, historyResponse, personNamesResponse] = await Promise.all([
                     apiWithOfflineSupport.get('/materials'),
                     apiWithOfflineSupport.get('/product-mapping'),
                     apiWithOfflineSupport.getJobberSuppliers('packing'),
-                    apiWithOfflineSupport.getDeliveryChallans()
+                    apiWithOfflineSupport.getDeliveryChallans(),
+                    apiWithOfflineSupport.getPersonNames()
                 ]);
                 
                 setMaterials(materialsResponse.data);
                 setProductMappings(mappingsResponse.data);
                 setSuppliers(suppliersResponse.data);
                 setRecords(historyResponse.data);
+                setPersonNames(personNamesResponse.data || []);
             } catch (err) {
                 setError('Failed to load page data. Please try refreshing.');
                 console.error(err);
@@ -201,6 +214,92 @@ const OutgoingPackingMaterials = () => {
             )
         );
     };
+    
+    // Functions for person name management
+    const openPersonNamePopup = () => {
+        setIsPersonNamePopupOpen(true);
+        setNewPersonName('');
+        setEditingPersonName(null);
+    };
+    
+    const closePersonNamePopup = () => {
+        setIsPersonNamePopupOpen(false);
+        setNewPersonName('');
+        setEditingPersonName(null);
+    };
+    
+    const savePersonName = async () => {
+        if (!newPersonName.trim()) {
+            toast.warn('Please enter a person name');
+            return;
+        }
+        
+        setIsPersonNamesLoading(true);
+        
+        try {
+            if (editingPersonName !== null) {
+                // Editing existing person name
+                const response = await apiWithOfflineSupport.updatePersonName(
+                    personNames[editingPersonName]._id,
+                    { name: newPersonName.trim() }
+                );
+                
+                // Update local state
+                const updatedPersonNames = [...personNames];
+                updatedPersonNames[editingPersonName] = response.data;
+                setPersonNames(updatedPersonNames);
+                
+                toast.success('Person name updated successfully');
+            } else {
+                // Adding new person name
+                const response = await apiWithOfflineSupport.createPersonName({
+                    name: newPersonName.trim()
+                });
+                
+                // Update local state
+                setPersonNames(prev => [...prev, response.data]);
+                toast.success('Person name added successfully');
+            }
+            
+            closePersonNamePopup();
+        } catch (error) {
+            console.error('Error saving person name:', error);
+            if (error.response && error.response.data && error.response.data.message) {
+                toast.error(error.response.data.message);
+            } else {
+                toast.error('Failed to save person name. Please try again.');
+            }
+        } finally {
+            setIsPersonNamesLoading(false);
+        }
+    };
+    
+    const editPersonName = (index) => {
+        setEditingPersonName(index);
+        setNewPersonName(personNames[index].name);
+        setIsPersonNamePopupOpen(true);
+    };
+    
+    const deletePersonName = async (index) => {
+        const personNameToDelete = personNames[index];
+        
+        try {
+            await apiWithOfflineSupport.deletePersonName(personNameToDelete._id);
+            
+            // Update local state
+            const updatedPersonNames = personNames.filter((_, i) => i !== index);
+            setPersonNames(updatedPersonNames);
+            
+            toast.success('Person name deleted successfully');
+        } catch (error) {
+            console.error('Error deleting person name:', error);
+            if (error.response && error.response.data && error.response.data.message) {
+                toast.error(error.response.data.message);
+            } else {
+                toast.error('Failed to delete person name. Please try again.');
+            }
+        }
+    };
 
     if (isLoading) {
         return (
@@ -217,6 +316,87 @@ const OutgoingPackingMaterials = () => {
     return (
         <div className="container mx-auto px-4 py-6 max-w-7xl">
             <ToastContainer position="top-right" autoClose={5000} />
+            
+            {/* Person Name Popup */}
+            {isPersonNamePopupOpen && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                    <div className="bg-white rounded-lg p-6 w-full max-w-md">
+                        <div className="flex justify-between items-center mb-4">
+                            <h3 className="text-lg font-semibold text-gray-800">
+                                {editingPersonName !== null ? 'Edit Person Name' : 'Add Person Name'}
+                            </h3>
+                            <button 
+                                onClick={closePersonNamePopup}
+                                className="text-gray-500 hover:text-gray-700"
+                            >
+                                <FaTimes />
+                            </button>
+                        </div>
+                        
+                        <div className="mb-4">
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                                Person Name
+                            </label>
+                            <input
+                                type="text"
+                                value={newPersonName}
+                                onChange={(e) => setNewPersonName(e.target.value)}
+                                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                                placeholder="Enter person name"
+                            />
+                        </div>
+                        
+                        <div className="flex justify-end space-x-3">
+                            <button
+                                onClick={closePersonNamePopup}
+                                className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
+                                disabled={isPersonNamesLoading}
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={savePersonName}
+                                className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50"
+                                disabled={isPersonNamesLoading}
+                            >
+                                {isPersonNamesLoading ? 'Saving...' : (editingPersonName !== null ? 'Update' : 'Add')}
+                            </button>
+                        </div>
+                        
+                        {/* List of existing person names */}
+                        {personNames.length > 0 && (
+                            <div className="mt-6">
+                                <h4 className="text-sm font-medium text-gray-700 mb-2">Existing Person Names</h4>
+                                <div className="max-h-40 overflow-y-auto border border-gray-200 rounded-md">
+                                    <ul className="divide-y divide-gray-200">
+                                        {personNames.map((person, index) => (
+                                            <li key={person._id} className="px-4 py-2 flex justify-between items-center">
+                                                <span className="text-gray-700">{person.name}</span>
+                                                <div className="flex space-x-2">
+                                                    <button
+                                                        onClick={() => editPersonName(index)}
+                                                        className="text-indigo-600 hover:text-indigo-900 text-sm"
+                                                        disabled={isPersonNamesLoading}
+                                                    >
+                                                        Edit
+                                                    </button>
+                                                    <button
+                                                        onClick={() => deletePersonName(index)}
+                                                        className="text-red-600 hover:text-red-900 text-sm"
+                                                        disabled={isPersonNamesLoading}
+                                                    >
+                                                        Delete
+                                                    </button>
+                                                </div>
+                                            </li>
+                                        ))}
+                                    </ul>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            )}
             
             <div className="mb-8">
                 <h1 className="text-3xl font-bold text-gray-800 mb-2">
@@ -333,18 +513,49 @@ const OutgoingPackingMaterials = () => {
                                 {unitType === 'Own Unit' && (
                                     <div className="md:col-span-2">
                                         <label className="block text-sm font-medium text-gray-700 mb-1">
-                                            Person Name (Optional)
+                                            Person Name
                                         </label>
-                                        <input
-                                            type="text"
-                                            value={personName}
-                                            onChange={(e) => setPersonName(e.target.value)}
-                                            className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                                            placeholder="e.g., Hari / Supervisor / Staff Name"
-                                        />
-                                        <p className="mt-1 text-xs text-gray-500">Name of the person to whom materials are being issued</p>
+                                        <div className="flex space-x-2">
+                                            <div className="flex-grow">
+                                                {/* Searchable dropdown for person names */}
+                                                <select
+                                                    value={personName}
+                                                    onChange={(e) => setPersonName(e.target.value)}
+                                                    className="mt-1 block w-full px-3 py-2 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                                                >
+                                                    <option value="">Select Person</option>
+                                                    {personNames.map((person) => (
+                                                        <option key={person._id} value={person.name}>
+                                                            {person.name}
+                                                        </option>
+                                                    ))}
+                                                </select>
+                                            </div>
+                                            <button
+                                                type="button"
+                                                onClick={openPersonNamePopup}
+                                                className="mt-1 px-3 py-2 bg-orange-500 text-white rounded-md hover:bg-orange-600 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 flex items-center"
+                                            >
+                                                <FaPlus className="mr-1" /> Add
+                                            </button>
+                                        </div>
+                                        <p className="mt-1 text-xs text-gray-500">Select or add a person to whom materials are being issued</p>
                                     </div>
                                 )}
+                                
+                                {/* Issued By Field */}
+                                <div className="md:col-span-2">
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                                        Issued By
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={user ? user.name : 'System'}
+                                        readOnly
+                                        className="mt-1 block w-full px-3 py-2 border border-gray-300 bg-gray-100 rounded-md shadow-sm focus:outline-none"
+                                    />
+                                    <p className="mt-1 text-xs text-gray-500">This field is automatically filled with your name</p>
+                                </div>
                             </div>
                             
                             {/* Materials Table */}

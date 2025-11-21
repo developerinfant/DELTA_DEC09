@@ -19,7 +19,10 @@ const PurchaseOrderForm = ({ suppliers, materials, rawMaterials, onOrderCreated,
         uom: '',
         rate: '', 
         discountPercent: 0,
-        gstPercent: 5 // Set default GST to 5%
+        gstPercent: 5, // Set default GST to 5%
+        // Extra receiving fields
+        extraReceivingType: '', // Percentage or Quantity
+        extraReceivingValue: '' // User entered number
     }]);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState('');
@@ -208,7 +211,10 @@ const PurchaseOrderForm = ({ suppliers, materials, rawMaterials, onOrderCreated,
             uom: '',
             rate: '', 
             discountPercent: 0,
-            gstPercent: 5 // Set default GST to 5%
+            gstPercent: 5, // Set default GST to 5%
+            // Extra receiving fields
+            extraReceivingType: '', // Percentage or Quantity
+            extraReceivingValue: '' // User entered number
         }]);
     };
 
@@ -353,6 +359,17 @@ const PurchaseOrderForm = ({ suppliers, materials, rawMaterials, onOrderCreated,
                 setIsLoading(false);
                 return;
             }
+            // Validate extra receiving fields if provided
+            if (item.extraReceivingType && !item.extraReceivingValue) {
+                setError('Please enter a value for extra receiving.');
+                setIsLoading(false);
+                return;
+            }
+            if (item.extraReceivingValue && !item.extraReceivingType) {
+                setError('Please select a type for extra receiving.');
+                setIsLoading(false);
+                return;
+            }
         }
 
         const orderData = {
@@ -367,6 +384,9 @@ const PurchaseOrderForm = ({ suppliers, materials, rawMaterials, onOrderCreated,
                 rate: Number(item.rate),
                 discountPercent: Number(item.discountPercent),
                 gstPercent: Number(item.gstPercent),
+                // Extra receiving fields
+                extraReceivingType: item.extraReceivingType,
+                extraReceivingValue: Number(item.extraReceivingValue) || 0
             })),
             expectedDeliveryDate,
             paymentTerms,
@@ -541,6 +561,9 @@ const PurchaseOrderForm = ({ suppliers, materials, rawMaterials, onOrderCreated,
                                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Rate (₹)</th>
                                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Disc%</th>
                                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">GST%</th>
+                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Extra Receiving Type</th>
+                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Extra Receiving Value</th>
+                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Extra Allowed Qty</th>
                                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total (₹)</th>
                                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                                 </tr>
@@ -635,6 +658,35 @@ const PurchaseOrderForm = ({ suppliers, materials, rawMaterials, onOrderCreated,
                                                     onChange={(e) => handleItemChange(index, 'gstPercent', e.target.value)} 
                                                     className="w-16 px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
                                                 />
+                                            </td>
+                                            <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
+                                                <select 
+                                                    value={item.extraReceivingType} 
+                                                    onChange={(e) => handleItemChange(index, 'extraReceivingType', e.target.value)} 
+                                                    className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                                >
+                                                    <option value="">Select Type</option>
+                                                    <option value="Percentage">Percentage</option>
+                                                    <option value="Quantity">Quantity</option>
+                                                </select>
+                                            </td>
+                                            <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
+                                                <input 
+                                                    type="number" 
+                                                    step="0.01" 
+                                                    min="0"
+                                                    value={item.extraReceivingValue} 
+                                                    onChange={(e) => handleItemChange(index, 'extraReceivingValue', e.target.value)} 
+                                                    className="w-20 px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                                    disabled={!item.extraReceivingType}
+                                                />
+                                            </td>
+                                            <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
+                                                {item.extraReceivingType && item.extraReceivingValue ? (
+                                                    item.extraReceivingType === 'Percentage' ? 
+                                                    `${((parseFloat(item.quantity) || 0) * (parseFloat(item.extraReceivingValue) || 0) / 100).toFixed(2)}` :
+                                                    `${parseFloat(item.extraReceivingValue).toFixed(2)}`
+                                                ) : '0.00'}
                                             </td>
                                             <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">
                                                 {lineItem.lineTotal.toFixed(2)}

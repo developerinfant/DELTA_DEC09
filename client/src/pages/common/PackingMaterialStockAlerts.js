@@ -43,7 +43,7 @@ const PackingMaterialStockAlerts = () => {
 
     // --- New Handler for Creating a PO ---
     const handleCreatePO = (material) => {
-        navigate('/purchase-orders/create', { 
+        navigate('/packing/purchase-orders/create', { 
             state: { 
                 materialId: material._id,
             } 

@@ -3,6 +3,9 @@ const GRN = require('../models/GRN');
 const PackingMaterial = require('../models/PackingMaterial');
 const mongoose = require('mongoose');
 
+// Add this line to import the new DamagedStockMaster model
+const DamagedStockMaster = require('../models/DamagedStockMaster');
+
 /**
  * @desc    Create a new damaged stock entry
  * @route   POST /api/damaged-stock
@@ -13,8 +16,8 @@ const createDamagedStock = async (req, res) => {
         const { grn_id, dc_no, product_name, material_name, received_qty, damaged_qty, remarks } = req.body;
         
         // Validate required fields
-        if (!grn_id || !dc_no || !product_name || !material_name || received_qty === undefined || damaged_qty === undefined) {
-            return res.status(400).json({ message: 'All fields are required.' });
+        if (!dc_no || !product_name || !material_name || received_qty === undefined || damaged_qty === undefined) {
+            return res.status(400).json({ message: 'Required fields: dc_no, product_name, material_name, received_qty, damaged_qty.' });
         }
         
         // Validate that damaged quantity doesn't exceed received quantity
@@ -22,15 +25,18 @@ const createDamagedStock = async (req, res) => {
             return res.status(400).json({ message: 'Damaged quantity cannot exceed received quantity.' });
         }
         
-        // Check if GRN exists
-        const grn = await GRN.findById(grn_id);
-        if (!grn) {
-            return res.status(404).json({ message: 'GRN not found.' });
+        // Check if GRN exists (if provided)
+        let grn = null;
+        if (grn_id) {
+            grn = await GRN.findById(grn_id);
+            if (!grn) {
+                return res.status(404).json({ message: 'GRN not found.' });
+            }
         }
         
         // Create damaged stock entry
         const damagedStock = new DamagedStock({
-            grn_id,
+            grn_id: grn_id || null,
             dc_no,
             product_name,
             material_name,
@@ -42,8 +48,10 @@ const createDamagedStock = async (req, res) => {
         
         const savedDamagedStock = await damagedStock.save();
         
-        // Update GRN status to "Damage Pending"
-        await GRN.findByIdAndUpdate(grn_id, { status: 'Damage Pending' });
+        // Update GRN status to "Damage Pending" only if GRN ID was provided
+        if (grn_id && grn) {
+            await GRN.findByIdAndUpdate(grn_id, { status: 'Damage Pending' });
+        }
         
         res.status(201).json(savedDamagedStock);
     } catch (error) {
@@ -104,15 +112,37 @@ const getDamagedStockEntries = async (req, res) => {
         // Get total count for pagination
         const total = await DamagedStock.countDocuments(filter);
         
-        // Get damaged stock entries
+        // Get damaged stock entries with populated GRN data
         const damagedStockEntries = await DamagedStock.find(filter)
             .sort({ createdAt: -1 })
             .skip(skip)
             .limit(limit)
+            .populate({
+                path: 'grn_id',
+                select: 'grnNumber'
+            })
             .lean();
         
+        // Process entries to ensure proper GRN data structure
+        const processedEntries = damagedStockEntries.map(entry => {
+            // Ensure we have the correct structure for GRN data
+            if (entry.grn_id && entry.grn_id.grnNumber) {
+                return {
+                    ...entry,
+                    grnNumber: entry.grn_id.grnNumber,
+                    grnId: entry.grn_id._id || entry.grn_id
+                };
+            } else {
+                return {
+                    ...entry,
+                    grnNumber: 'N/A',
+                    grnId: null
+                };
+            }
+        });
+        
         res.json({
-            data: damagedStockEntries,
+            data: processedEntries,
             pagination: {
                 page,
                 limit,
@@ -219,6 +249,44 @@ const updateDamagedStock = async (req, res) => {
             
             // Update GRN status
             await GRN.findByIdAndUpdate(damagedStock.grn_id, { status: 'Damage Completed' });
+            
+            // NEW: Record in DamagedStockMaster table
+            try {
+                // Find existing record or create new one
+                let masterRecord = await DamagedStockMaster.findOne({ 
+                    materialName: damagedStock.material_name 
+                });
+                
+                if (masterRecord) {
+                    // Update existing record
+                    masterRecord.totalDamagedQty += damagedStock.damaged_qty;
+                    masterRecord.lastDamagedQty = damagedStock.damaged_qty;
+                    masterRecord.lastApprovedDate = new Date();
+                    // Update brand and unit if they exist in the material
+                    if (material) {
+                        masterRecord.brand = material.brandType || '';
+                        masterRecord.unit = material.unit || '';
+                    }
+                } else {
+                    // Create new record
+                    const packingMaterial = await PackingMaterial.findOne({ name: damagedStock.material_name });
+                    
+                    masterRecord = new DamagedStockMaster({
+                        itemCode: packingMaterial ? packingMaterial.itemCode : '',
+                        materialName: damagedStock.material_name,
+                        totalDamagedQty: damagedStock.damaged_qty,
+                        lastDamagedQty: damagedStock.damaged_qty,
+                        lastApprovedDate: new Date(),
+                        brand: packingMaterial ? packingMaterial.brandType : '',
+                        unit: packingMaterial ? packingMaterial.unit : ''
+                    });
+                }
+                
+                await masterRecord.save();
+            } catch (masterError) {
+                console.error('Error updating DamagedStockMaster:', masterError);
+                // Don't fail the main operation if master record update fails
+            }
         } else if (action === 'reject') {
             // Update damaged stock entry
             damagedStock.status = 'Rejected';

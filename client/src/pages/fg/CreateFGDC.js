@@ -113,6 +113,7 @@ const CreateFGDC = () => {
                     if (field === 'product_name') {
                         const selectedProduct = products.find(p => p.productName === value);
                         if (selectedProduct) {
+                            // Set initial values including units per carton from stock data
                             updatedProduct.units_per_carton = selectedProduct.units_per_carton || 1;
                             updatedProduct.available_cartons = selectedProduct.available_cartons;
                             updatedProduct.available_pieces = selectedProduct.available_pieces;
@@ -121,6 +122,9 @@ const CreateFGDC = () => {
                             updatedProduct.quantity = '';
                             updatedProduct.carton_quantity = '';
                             updatedProduct.piece_quantity = '';
+                            
+                            // Fetch the correct units per carton from product mapping
+                            fetchProductMapping(value, id);
                         }
                     }
                     
@@ -137,7 +141,35 @@ const CreateFGDC = () => {
             })
         );
     };
-    
+
+    // Fetch product mapping to get units per carton
+    const fetchProductMapping = async (productName, productId) => {
+        try {
+            const response = await api.get(`/product-mapping/name/${encodeURIComponent(productName)}`);
+            if (response.data && response.data.units_per_carton) {
+                setSelectedProducts(prev => 
+                    prev.map(product => {
+                        if (product.id === productId) {
+                            return {
+                                ...product,
+                                units_per_carton: response.data.units_per_carton
+                            };
+                        }
+                        return product;
+                    })
+                );
+            }
+        } catch (error) {
+            console.error('Error fetching product mapping:', error);
+            // Check if it's a 404 error (product mapping not found)
+            if (error.response && error.response.status === 404) {
+                toast.info(`Product mapping not found for ${productName}. Using units per carton from stock data.`);
+            } else {
+                toast.warn(`Error fetching product mapping for ${productName}. Using units per carton from stock data.`);
+            }
+        }
+    };
+
     // Handle form input changes
     const handleInputChange = (e) => {
         const { name, value } = e.target;

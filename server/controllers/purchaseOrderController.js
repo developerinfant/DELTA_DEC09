@@ -120,6 +120,16 @@ const createPurchaseOrder = async (req, res) => {
             const sgst = gstAmt / 2;
             const lineTotal = taxable + gstAmt;
             
+            // Calculate extra allowed quantity
+            let extraAllowedQty = 0;
+            // Handle empty string values for extraReceivingType
+            const effectiveExtraReceivingType = item.extraReceivingType || undefined;
+            if (effectiveExtraReceivingType === 'Percentage' && item.extraReceivingValue > 0) {
+                extraAllowedQty = Math.ceil((item.quantity * item.extraReceivingValue) / 100);
+            } else if (effectiveExtraReceivingType === 'Quantity' && item.extraReceivingValue > 0) {
+                extraAllowedQty = item.extraReceivingValue;
+            }
+            
             // Update totals
             taxableAmount += taxable;
             totalCGST += cgst;
@@ -129,7 +139,8 @@ const createPurchaseOrder = async (req, res) => {
                 ...item,
                 cgst: parseFloat(cgst.toFixed(2)),
                 sgst: parseFloat(sgst.toFixed(2)),
-                lineTotal: parseFloat(lineTotal.toFixed(2))
+                lineTotal: parseFloat(lineTotal.toFixed(2)),
+                extraAllowedQty: parseFloat(extraAllowedQty.toFixed(2))
             };
         });
         
@@ -314,6 +325,16 @@ const updatePurchaseOrder = async (req, res) => {
                 const sgst = gstAmt / 2;
                 const lineTotal = taxable + gstAmt;
                 
+                // Calculate extra allowed quantity
+                let extraAllowedQty = 0;
+                // Handle empty string values for extraReceivingType
+                const effectiveExtraReceivingType = item.extraReceivingType || undefined;
+                if (effectiveExtraReceivingType === 'Percentage' && item.extraReceivingValue > 0) {
+                    extraAllowedQty = Math.ceil((item.quantity * item.extraReceivingValue) / 100);
+                } else if (effectiveExtraReceivingType === 'Quantity' && item.extraReceivingValue > 0) {
+                    extraAllowedQty = item.extraReceivingValue;
+                }
+                
                 // Update totals
                 taxableAmount += taxable;
                 totalCGST += cgst;
@@ -323,7 +344,8 @@ const updatePurchaseOrder = async (req, res) => {
                     ...item,
                     cgst: parseFloat(cgst.toFixed(2)),
                     sgst: parseFloat(sgst.toFixed(2)),
-                    lineTotal: parseFloat(lineTotal.toFixed(2))
+                    lineTotal: parseFloat(lineTotal.toFixed(2)),
+                    extraAllowedQty: parseFloat(extraAllowedQty.toFixed(2))
                 };
             });
             

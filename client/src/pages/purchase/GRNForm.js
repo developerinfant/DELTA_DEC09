@@ -1,17 +1,31 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../../api';
+import Select from 'react-select';
+import { useAuth } from '../../context/AuthContext'; // Import the useAuth hook
 
 const GRNForm = ({ purchaseOrders, onCreate }) => {
     const [selectedPOId, setSelectedPOId] = useState('');
     const [poDetails, setPoDetails] = useState(null);
     const [items, setItems] = useState([]);
-    const [receivedBy, setReceivedBy] = useState('');
+    const [poSummary, setPoSummary] = useState({});
+
+    const [summaryLoaded, setSummaryLoaded] = useState(false); 
+    const [receivedBy, setReceivedBy] = useState(''); // Will be auto-filled and locked
     const [dateReceived, setDateReceived] = useState(new Date().toISOString().split('T')[0]);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
     const navigate = useNavigate();
+    const { user } = useAuth(); // Get the logged-in user from context
+
+    // Auto-fill the receivedBy field with the logged-in user's name
+    useEffect(() => {
+        if (user && user.name) {
+            setReceivedBy(user.name);
+        }
+    }, [user]);
 
     const selectedPO = useMemo(() => {
         return purchaseOrders.find(po => po._id === selectedPOId);
@@ -26,48 +40,45 @@ const GRNForm = ({ purchaseOrders, onCreate }) => {
                     setPoDetails(data);
                     
                     // Fetch existing GRNs for this PO to calculate previous received quantities
-                    const grnResponse = await api.get(`/grn?purchaseOrder=${selectedPOId}`);
-                    const existingGRNs = grnResponse.data;
+                    
                     
                     // Pre-fill items based on PO details and calculate previous received quantities
-                    const updatedItems = data.items.map(poItem => {
-                        // Calculate total received quantity for this material from all existing GRNs
-                        let previousReceived = 0;
-                        const grnHistory = [];
-                        
-                        existingGRNs.forEach(grn => {
-                            grn.items.forEach(grnItem => {
-                                // Match by material ID and model
-                                const poMaterialId = typeof poItem.material === 'object' ? poItem.material._id : poItem.material;
-                                const grnMaterialId = typeof grnItem.material === 'object' ? grnItem.material._id : grnItem.material;
-                                
-                                if (grnMaterialId === poMaterialId && grnItem.materialModel === poItem.materialModel) {
-                                    previousReceived += grnItem.receivedQuantity || 0;
-                                    
-                                    // Add to history
-                                    grnHistory.push({
-                                        date: grn.dateReceived,
-                                        receivedQuantity: grnItem.receivedQuantity || 0,
-                                        grnNumber: grn.grnNumber
-                                    });
-                                }
-                            });
-                        });
-                        
-                        // Sort history by date (newest first)
-                        grnHistory.sort((a, b) => new Date(b.date) - new Date(a.date));
-                        
-                        return {
-                            material: poItem.material._id,
-                            materialModel: poItem.materialModel,
-                            orderedQuantity: poItem.quantity,
-                            previousReceived: previousReceived,
-                            grnHistory: grnHistory, // Add history to item
-                            receivedQuantity: poItem.quantity - previousReceived, // Default to remaining quantity
-                            damagedQuantity: 0,
-                            remarks: '',
-                        };
-                    });
+                   const updatedItems = data.items.map(poItem => {
+                    // Per-material summary
+const itemMaterialId =
+    typeof poItem.material === "object" ? poItem.material._id : poItem.material;
+
+let previousReceived = 0;
+let previousExtraReceived = 0;
+
+const grns = poSummary[selectedPOId]?.grns || [];
+
+grns.forEach(g => {
+    g.items.forEach(grnItem => {
+        const grnMaterialId =
+            typeof grnItem.material === "object" ? grnItem.material._id : grnItem.material;
+
+        if (grnMaterialId === itemMaterialId) {
+            previousReceived += grnItem.receivedQuantity || 0;
+            previousExtraReceived += grnItem.extraReceivedQty || 0;
+        }
+    });
+});
+
+    return {
+        material: poItem.material._id,
+        materialModel: poItem.materialModel,
+        orderedQuantity: poItem.quantity,
+        previousReceived,
+        previousExtraReceived,
+        extraAllowedQty: poItem.extraAllowedQty || 0,
+        grnHistory: [], // history removed since summary is used
+        receivedQuantity: Math.max(0, poItem.quantity - previousReceived),
+        extraReceivedQty: Math.max(0, (poItem.extraAllowedQty || 0) - previousExtraReceived),
+        remarks: '',
+    };
+});
+
                     
                     setItems(updatedItems);
                 } catch (err) {
@@ -79,12 +90,53 @@ const GRNForm = ({ purchaseOrders, onCreate }) => {
             setPoDetails(null);
             setItems([]);
         }
-    }, [selectedPOId]);
+   }, [selectedPOId, poSummary]);
+    // Fetch GRN Summary for each PO so dropdown can show correct status
+useEffect(() => {
+    const fetchSummary = async () => {
+        let result = {};
+
+        for (let po of purchaseOrders) {
+            const res = await api.get(`/grn?purchaseOrder=${po._id}`);
+            const grns = res.data;
+
+            let prev = 0;
+            let prevExtra = 0;
+
+            grns.forEach(g => {
+                g.items.forEach(item => {
+                    prev += item.receivedQuantity || 0;
+                    prevExtra += item.extraReceivedQty || 0;
+                });
+            });
+
+           result[po._id] = {
+    prev,
+    prevExtra,
+    grns    // store full GRN response
+};
+
+        }
+
+        setPoSummary(result);
+        setSummaryLoaded(true); 
+    };
+
+    if (purchaseOrders.length > 0) {
+        fetchSummary();
+    }
+}, [purchaseOrders]);
+
 
     const handleItemChange = (index, field, value) => {
         const newItems = [...items];
-        newItems[index][field] = field.includes('Quantity') ? 
-            (Number(value) >= 0 ? Number(value) : 0) : value;
+        // Treat numeric fields explicitly
+        if (field === 'receivedQuantity' || field === 'extraReceivedQty') {
+            const num = Number(value);
+            newItems[index][field] = Number.isFinite(num) && num >= 0 ? num : 0;
+        } else {
+            newItems[index][field] = value;
+        }
         setItems(newItems);
     };
 
@@ -95,16 +147,40 @@ const GRNForm = ({ purchaseOrders, onCreate }) => {
         setIsLoading(true);
 
         // Validate that at least one item has a received quantity > 0
-        const hasReceivedItems = items.some(item => item.receivedQuantity > 0);
+        const hasReceivedItems = items.some(item => item.receivedQuantity > 0 || item.extraReceivedQty > 0);
         if (!hasReceivedItems) {
             setError('At least one item must have a received quantity greater than zero.');
             setIsLoading(false);
             return;
         }
 
+        // Validate that received quantities don't exceed limits
+        for (const item of items) {
+            const totalNormalReceived = (item.previousReceived || 0) + (item.receivedQuantity || 0);
+            if (totalNormalReceived > item.orderedQuantity) {
+                setError(`Received quantity for ${poDetails.items[items.indexOf(item)]?.material?.name || 'item'} cannot exceed ordered quantity.`);
+                setIsLoading(false);
+                return;
+            }
+            
+            // Validate extra received quantity if provided
+           if (item.extraReceivedQty > 0 && item.extraAllowedQty === 0) {
+                setError(`Extra receiving not configured for ${poDetails.items[items.indexOf(item)]?.material?.name || 'item'}.`);
+                setIsLoading(false);
+                return;
+            }
+            
+            const totalExtraReceived = (item.previousExtraReceived || 0) + (item.extraReceivedQty || 0);
+            if (item.extraAllowedQty !== undefined && totalExtraReceived > item.extraAllowedQty) {
+                setError(`Extra received quantity for ${poDetails.items[items.indexOf(item)]?.material?.name || 'item'} cannot exceed allowed extra quantity.`);
+                setIsLoading(false);
+                return;
+            }
+        }
+
         const grnData = {
             purchaseOrderId: selectedPOId,
-            items: items.filter(item => item.receivedQuantity > 0), // Only send items with received quantity
+            items: items.filter(item => item.receivedQuantity > 0 || item.extraReceivedQty > 0), // Only send items with received quantity
             receivedBy,
             dateReceived,
         };
@@ -126,6 +202,45 @@ const GRNForm = ({ purchaseOrders, onCreate }) => {
     
     // Helper class for form inputs
     const inputStyle = "mt-1 block w-full px-4 py-2 text-dark-700 bg-light-100 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent";
+    
+    // Custom styles for React Select to match the theme
+    const customSelectStyles = {
+        control: (provided, state) => ({
+            ...provided,
+            minHeight: '42px',
+            borderColor: state.isFocused ? '#6366f1' : '#e5e7eb',
+            boxShadow: state.isFocused ? '0 0 0 3px rgba(99, 102, 241, 0.1)' : 'none',
+            '&:hover': {
+                borderColor: state.isFocused ? '#6366f1' : '#d1d5db'
+            },
+            borderRadius: '0.5rem',
+            backgroundColor: '#f9fafb',
+            fontSize: '0.875rem'
+        }),
+        menu: (provided) => ({
+            ...provided,
+            borderRadius: '0.5rem',
+            boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
+            zIndex: 9999
+        }),
+        option: (provided, state) => ({
+            ...provided,
+            backgroundColor: state.isSelected ? '#e0e7ff' : state.isFocused ? '#eef2ff' : 'white',
+            color: state.isSelected ? '#4f46e5' : '#374151',
+            '&:hover': {
+                backgroundColor: '#e0e7ff',
+                color: '#4f46e5'
+            }
+        }),
+        placeholder: (provided) => ({
+            ...provided,
+            color: '#9ca3af'
+        }),
+        singleValue: (provided) => ({
+            ...provided,
+            color: '#374151'
+        })
+    };
 
     // Function to get status badge
     const getStatusBadge = (status) => {
@@ -133,6 +248,7 @@ const GRNForm = ({ purchaseOrders, onCreate }) => {
             'Pending': 'bg-yellow-100 text-yellow-800',
             'Approved': 'bg-blue-100 text-blue-800',
             'Ordered': 'bg-indigo-100 text-indigo-800',
+            'Completed': 'bg-green-100 text-green-800',
             'Received': 'bg-green-100 text-green-800',
             'Cancelled': 'bg-red-100 text-red-800'
         };
@@ -149,21 +265,59 @@ const GRNForm = ({ purchaseOrders, onCreate }) => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                     <label htmlFor="po-select" className="block text-sm font-medium text-dark-700 mb-1">Select Purchase Order</label>
-                    <select 
-                        id="po-select" 
-                        value={selectedPOId} 
-                        onChange={(e) => setSelectedPOId(e.target.value)} 
-                        required 
-                        className={inputStyle}
-                    >
-                        <option value="" disabled>-- Choose a PO --</option>
-                        {purchaseOrders.map(po => (
-                            <option key={po._id} value={po._id}>
-                                {po.poNumber} ({po.supplier?.name || 'Unknown Supplier'})
-                            </option>
-                        ))}
-                    </select>
-                    <p className="mt-1 text-xs text-gray-500">Select a purchase order to receive goods against</p>
+                    {!summaryLoaded ? (
+    <div className="p-3 text-sm text-gray-500">
+        Loading PO status…
+    </div>
+) : (
+                    <Select
+                        id="po-select"
+                        value={purchaseOrders.find(po => po._id === selectedPOId) ? 
+                               { value: selectedPOId, label: `${purchaseOrders.find(po => po._id === selectedPOId).poNumber} (${purchaseOrders.find(po => po._id === selectedPOId).supplier?.name || 'Unknown Supplier'})` } : 
+                               null}
+                        onChange={(selectedOption) => setSelectedPOId(selectedOption ? selectedOption.value : '')}
+                       options={purchaseOrders.map(po => {
+  let totalOrdered = 0;
+let totalExtraAllowed = 0;
+
+// Sum ordered & extra allowed from PO
+po.items.forEach(i => {
+    totalOrdered += i.quantity || 0;
+    totalExtraAllowed += i.extraAllowedQty || 0;
+});
+
+// Read GRN summary for this PO
+const summary = poSummary[po._id] || { prev: 0, prevExtra: 0 };
+
+const totalPrevReceived = summary.prev;
+const totalExtraPrev = summary.prevExtra;
+    // Compute dynamic status
+    const normalPending = totalOrdered - totalPrevReceived;
+const extraPending = totalExtraAllowed - totalExtraPrev;
+
+let status = "New";
+
+if (normalPending === 0 && extraPending === 0) {
+    status = "Completed";         // FULL completed
+} else if (totalPrevReceived > 0 || totalExtraPrev > 0) {
+    status = "Pending";           // Partially received
+}
+
+    return {
+        value: po._id,
+        label: `${po.poNumber} - ${status}`
+    };
+})}
+
+                        placeholder="-- Choose a PO --"
+                        isSearchable={true}
+                        className="basic-single"
+                        classNamePrefix="select"
+                        isClearable={true}
+                        required
+                        styles={customSelectStyles}
+                    />)}
+                    <p className="mt-1 text-xs text-gray-500">Select a purchase order to receive goods against (type to search)</p>
                 </div>
                 <div>
                     <label className="block text-sm font-medium text-dark-700 mb-1">Supplier</label>
@@ -177,8 +331,28 @@ const GRNForm = ({ purchaseOrders, onCreate }) => {
                                 <div className="flex items-center bg-white px-3 py-1 rounded-full">
                                     <span className="text-xs font-medium">Status: </span>
                                     <span className="ml-2">
-                                        {getStatusBadge(poDetails.status)}
-                                    </span>
+    {getStatusBadge(
+        (() => {
+            // Read GRN summary for this PO
+            const summary = poSummary[poDetails._id] || { prev: 0, prevExtra: 0 };
+
+            // Sum total ordered + extra allowed
+            const totalOrdered = poDetails.items.reduce((sum, i) => sum + (i.quantity || 0), 0);
+            const totalExtraAllowed = poDetails.items.reduce((sum, i) => sum + (i.extraAllowedQty || 0), 0);
+
+            // Previous received values from summary
+            const normalPending = totalOrdered - summary.prev;
+            const extraPending = totalExtraAllowed - summary.prevExtra;
+
+            // Status logic
+            if (normalPending === 0 && extraPending === 0) return "Completed";   // FULL completed
+            if (summary.prev > 0 || summary.prevExtra > 0) return "Pending";     // Partially received
+
+            return "New"; // Nothing received yet
+        })()
+    )}
+</span>
+
                                 </div>
                             )}
                         </div>
@@ -194,7 +368,7 @@ const GRNForm = ({ purchaseOrders, onCreate }) => {
                             <h3 className="text-lg font-bold text-blue-800">Purchase Order Summary</h3>
                             <span className="text-sm bg-blue-100 text-blue-800 px-3 py-1 rounded-full font-medium">
                                 {poDetails.poNumber}
-                            </span>2
+                            </span>
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                             <div className="bg-white p-3 rounded-lg">
@@ -227,7 +401,13 @@ const GRNForm = ({ purchaseOrders, onCreate }) => {
                             </div>
                         ) : (
                             <div className="space-y-4">
-                                {items.map((item, index) => (
+                                {items.map((item, index) => {
+                                    // Determine if normal and extra parts are fully received
+                                    const normalPending = Math.max(0, item.orderedQuantity - (item.previousReceived || 0));
+                                    const extraPending = Math.max(0, (item.extraAllowedQty || 0) - (item.previousExtraReceived || 0));
+                                    const isFullyReceived = normalPending === 0 && extraPending === 0;
+
+                                    return (
                                     <div key={index} className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
                                         <div className="p-4 bg-gray-50 border-b border-gray-100">
                                             <div className="flex justify-between items-center">
@@ -251,39 +431,73 @@ const GRNForm = ({ purchaseOrders, onCreate }) => {
                                                 </div>
                                                 <div className="md:col-span-3 text-center bg-orange-50 p-3 rounded-lg">
                                                     <p className="text-xs text-gray-500 uppercase">Pending</p>
-                                                    <p className="font-bold text-lg">{(item.orderedQuantity - (item.previousReceived || 0))}</p>
+                                                    <p className="font-bold text-lg">{normalPending}</p>
                                                 </div>
-                                                <div className="md:col-span-3">
-                                                    <label htmlFor={`received-${index}`} className="block text-xs font-medium text-dark-700 mb-1">Received Quantity</label>
-                                                    <input 
-                                                        id={`received-${index}`} 
-                                                        type="text" 
-                                                        min="0"
-                                                        max={item.orderedQuantity - (item.previousReceived || 0)}
-                                                        value={item.receivedQuantity} 
-                                                        onChange={e => handleItemChange(index, 'receivedQuantity', e.target.value)} 
-                                                        required 
-                                                        className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
-                                                    />
-                                                </div>
+
+                                                {/* Normal Received Quantity - show input only if pending > 0 */}
+                                                { normalPending > 0 ? (
+                                                    <div className="md:col-span-3">
+                                                        <label htmlFor={`received-${index}`} className="block text-xs font-medium text-dark-700 mb-1">Normal Received Quantity</label>
+                                                        <input 
+                                                            id={`received-${index}`} 
+                                                            type="number" 
+                                                            min="0"
+                                                            max={normalPending}
+                                                            value={item.receivedQuantity} 
+                                                            onChange={e => handleItemChange(index, 'receivedQuantity', e.target.value)} 
+                                                            required 
+                                                            className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
+                                                        />
+                                                    </div>
+                                                ) : (
+                                                    <div className="md:col-span-3 flex items-center justify-center">
+                                                        <div className="text-green-600 font-medium">✔ Fully Received</div>
+                                                    </div>
+                                                )}
                                             </div>
                                             
                                             <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-center mt-2">
-                                                <div className="md:col-span-9"></div>
-                                                <div className="md:col-span-3">
-                                                    <label htmlFor={`damaged-${index}`} className="block text-xs font-medium text-dark-700 mb-1">Damaged Qty</label>
-                                                    <input 
-                                                        id={`damaged-${index}`} 
-                                                        type="text" 
-                                                        min="0"
-                                                        max={item.receivedQuantity}
-                                                        value={item.damagedQuantity} 
-                                                        onChange={e => handleItemChange(index, 'damagedQuantity', e.target.value)} 
-                                                        className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
-                                                    />
+                                                {/* Extra receiving fields - show input only if extraPending > 0 */}
+                                                <div className="md:col-span-3 text-center bg-purple-50 p-3 rounded-lg">
+                                                    <p className="text-xs text-gray-500 uppercase">Extra Allowed</p>
+                                                    <p className="font-bold text-lg">{item.extraAllowedQty || 0}</p>
                                                 </div>
+                                                <div className="md:col-span-3 text-center bg-yellow-50 p-3 rounded-lg">
+                                                    <p className="text-xs text-gray-500 uppercase">Extra Previous</p>
+                                                    <p className="font-bold text-lg">{item.previousExtraReceived || 0}</p>
+                                                </div>
+                                                <div className="md:col-span-3 text-center bg-orange-50 p-3 rounded-lg">
+                                                    <p className="text-xs text-gray-500 uppercase">Extra Pending</p>
+                                                    <p className="font-bold text-lg">{extraPending}</p>
+                                                </div>
+
+                                                { extraPending > 0 ? (
+                                                    <div className="md:col-span-3">
+                                                        <label htmlFor={`extra-received-${index}`} className="block text-xs font-medium text-dark-700 mb-1">Extra Received Quantity</label>
+                                                        <input 
+                                                            id={`extra-received-${index}`} 
+                                                            type="number" 
+                                                            min="0"
+                                                            max={extraPending}
+                                                            value={item.extraReceivedQty} 
+                                                            onChange={e => handleItemChange(index, 'extraReceivedQty', e.target.value)} 
+                                                            className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
+                                                        />
+                                                    </div>
+                                                ) : (
+                                                    <div className="md:col-span-3 flex items-center justify-center">
+                                                        <div className="text-green-600 font-medium">✔ Extra Fully Received</div>
+                                                    </div>
+                                                )}
                                             </div>
                                             
+                                            {/* If fully received, show a green banner */}
+                                            { isFullyReceived && (
+                                                <div className="mt-4 p-3 bg-green-50 border border-green-100 rounded-lg text-green-700">
+                                                    <strong>✓ This item has been fully received</strong>
+                                                </div>
+                                            )}
+
                                             {/* Dropdown history view for previous GRNs */}
                                             {item.previousReceived > 0 && (
                                                 <div className="mt-4">
@@ -318,6 +532,13 @@ const GRNForm = ({ purchaseOrders, onCreate }) => {
                                                                 <p><span className="font-semibold">Total Ordered:</span> {item.orderedQuantity}</p>
                                                                 <p><span className="font-semibold">Total Received:</span> {item.previousReceived}</p>
                                                                 <p><span className="font-semibold">Pending Qty:</span> {item.orderedQuantity - item.previousReceived}</p>
+                                                                {item.extraAllowedQty > 0 && (
+                                                                    <>
+                                                                        <p><span className="font-semibold">Extra Allowed:</span> {item.extraAllowedQty}</p>
+                                                                        <p><span className="font-semibold">Extra Received:</span> {item.previousExtraReceived}</p>
+                                                                        <p><span className="font-semibold">Extra Pending:</span> {item.extraAllowedQty - item.previousExtraReceived}</p>
+                                                                    </>
+                                                                )}
                                                             </div>
                                                         </div>
                                                     </details>
@@ -325,7 +546,7 @@ const GRNForm = ({ purchaseOrders, onCreate }) => {
                                             )}
                                         </div>
                                     </div>
-                                ))}
+                                )})}
                             </div>
                         )}
                     </div>
@@ -352,29 +573,45 @@ const GRNForm = ({ purchaseOrders, onCreate }) => {
                                 onChange={(e) => setReceivedBy(e.target.value)} 
                                 required 
                                 placeholder="Enter receiver's name"
-                                className="mt-1 block w-full px-4 py-3 text-dark-700 bg-light-100 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                                readOnly // Make the field read-only
+                                disabled // Disable the field visually
+                                className="mt-1 block w-full px-4 py-3 text-dark-700 bg-light-100 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent disabled:bg-gray-100 disabled:text-gray-500"
                             />
                         </div>
                     </div>
+<div className="bg-white rounded-xl p-6 shadow-md border border-gray-200">
+    <div className="flex flex-col md:flex-row justify-end items-center">
+        <button 
+            type="submit" 
+            disabled={isLoading} 
+            className="
+                relative
+                inline-flex items-center justify-center
+                px-8 py-3 
+                bg-blue-600 hover:bg-blue-700
+                disabled:bg-gray-400 
+                text-white font-semibold text-lg
+                rounded-lg
+                shadow-md hover:shadow-lg
+                transition-all duration-200
+                focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2
+            "
+        >
+            {isLoading ? (
+                <>
+                    <span className="animate-spin mr-2 h-5 w-5 border-2 border-white border-t-transparent rounded-full"></span>
+                    Processing...
+                </>
+            ) : (
+                <>
+                    <i className="bi bi-check-circle mr-2 text-xl"></i>
+                    Submit GRN
+                </>
+            )}
+        </button>
+    </div>
+</div>
 
-                    <div className="bg-gradient-to-r from-primary-500 to-secondary-500 rounded-xl p-6 shadow-lg">
-                        <div className="flex flex-col md:flex-row justify-between items-center gap-4">
-                            <button 
-                                type="submit" 
-                                disabled={isLoading} 
-                                className="px-8 py-4 text-white bg-gradient-to-r from-green-600 to-emerald-700 rounded-xl hover:from-green-700 hover:to-emerald-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:from-gray-400 disabled:to-gray-500 flex items-center text-lg font-bold shadow-lg transform transition hover:scale-105"
-                            >
-                                {isLoading ? (
-                                    <>
-                                        <span className="animate-spin mr-3">↻</span>
-                                        Creating GRN...
-                                    </>
-                                ) : (
-                                    'Submit GRN'
-                                )}
-                            </button>
-                        </div>
-                    </div>
 
                     {(error || success) && (
                         <div className={`p-4 rounded-xl ${error ? 'bg-red-50 text-red-800 border border-red-200' : 'bg-green-50 text-green-800 border border-green-200'}`}>

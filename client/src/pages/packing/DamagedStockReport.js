@@ -12,6 +12,11 @@ const DamagedStockReport = () => {
   const [damagedStockEntries, setDamagedStockEntries] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
+  // Add state for history modal
+  const [showHistoryModal, setShowHistoryModal] = useState(false);
+  const [historyData, setHistoryData] = useState([]);
+  const [currentMaterialName, setCurrentMaterialName] = useState('');
+  const [historyLoading, setHistoryLoading] = useState(false);
   const [filters, setFilters] = useState({
     startDate: '',
     endDate: '',
@@ -114,6 +119,30 @@ const DamagedStockReport = () => {
     setPagination(prev => ({ ...prev, page: newPage }));
   };
 
+  // View history
+  const viewHistory = async (materialName) => {
+    setHistoryLoading(true);
+    setShowHistoryModal(true);
+    setCurrentMaterialName(materialName);
+    try {
+      const response = await api.get(`/damaged-stock-master/history/${materialName}`);
+      setHistoryData(response.data);
+    } catch (err) {
+      toast.error('Failed to load history data');
+      console.error('Error fetching history:', err);
+      setHistoryData([]);
+    } finally {
+      setHistoryLoading(false);
+    }
+  };
+
+  // Close history modal
+  const closeHistoryModal = () => {
+    setShowHistoryModal(false);
+    setHistoryData([]);
+    setCurrentMaterialName('');
+  };
+
   // Handle approve/reject action
   const handleAction = async (id, action, remarks = '') => {
     try {
@@ -168,7 +197,7 @@ const DamagedStockReport = () => {
       const rows = damagedStockEntries.map(entry => [
         formatDate(entry.entered_on),
         entry.dc_no,
-        entry.grn_id,
+        entry.grnNumber || 'N/A',
         entry.product_name,
         entry.material_name,
         entry.received_qty,
@@ -206,7 +235,7 @@ const DamagedStockReport = () => {
       const exportData = damagedStockEntries.map(entry => ({
         'Date': formatDate(entry.entered_on),
         'DC No': entry.dc_no,
-        'GRN No': entry.grn_id,
+        'GRN No': entry.grnNumber || 'N/A',
         'Product': entry.product_name,
         'Material': entry.material_name,
         'Total Received': entry.received_qty,
@@ -268,7 +297,7 @@ const DamagedStockReport = () => {
       const tableRows = damagedStockEntries.map(entry => [
         formatDate(entry.entered_on),
         entry.dc_no,
-        entry.grn_id.substring(0, 8) + '...',
+        entry.grnNumber || 'N/A',
         entry.product_name,
         entry.material_name,
         entry.received_qty,
@@ -320,13 +349,21 @@ const DamagedStockReport = () => {
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4">
         <h1 className="text-3xl font-bold text-gray-800">Damaged Stock Report</h1>
-        <button 
-          onClick={fetchDamagedStockEntries}
-          className="flex items-center px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors self-end md:self-auto"
-        >
-          <FaRedo className="mr-2" />
-          Refresh
-        </button>
+        <div className="flex space-x-2">
+          <button 
+            onClick={() => navigate('/packing/damaged-stock-master')}
+            className="flex items-center px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors"
+          >
+            Damaged Stock Summary
+          </button>
+          <button 
+            onClick={fetchDamagedStockEntries}
+            className="flex items-center px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors self-end md:self-auto"
+          >
+            <FaRedo className="mr-2" />
+            Refresh
+          </button>
+        </div>
       </div>
       
       {/* Summary Cards */}
@@ -509,7 +546,7 @@ const DamagedStockReport = () => {
                       {entry.dc_no}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {entry.grn_id}
+                      {entry.grnNumber || 'N/A'}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       {entry.product_name}
@@ -574,12 +611,9 @@ const DamagedStockReport = () => {
                       )}
                       {entry.status !== 'Pending' && (
                         <button
-                          onClick={() => {
-                            // View details action (could open a modal with more details)
-                            alert(`Details for entry ${entry._id}\nStatus: ${entry.status}\nRemarks: ${entry.remarks || 'N/A'}`);
-                          }}
+                          onClick={() => viewHistory(entry.material_name)}
                           className="p-2 text-blue-600 hover:text-blue-900"
-                          title="View Details"
+                          title="View History"
                         >
                           <FaEye />
                         </button>
@@ -617,6 +651,105 @@ const DamagedStockReport = () => {
           </div>
         )}
       </div>
+      
+      {/* History Modal */}
+      {showHistoryModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
+            <div className="flex justify-between items-center border-b p-4">
+              <h2 className="text-xl font-bold text-gray-800">
+                Damaged Stock History for {currentMaterialName}
+              </h2>
+              <button 
+                onClick={closeHistoryModal}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                <FaTimes size={20} />
+              </button>
+            </div>
+            
+            {historyLoading ? (
+              <div className="flex justify-center items-center h-64">
+                <FaSpinner className="animate-spin text-indigo-600" size={48} />
+              </div>
+            ) : (
+              <div className="overflow-auto flex-grow">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50 sticky top-0">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">DC No</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">GRN No</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Product</th>
+                      <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Total Received</th>
+                      <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Damaged Qty</th>
+                      <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Entered By</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Approved By</th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {historyData.length === 0 ? (
+                      <tr>
+                        <td colSpan="9" className="px-6 py-4 text-center text-gray-500">
+                          No history entries found.
+                        </td>
+                      </tr>
+                    ) : (
+                      historyData.map((entry) => (
+                        <tr key={entry._id} className="hover:bg-gray-50">
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {formatDate(entry.entered_on)}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                            {entry.dc_no}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {entry.grnNumber || 'N/A'}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {entry.product_name}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-right">
+                            {entry.received_qty}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-red-600 text-right">
+                            {entry.damaged_qty}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm">
+                            <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                              entry.status === 'Approved' ? 'bg-red-100 text-red-800' : 
+                              entry.status === 'Rejected' ? 'bg-gray-100 text-gray-800' : 
+                              'bg-yellow-100 text-yellow-800'
+                            }`}>
+                              {entry.status}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {entry.entered_by}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {entry.approved_by || 'N/A'}
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            )}
+            
+            <div className="border-t p-4 flex justify-end">
+              <button
+                onClick={closeHistoryModal}
+                className="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
