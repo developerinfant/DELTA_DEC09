@@ -57,6 +57,20 @@ const poItemSchema = new mongoose.Schema({
     quantityReceived: {
         type: Number,
         default: 0,
+    },
+    // Extra receiving fields
+    extraReceivingType: {
+        type: String,
+        enum: ['Percentage', 'Quantity'],
+        set: function(v) { return v === '' ? undefined : v; }
+    },
+    extraReceivingValue: {
+        type: Number,
+        default: 0,
+    },
+    extraAllowedQty: {
+        type: Number,
+        default: 0,
     }
 });
 

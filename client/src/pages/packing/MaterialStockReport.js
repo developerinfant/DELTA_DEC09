@@ -15,13 +15,14 @@ const MaterialStockReport = () => {
   const [deliveryChallans, setDeliveryChallans] = useState([]);
   const [materialRequests, setMaterialRequests] = useState([]);
   const [requestsLoading, setRequestsLoading] = useState(false);
+  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]); // Default to today
 
   // Fetch data
   const fetchData = async () => {
     setIsLoading(true);
     try {
-      // Fetch material stock data
-      const response = await api.get('/packing/material-stock-report');
+      // Fetch material stock data with date filter
+      const response = await api.get(`/packing/material-stock-report?date=${selectedDate}`);
       setMaterialStocks(response.data);
       
       // Fetch delivery challans
@@ -68,7 +69,7 @@ const MaterialStockReport = () => {
     return () => {
       newSocket.close();
     };
-  }, []);
+  }, [selectedDate]);
   
   // Fetch material requests when activeView changes to 'materialRequests'
   useEffect(() => {
@@ -157,7 +158,7 @@ const MaterialStockReport = () => {
       day: '2-digit',
       month: 'short',
       year: 'numeric'
-    });
+      });
   };
 
   return (
@@ -171,6 +172,29 @@ const MaterialStockReport = () => {
           <FaRedo className="mr-2" />
           Sync Now
         </button>
+      </div>
+      
+      {/* Date Filter */}
+      <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+          <div className="flex items-center">
+            <label htmlFor="dateFilter" className="mr-2 text-gray-700 font-medium">Date:</label>
+            <input
+              type="date"
+              id="dateFilter"
+              value={selectedDate}
+              onChange={(e) => setSelectedDate(e.target.value)}
+              className="border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500"
+            />
+          </div>
+          <div className="text-sm text-gray-500">
+            Report for: {new Date(selectedDate).toLocaleDateString('en-IN', {
+              day: '2-digit',
+              month: 'short',
+              year: 'numeric'
+            })}
+          </div>
+        </div>
       </div>
       
       {/* Report Type Buttons */}
@@ -300,12 +324,14 @@ const MaterialStockReport = () => {
               <thead className="bg-gray-100">
                 <tr>
                   <th className="px-6 py-3 text-left text-xs font-medium text-red-600 uppercase tracking-wider" style={{ width: '25%' }}>Material Name</th>
+                  <th className="px-6 py-3 text-right text-xs font-medium text-red-600 uppercase tracking-wider">Opening Stock</th>
                   <th className="px-6 py-3 text-right text-xs font-medium text-red-600 uppercase tracking-wider">PM Store</th>
                   <th className="px-6 py-3 text-right text-xs font-medium text-red-600 uppercase tracking-wider">PM Value (₹)</th>
                   <th className="px-6 py-3 text-right text-xs font-medium text-red-600 uppercase tracking-wider">Own Unit WIP</th>
                   <th className="px-6 py-3 text-right text-xs font-medium text-red-600 uppercase tracking-wider">Own Unit WIP Value (₹)</th>
                   <th className="px-6 py-3 text-right text-xs font-medium text-red-600 uppercase tracking-wider">Job work WIP</th>
                   <th className="px-6 py-3 text-right text-xs font-medium text-red-600 uppercase tracking-wider">Job work WIP Value (₹)</th>
+                  <th className="px-6 py-3 text-right text-xs font-medium text-red-600 uppercase tracking-wider">Closing Stock</th>
                   <th className="px-6 py-3 text-right text-xs font-medium text-red-600 uppercase tracking-wider">Total Qty</th>
                   <th className="px-6 py-3 text-right text-xs font-medium text-red-600 uppercase tracking-wider">Total Value (₹)</th>
                   <th className="px-6 py-3 text-right text-xs font-medium text-red-600 uppercase tracking-wider">Last Updated</th>
@@ -314,7 +340,7 @@ const MaterialStockReport = () => {
               <tbody className="bg-white divide-y divide-gray-200">
                 {filteredMaterials.length === 0 ? (
                   <tr>
-                    <td colSpan="10" className="px-6 py-4 text-center text-gray-500">
+                    <td colSpan="12" className="px-6 py-4 text-center text-gray-500">
                       No materials found.
                     </td>
                   </tr>
@@ -328,6 +354,9 @@ const MaterialStockReport = () => {
                         <div className="truncate" title={material.materialName}>
                           {material.materialName}
                         </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700 text-right font-medium">
+                        {material.openingStock} {material.unit || 'pcs'}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700 text-right font-medium">
                         {material.ourStock} {material.unit || 'pcs'}
@@ -346,6 +375,9 @@ const MaterialStockReport = () => {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700 text-right font-medium">
                         {formatCurrency(material.jobberValue)}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700 text-right font-medium">
+                        {material.closingStock} {material.unit || 'pcs'}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-right font-bold">
                         {material.totalQty} {material.unit || 'pcs'}

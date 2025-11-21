@@ -175,13 +175,13 @@ const FGStockAlert = () => {
                                 <FaPlusCircle className="mr-2" />
                                 Add Stock
                             </button>
-                            <button
+                            {/* <button
                                 onClick={() => handleCreateDC(product)}
                                 className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
                             >
                                 <FaTruck className="mr-2" />
                                 Create DC
-                            </button>
+                            </button> */}
                             <button
                                 onClick={() => handleOpenRequestModal(product)}
                                 className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500"

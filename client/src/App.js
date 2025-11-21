@@ -42,6 +42,7 @@ import CreateFGGRN from './pages/fg/CreateFGGRN';
 import StockReport from './pages/packing/StockReport';
 import MaterialStockReport from './pages/packing/MaterialStockReport';
 import DamagedStockReport from './pages/packing/DamagedStockReport';
+import DamagedStockMaster from './pages/packing/DamagedStockMaster';
 
 // Import Stock Maintenance Pages
 import ViewStockPurchaseOrders from './pages/stock/maintenance/ViewStockPurchaseOrders';
@@ -283,6 +284,13 @@ function App() {
           <Route path="packing/damaged-stock-report" element={
             <ConditionalRoute moduleId="view-packing-grns" action="view">
               <DamagedStockReport />
+            </ConditionalRoute>
+          } />
+          
+          {/* Damaged Stock Master Route */}
+          <Route path="packing/damaged-stock-master" element={
+            <ConditionalRoute moduleId="view-packing-grns" action="view">
+              <DamagedStockMaster />
             </ConditionalRoute>
           } />
           

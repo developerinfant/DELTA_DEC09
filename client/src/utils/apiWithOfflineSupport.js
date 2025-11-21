@@ -194,6 +194,23 @@ class ApiWithOfflineSupport {
     return this.get(`/suppliers/jobber/${type}`);
   }
 
+  // Person Name Methods
+  async getPersonNames() {
+    return this.get('/person-names');
+  }
+
+  async createPersonName(data) {
+    return this.post('/person-names', data);
+  }
+
+  async updatePersonName(id, data) {
+    return this.put(`/person-names/${id}`, data);
+  }
+
+  async deletePersonName(id) {
+    return this.delete(`/person-names/${id}`);
+  }
+
   // Trigger background sync for pending actions
   async triggerBackgroundSync() {
     if ('serviceWorker' in navigator && 'sync' in navigator.serviceWorker) {

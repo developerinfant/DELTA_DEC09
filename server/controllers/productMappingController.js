@@ -1,4 +1,5 @@
 const ProductMaterialMapping = require('../models/ProductMaterialMapping');
+const ProductStock = require('../models/ProductStock');
 
 /**
  * @desc    Create a new product material mapping
@@ -35,6 +36,10 @@ const createProductMapping = async (req, res) => {
         });
 
         const createdMapping = await productMapping.save();
+        
+        // Update the units_per_carton in the ProductStock model
+        await updateProductStockUnitsPerCarton(product_name, units_per_carton || 1);
+        
         res.status(201).json(createdMapping);
     } catch (error) {
         console.error(`Error creating product mapping: ${error.message}`);
@@ -65,6 +70,25 @@ const getProductMappings = async (req, res) => {
 const getProductMappingById = async (req, res) => {
     try {
         const mapping = await ProductMaterialMapping.findById(req.params.id);
+        if (mapping) {
+            res.json(mapping);
+        } else {
+            res.status(404).json({ message: 'Product mapping not found' });
+        }
+    } catch (error) {
+        console.error(`Error fetching product mapping: ${error.message}`);
+        res.status(500).json({ message: 'Server error while fetching product mapping' });
+    }
+};
+
+/**
+ * @desc    Get a single product material mapping by product name
+ * @route   GET /api/product-mapping/name/:product_name
+ * @access  Private (Admin/Manager)
+ */
+const getProductMappingByProductName = async (req, res) => {
+    try {
+        const mapping = await ProductMaterialMapping.findOne({ product_name: req.params.product_name });
         if (mapping) {
             res.json(mapping);
         } else {
@@ -116,6 +140,10 @@ const updateProductMapping = async (req, res) => {
         mapping.materials = materials;
 
         const updatedMapping = await mapping.save();
+        
+        // Update the units_per_carton in the ProductStock model
+        await updateProductStockUnitsPerCarton(product_name, units_per_carton || 1);
+        
         res.json(updatedMapping);
     } catch (error) {
         console.error(`Error updating product mapping: ${error.message}`);
@@ -143,10 +171,25 @@ const deleteProductMapping = async (req, res) => {
     }
 };
 
+// Helper function to update units_per_carton in ProductStock
+const updateProductStockUnitsPerCarton = async (productName, unitsPerCarton) => {
+    try {
+        const productStock = await ProductStock.findOne({ productName });
+        if (productStock) {
+            productStock.units_per_carton = unitsPerCarton;
+            // Save will trigger the middleware to recalculate totalAvailable
+            await productStock.save();
+        }
+    } catch (error) {
+        console.error(`Error updating ProductStock units_per_carton for ${productName}:`, error.message);
+    }
+};
+
 module.exports = {
     createProductMapping,
     getProductMappings,
     getProductMappingById,
+    getProductMappingByProductName,
     updateProductMapping,
     deleteProductMapping
 };

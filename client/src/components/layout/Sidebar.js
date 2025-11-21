@@ -244,7 +244,7 @@ const Sidebar = ({ isOpen, packingAlertsCount = 0, rawAlertsCount = 0, toggleSid
                                     {isModuleVisibleForUser('manage-packing-suppliers') && (
                                         <li>
                                             <NavLink to="/packing/suppliers" className={({isActive}) => `${mobileSubLinkClass} ${isActive ? 'bg-light-300 text-primary-600' : ''}`} onClick={closeMobileMenu}>
-                                                <FaUsersCog className="mr-3" />Master Supplier
+                                                <FaUsersCog className="mr-3" />Supplier Master
                                             </NavLink>
                                         </li>
                                     )}
@@ -396,7 +396,7 @@ const Sidebar = ({ isOpen, packingAlertsCount = 0, rawAlertsCount = 0, toggleSid
                                     {isModuleVisibleForUser('manage-stock-suppliers') && (
                                         <li>
                                             <NavLink to="/stock/maintenance/suppliers" className={({isActive}) => `${mobileSubLinkClass} ${isActive ? 'bg-light-300 text-secondary-600' : ''}`} onClick={closeMobileMenu}>
-                                                <FaUsersCog className="mr-3" />Master Supplier
+                                                <FaUsersCog className="mr-3" />Supplier Master
                                             </NavLink>
                                         </li>
                                     )}
@@ -564,7 +564,7 @@ const Sidebar = ({ isOpen, packingAlertsCount = 0, rawAlertsCount = 0, toggleSid
                                     {isModuleVisibleForUser('manage-packing-suppliers') && (
                                         <li>
                                             <NavLink to="/packing/suppliers" className={({isActive}) => `${subLinkClass} ${isActive ? 'bg-light-300 text-primary-600' : ''}`}>
-                                                <FaUsersCog className="mr-3" />Master Supplier
+                                                <FaUsersCog className="mr-3" />Supplier Master
                                             </NavLink>
                                         </li>
                                     )}
@@ -717,7 +717,7 @@ const Sidebar = ({ isOpen, packingAlertsCount = 0, rawAlertsCount = 0, toggleSid
                                     {isModuleVisibleForUser('manage-stock-suppliers') && (
                                         <li>
                                             <NavLink to="/stock/maintenance/suppliers" className={({isActive}) => `${subLinkClass} ${isActive ? 'bg-light-300 text-secondary-600' : ''}`}>
-                                                <FaUsersCog className="mr-3" />Master Supplier
+                                                <FaUsersCog className="mr-3" />Supplier Master
                                             </NavLink>
                                         </li>
                                     )}

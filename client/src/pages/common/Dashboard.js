@@ -12,7 +12,8 @@ import {
     FaExclamationTriangle,
     FaCheckCircle,
     FaArrowUp,
-    FaArrowDown
+    FaArrowDown,
+    FaRedo
 } from 'react-icons/fa';
 import { 
     LineChart, 
@@ -135,27 +136,41 @@ const AlertCard = ({ type, title, message, count }) => {
 };
 
 const Dashboard = () => {
-    const [stats, setStats] = useState(null);
+    const [packingStats, setPackingStats] = useState(null);
+    const [fgStats, setFgStats] = useState(null);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState('');
     const [grnData, setGrnData] = useState([]);
     const [poData, setPoData] = useState([]);
+    const [stockDistribution, setStockDistribution] = useState([]);
     const [stockAlerts, setStockAlerts] = useState([]);
 
     // Function to fetch all dashboard data
     const fetchDashboardData = useCallback(async () => {
         try {
+            setIsLoading(true);
             // Fetch all data in parallel
-            const [statsResponse, grnResponse, poResponse, packingAlertsResponse, rawAlertsResponse] = await Promise.all([
-                api.get('/materials/stats'),
-                api.get('/grn/weekly-stats'),
-                api.get('/purchase-orders/weekly-stats'),
-                api.get('/materials/alerts'),
-                api.get('/stock/alerts')
+            const [
+                packingResponse, 
+                fgResponse, 
+                grnResponse, 
+                poResponse, 
+                distributionResponse,
+                alertsResponse
+            ] = await Promise.all([
+                api.get('/dashboard/packing-summary'),
+                api.get('/dashboard/finished-summary'),
+                api.get('/dashboard/grn-analytics'),
+                api.get('/dashboard/po-stats'),
+                api.get('/dashboard/stock-distribution'),
+                api.get('/dashboard/stock-alerts')
             ]);
 
-            // Set stats data
-            setStats(statsResponse.data);
+            // Set packing stats data
+            setPackingStats(packingResponse.data);
+
+            // Set FG stats data
+            setFgStats(fgResponse.data);
 
             // Set GRN data
             setGrnData(grnResponse.data);
@@ -163,39 +178,11 @@ const Dashboard = () => {
             // Set PO data
             setPoData(poResponse.data);
 
-            // Combine packing and raw material alerts
-            const combinedAlerts = [
-                ...packingAlertsResponse.data.map(alert => ({
-                    type: 'warning',
-                    title: 'Low Packing Material Stock',
-                    message: `${alert.name} is below threshold (${alert.quantity} < ${alert.stockAlertThreshold})`,
-                    count: alert.quantity
-                })),
-                ...rawAlertsResponse.data.map(alert => ({
-                    type: 'warning',
-                    title: 'Low Raw Material Stock',
-                    message: `${alert.name} is below threshold (${alert.quantity} < ${alert.stockAlertThreshold})`,
-                    count: alert.quantity
-                }))
-            ];
+            // Set stock distribution data
+            setStockDistribution(distributionResponse.data);
 
-            // Add some mock success/info alerts to make it more realistic
-            const additionalAlerts = [
-                {
-                    type: 'success',
-                    title: 'GRN Completed',
-                    message: '12 goods receipts processed today',
-                    count: 12
-                },
-                {
-                    type: 'info',
-                    title: 'Pending Approvals',
-                    message: '5 purchase orders awaiting approval',
-                    count: 5
-                }
-            ];
-
-            setStockAlerts([...combinedAlerts.slice(0, 3), ...additionalAlerts]);
+            // Set stock alerts data
+            setStockAlerts(alertsResponse.data);
 
         } catch (err) {
             setError('Could not fetch dashboard data.');
@@ -219,14 +206,6 @@ const Dashboard = () => {
         // Clean up interval on component unmount
         return () => clearInterval(intervalId);
     }, [fetchDashboardData]);
-
-    // Stock distribution data
-    const stockDistribution = [
-        { name: 'Raw Materials', value: stats?.totalRawMaterialTypes || 0, color: '#ef4444' },
-        { name: 'Packing Materials', value: stats?.totalPackingMaterialTypes || 0, color: '#f59e0b' },
-        { name: 'Finished Goods', value: 87, color: '#10b981' },
-        { name: 'WIP', value: 34, color: '#3b82f6' }
-    ];
 
     if (isLoading) {
         return (
@@ -263,46 +242,85 @@ const Dashboard = () => {
 
     return (
         <div className="space-y-6 mobile-container page-fade-in">
+            {/* Refresh Button */}
+            <div className="flex justify-end">
+                <button
+                    onClick={fetchDashboardData}
+                    className="flex items-center gap-2 bg-white hover:bg-gray-50 text-gray-700 font-medium py-2 px-4 rounded-lg border border-gray-200 transition-colors"
+                >
+                    <FaRedo size={16} />
+                    <span>Refresh</span>
+                </button>
+            </div>
+            
             {/* KPI Cards Grid - Responsive grid that adapts to screen size */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mobile-grid">
                 <StatCard 
-                    title="Packing Materials"
-                    value={stats?.totalPackingMaterialTypes || 0}
-                    percentage="+12.5%"
-                    trend="up"
-                    subtitle="Active SKUs"
+                    title="Active SKUs"
+                    value={packingStats?.activeSKUs || 0}
+                    subtitle="Packing Materials"
                     linkTo="/materials"
                     gradient="bg-gradient-to-br from-yellow-400 to-orange-500"
                     icon={<FaBoxes />}
                 />
                 <StatCard 
-                    title="Raw Materials"
-                    value={stats?.totalRawMaterialTypes || 0}
-                    percentage="+8.3%"
-                    trend="up"
-                    subtitle="Total Types"
-                    linkTo="/stock/raw-materials"
+                    title="Total Stock"
+                    value={packingStats?.totalStock || 0}
+                    subtitle="PM Store"
+                    linkTo="/packing/stock-report"
                     gradient="bg-gradient-to-br from-red-500 to-pink-600"
                     icon={<FaWarehouse />}
                 />
                 <StatCard 
-                    title="Active Orders"
-                    value="47"
-                    percentage="-3.2%"
-                    trend="down"
-                    subtitle="In Production"
-                    linkTo="/orders"
+                    title="Stock Alerts"
+                    value={packingStats?.stockAlerts || 0}
+                    subtitle="Low Stock Items"
+                    linkTo="/packing/stock-alerts"
                     gradient="bg-gradient-to-br from-green-400 to-emerald-600"
+                    icon={<FaExclamationTriangle />}
+                />
+                <StatCard 
+                    title="GRNs Created"
+                    value={packingStats?.totalGRNsThisMonth || 0}
+                    subtitle="This Month"
+                    linkTo="/packing/grn/view"
+                    gradient="bg-gradient-to-br from-blue-500 to-indigo-600"
+                    icon={<FaClipboardList />}
+                />
+            </div>
+            
+            {/* Finished Goods Cards */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mobile-grid">
+                <StatCard 
+                    title="Active Products"
+                    value={fgStats?.activeFGProducts || 0}
+                    subtitle="Finished Goods"
+                    linkTo="/fg/products"
+                    gradient="bg-gradient-to-br from-purple-400 to-purple-600"
+                    icon={<FaBoxes />}
+                />
+                <StatCard 
+                    title="Total FG Stock"
+                    value={fgStats?.totalFGStock || 0}
+                    subtitle="All Units"
+                    linkTo="/fg/stock-report"
+                    gradient="bg-gradient-to-br from-indigo-500 to-indigo-700"
+                    icon={<FaWarehouse />}
+                />
+                <StatCard 
+                    title="Active Orders"
+                    value={fgStats?.activeOrders || 0}
+                    subtitle="Ongoing Jobs"
+                    linkTo="/fg/dc/view"
+                    gradient="bg-gradient-to-br from-teal-400 to-teal-600"
                     icon={<FaClipboardList />}
                 />
                 <StatCard 
                     title="Monthly Revenue"
-                    value="₹18.5L"
-                    percentage="+15.7%"
-                    trend="up"
+                    value={`₹${fgStats?.monthlyRevenue ? Math.round(fgStats.monthlyRevenue).toLocaleString() : '0'}`}
                     subtitle="This Month"
-                    linkTo="/reports"
-                    gradient="bg-gradient-to-br from-blue-500 to-indigo-600"
+                    linkTo="/fg/invoices"
+                    gradient="bg-gradient-to-br from-cyan-500 to-cyan-700"
                     icon={<FaChartLine />}
                 />
             </div>
@@ -313,21 +331,21 @@ const Dashboard = () => {
                     icon={<FaClipboardList />}
                     title="New GRN"
                     description="Create goods receipt"
-                    linkTo="/grn/new"
+                    linkTo="/packing/grn/create"
                     color="bg-gradient-to-br from-purple-500 to-purple-700"
                 />
                 <QuickActionTile 
                     icon={<FaTruck />}
                     title="New PO"
                     description="Create purchase order"
-                    linkTo="/po/new"
+                    linkTo="/packing/purchase-orders/create"
                     color="bg-gradient-to-br from-blue-500 to-blue-700"
                 />
                 <QuickActionTile 
                     icon={<FaWarehouse />}
                     title="Stock Check"
                     description="View inventory levels"
-                    linkTo="/stock"
+                    linkTo="/packing/stock-report"
                     color="bg-gradient-to-br from-green-500 to-green-700"
                 />
                 <QuickActionTile 
@@ -348,7 +366,7 @@ const Dashboard = () => {
                     <ResponsiveContainer width="100%" height="100%">
                         <AreaChart data={grnData}>
                             <defs>
-                                <linearGradient id="colorReceived" x1="0" y1="0" x2="0" y2="1">
+                                <linearGradient id="colorCompleted" x1="0" y1="0" x2="0" y2="1">
                                     <stop offset="5%" stopColor="#10b981" stopOpacity={0.8}/>
                                     <stop offset="95%" stopColor="#10b981" stopOpacity={0.1}/>
                                 </linearGradient>
@@ -371,11 +389,12 @@ const Dashboard = () => {
                             <Legend wrapperStyle={{ fontSize: '12px' }} />
                             <Area 
                                 type="monotone" 
-                                dataKey="received" 
+                                dataKey="completed" 
                                 stroke="#10b981" 
                                 fillOpacity={1} 
-                                fill="url(#colorReceived)" 
+                                fill="url(#colorCompleted)" 
                                 strokeWidth={2}
+                                name="Completed"
                             />
                             <Area 
                                 type="monotone" 
@@ -384,6 +403,7 @@ const Dashboard = () => {
                                 fillOpacity={1} 
                                 fill="url(#colorPending)" 
                                 strokeWidth={2}
+                                name="Pending"
                             />
                         </AreaChart>
                     </ResponsiveContainer>
@@ -407,9 +427,9 @@ const Dashboard = () => {
                                 }} 
                             />
                             <Legend wrapperStyle={{ fontSize: '12px' }} />
-                            <Bar dataKey="created" fill="#3b82f6" radius={[8, 8, 0, 0]} />
-                            <Bar dataKey="approved" fill="#10b981" radius={[8, 8, 0, 0]} />
-                            <Bar dataKey="pending" fill="#f59e0b" radius={[8, 8, 0, 0]} />
+                            <Bar dataKey="approved" fill="#10b981" radius={[8, 8, 0, 0]} name="Approved" />
+                            <Bar dataKey="created" fill="#3b82f6" radius={[8, 8, 0, 0]} name="Created" />
+                            <Bar dataKey="pending" fill="#f59e0b" radius={[8, 8, 0, 0]} name="Pending" />
                         </BarChart>
                     </ResponsiveContainer>
                 </ChartCard>
@@ -432,9 +452,10 @@ const Dashboard = () => {
                                 outerRadius={90}
                                 paddingAngle={5}
                                 dataKey="value"
+                                label={({ name, value }) => `${name}: ${value}`}
                             >
                                 {stockDistribution.map((entry, index) => (
-                                    <Cell key={`cell-${index}`} fill={entry.color} />
+                                    <Cell key={`cell-${index}`} fill={index === 0 ? '#f59e0b' : '#ef4444'} />
                                 ))}
                             </Pie>
                             <Tooltip 
@@ -457,27 +478,45 @@ const Dashboard = () => {
                 <div className="lg:col-span-2">
                     <ChartCard 
                         title="Real-Time Stock Alerts" 
-                        subtitle="Critical notifications and actions required"
+                        subtitle="Top 5 Lowest Stock Items"
                         height="300px"
                     >
                         <div className="space-y-3 overflow-y-auto h-full pr-2 mobile-smooth-scroll">
-                            {stockAlerts.map((alert, index) => (
-                                <AlertCard key={index} {...alert} />
-                            ))}
-                            
-                            {/* Additional Stock Status Cards */}
-                            <div className="grid grid-cols-2 gap-3 mt-4 mobile-grid">
-                                <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl p-4 border border-blue-200 mobile-card glass-container">
-                                    <h4 className="text-xs font-bold text-blue-900 mb-1">IN STOCK</h4>
-                                    <p className="text-2xl font-black text-blue-600 mobile-text-xl">287</p>
-                                    <p className="text-xs text-blue-700 mt-1">Items available</p>
+                            {stockAlerts && stockAlerts.length > 0 ? (
+                                stockAlerts.map((item, index) => (
+                                    <div key={index} className="bg-gradient-to-br from-red-50 to-red-100 rounded-xl p-4 border border-red-200 mobile-card glass-container">
+                                        <div className="flex justify-between items-start">
+                                            <div>
+                                                <h4 className="text-sm font-bold text-red-900">{item.name}</h4>
+                                                <p className="text-xs text-red-700 mt-1">{item.itemCode}</p>
+                                            </div>
+                                            <span className="text-xs font-bold px-2 py-1 bg-red-500 text-white rounded-full">
+                                                Low Stock
+                                            </span>
+                                        </div>
+                                        <div className="flex justify-between mt-3">
+                                            <div>
+                                                <p className="text-xs text-gray-600">Current Stock</p>
+                                                <p className="text-lg font-black text-red-600">{item.quantity}</p>
+                                            </div>
+                                            <div>
+                                                <p className="text-xs text-gray-600">Alert Limit</p>
+                                                <p className="text-lg font-black text-gray-900">{item.stockAlertThreshold}</p>
+                                            </div>
+                                            <div>
+                                                <p className="text-xs text-gray-600">Last Updated</p>
+                                                <p className="text-xs font-bold text-gray-900">
+                                                    {new Date(item.updatedAt).toLocaleDateString()}
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))
+                            ) : (
+                                <div className="flex items-center justify-center h-full">
+                                    <p className="text-gray-500">No stock alerts at this time</p>
                                 </div>
-                                <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-xl p-4 border border-purple-200 mobile-card glass-container">
-                                    <h4 className="text-xs font-bold text-purple-900 mb-1">ON ORDER</h4>
-                                    <p className="text-2xl font-black text-purple-600 mobile-text-xl">42</p>
-                                    <p className="text-xs text-purple-700 mt-1">Items pending</p>
-                                </div>
-                            </div>
+                            )}
                         </div>
                     </ChartCard>
                 </div>

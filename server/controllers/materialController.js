@@ -1,8 +1,8 @@
 const mongoose = require('mongoose'); // Add this line
 const PackingMaterial = require('../models/PackingMaterial');
-const OutgoingRecord = require('../models/OutgoingRecord');
-const RawMaterial = require('../models/RawMaterial'); // Import the RawMaterial model
-const DeliveryChallan = require('../models/DeliveryChallan'); // Import the DeliveryChallan model
+const DeliveryChallan = require('../models/DeliveryChallan');
+const GRN = require('../models/GRN');
+const PackingMaterialStockRecord = require('../models/PackingMaterialStockRecord');
 const XLSX = require('xlsx');
 
 // Helper function to generate unique item codes
@@ -37,7 +37,7 @@ const generateItemCode = async (type) => {
  * @access  Private (Admin/Manager)
  */
 const addMaterial = async (req, res) => {
-    const { name, quantity, perQuantityPrice, stockAlertThreshold, shop, date, availableQty, jobberQty, usedQty, isWithJobber, unit, brandType } = req.body;
+    const { name, quantity, perQuantityPrice, stockAlertThreshold, shop, date, availableQty, jobberQty, usedQty, isWithJobber, unit, brandType, hsnCode } = req.body;
 
     try {
         // Check if user is admin or manager with a shop assigned
@@ -62,6 +62,7 @@ const addMaterial = async (req, res) => {
             isWithJobber: isWithJobber || false,
             perQuantityPrice, 
             stockAlertThreshold,
+            hsnCode: hsnCode || '', // Add HSN Code
             unit: unit || 'pcs', // Default to 'pcs' if not provided
             brandType: brandType || 'own', // Default to 'own' if not provided
             shop: shop || undefined, // Only set shop if provided
@@ -227,7 +228,7 @@ const getMaterials = async (req, res) => {
  * @access  Private (Admin/Manager)
  */
 const updateMaterial = async (req, res) => {
-    const { name, quantity, perQuantityPrice, stockAlertThreshold, shop, date, availableQty, jobberQty, usedQty, isWithJobber, unit, brandType } = req.body;
+    const { name, quantity, perQuantityPrice, stockAlertThreshold, shop, date, availableQty, jobberQty, usedQty, isWithJobber, unit, brandType, hsnCode } = req.body;
     try {
         const material = await PackingMaterial.findById(req.params.id);
         if (!material) {
@@ -254,6 +255,7 @@ const updateMaterial = async (req, res) => {
         material.isWithJobber = isWithJobber !== undefined ? isWithJobber : material.isWithJobber;
         material.perQuantityPrice = perQuantityPrice || material.perQuantityPrice;
         material.stockAlertThreshold = stockAlertThreshold || material.stockAlertThreshold;
+        material.hsnCode = hsnCode !== undefined ? hsnCode : material.hsnCode; // Update HSN Code
         material.unit = unit || material.unit;
         material.brandType = brandType || material.brandType;
         // Only update shop if provided in the request
@@ -428,14 +430,24 @@ const getStats = async (req, res) => {
  */
 const getPackingMaterialStockReport = async (req, res) => {
     try {
+        // Get date filter from query params, default to today
+        const selectedDate = req.query.date ? new Date(req.query.date) : new Date();
+        // Set to start of day for consistent comparison
+        selectedDate.setHours(0, 0, 0, 0);
+        
         // Get all packing materials from the database
         const materials = await PackingMaterial.find({}).sort({ name: 1 });
         
         // Get all delivery challans for packing materials (not just completed ones)
         const deliveryChallans = await DeliveryChallan.find({}).populate('supplier_id', 'name');
         
+        // Get all GRNs for packing materials
+        const grns = await GRN.find({}).populate('supplier', 'name');
+        
         // Process materials to calculate stock distribution
-        const stockReport = materials.map(material => {
+        const stockReport = [];
+        
+        for (const material of materials) {
             // Get WIP stock directly from material fields
             const ownUnitStock = material.ownUnitWIP || 0;
             const jobberStock = material.jobberWIP || 0;
@@ -463,20 +475,121 @@ const getPackingMaterialStockReport = async (req, res) => {
                 }
             });
             
-            return {
+            // Calculate Opening and Closing Stock for the selected date
+            let openingStock = 0;
+            let closingStock = 0;
+            
+            // Try to find a previous stock record
+            const previousDate = new Date(selectedDate);
+            previousDate.setDate(previousDate.getDate() - 1);
+            
+            const previousRecord = await PackingMaterialStockRecord.findOne({
+                materialId: material._id,
+                date: previousDate
+            });
+            
+            if (previousRecord) {
+                openingStock = previousRecord.closingStock;
+            } else {
+                // Use initial PM Store value if no previous record exists
+                openingStock = material.quantity;
+            }
+            
+            // Calculate inward stock (GRN) for the selected date
+            let inward = 0;
+            grns.forEach(grn => {
+                // Check if GRN date matches selected date
+                const grnDate = new Date(grn.dateReceived);
+                grnDate.setHours(0, 0, 0, 0);
+                
+                if (grnDate.getTime() === selectedDate.getTime()) {
+                    grn.items.forEach(item => {
+                        // For PO-based GRNs, item.material is an ObjectId
+                        // For DC-based GRNs, item.material is a string
+                        // We need to check both cases properly
+                        let isMatchingMaterial = false;
+                        
+                        if (item.material) {
+                            // If item.material is an ObjectId, convert to string for comparison
+                            if (typeof item.material === 'object' && item.material.toString) {
+                                isMatchingMaterial = item.material.toString() === material._id.toString();
+                            } 
+                            // If item.material is already a string, compare directly
+                            else if (typeof item.material === 'string') {
+                                isMatchingMaterial = item.material === material.name || item.material === material._id.toString();
+                            }
+                        }
+                        
+                        if (isMatchingMaterial) {
+                            inward += item.receivedQuantity;
+                        }
+                    });
+                }
+            });
+            
+            // Calculate outward stock (Delivery Challan) for the selected date
+            let outward = 0;
+            deliveryChallans.forEach(dc => {
+                // Check if DC date matches selected date
+                const dcDate = new Date(dc.date);
+                dcDate.setHours(0, 0, 0, 0);
+                
+                if (dcDate.getTime() === selectedDate.getTime()) {
+                    dc.materials.forEach(dcMaterial => {
+                        if (dcMaterial.material_name === material.name) {
+                            outward += dcMaterial.total_qty;
+                        }
+                    });
+                }
+            });
+            
+            // Calculate closing stock using the correct formula
+            // ClosingStock = OpeningStock + Today's GRN - Today's Delivery Challan
+            closingStock = openingStock + inward - outward;
+            
+            // Ensure closing stock is never negative
+            if (closingStock < 0) {
+                closingStock = 0;
+            }
+            
+            // Save or update the stock record for the selected date
+            await PackingMaterialStockRecord.findOneAndUpdate(
+                {
+                    materialId: material._id,
+                    date: selectedDate
+                },
+                {
+                    materialName: material.name,
+                    openingStock: openingStock,
+                    closingStock: closingStock,
+                    inward: inward,
+                    outward: outward,
+                    unit: material.unit || 'pcs'
+                },
+                {
+                    upsert: true,
+                    new: true
+                }
+            );
+            
+            stockReport.push({
                 materialName: material.name,
                 unit: material.unit || 'pcs',
+                openingStock: openingStock,
                 ourStock,
                 ownUnitStock,
                 jobberStock,
                 ourStockValue,
                 ownUnitValue,
                 jobberValue,
+                closingStock: closingStock,
+                inward: inward,
+                outward: outward,
                 totalQty,
                 totalValue,
                 lastUpdated
-            };
-        });
+            });
+        }
         
         res.json(stockReport);
     } catch (error) {

@@ -20,6 +20,11 @@ const grnItemSchema = new mongoose.Schema({
         type: Number,
         required: true,
     },
+    // Extra receiving field
+    extraReceivedQty: {
+        type: Number,
+        default: 0,
+    },
     unitPrice: {
         type: Number,
         required: true,
@@ -81,7 +86,7 @@ const grnSchema = new mongoose.Schema({
     items: [grnItemSchema],
     status: {
         type: String,
-        enum: ['Approved', 'Pending Admin Approval', 'Rejected', 'Completed', 'Partial'],
+        enum: ['Approved', 'Pending Admin Approval', 'Rejected', 'Completed', 'Partial', 'Normal Completed', 'Extra Completed'],
         required: true,
     },
     receivedBy: {

@@ -633,10 +633,11 @@ const createGRN = async (req, res) => {
         // Process items to calculate totals and price differences
         const processedItems = [];
         let allItemsMatch = true; // Flag to check if all items match exactly
+        let allExtraItemsMatch = true; // Flag to check if all extra items match exactly
 
         // Process each item
         for (const item of items) {
-            const { material, materialModel, receivedQuantity, damagedQuantity = 0 } = item;
+            const { material, materialModel, receivedQuantity, extraReceivedQty = 0 } = item;
             
             // Validate required fields for PO-based GRN
             if (!material || !materialModel || receivedQuantity === undefined) {
@@ -675,12 +676,14 @@ const createGRN = async (req, res) => {
             });
             
             let previousReceived = 0;
+            let previousExtraReceived = 0;
             for (const existingGRN of existingGRNs) {
                 for (const grnItem of existingGRN.items) {
                     const grnItemId = typeof grnItem.material === 'object' ? grnItem.material.toString() : grnItem.material;
                     const itemMaterialId = typeof material === 'object' ? material.toString() : material;
                     if (grnItemId === itemMaterialId && grnItem.materialModel === materialModel) {
                         previousReceived += grnItem.receivedQuantity || 0;
+                        previousExtraReceived += grnItem.extraReceivedQty || 0;
                     }
                 }
             }
@@ -695,10 +698,25 @@ const createGRN = async (req, res) => {
                 });
             }
             
+            // Calculate pending extra quantity
+            const pendingExtraQuantity = poItem.extraAllowedQty - previousExtraReceived;
+            
+            // Check if extra received quantity exceeds pending extra quantity
+            if (extraReceivedQty > pendingExtraQuantity) {
+                return res.status(400).json({ 
+                    message: `Extra received quantity (${extraReceivedQty}) cannot exceed pending extra quantity (${pendingExtraQuantity}) for material ${poItem.material.name || material}.` 
+                });
+            }
+            
             // Check if all items are fully received to determine status
             // We need to check if the current item plus previous received equals the ordered quantity
             if (previousReceived + receivedQuantity !== poItem.quantity) {
                 allItemsMatch = false;
+            }
+            
+            // Check if all extra items are fully received to determine status
+            if (previousExtraReceived + extraReceivedQty !== poItem.extraAllowedQty) {
+                allExtraItemsMatch = false;
             }
             
             // Calculate price difference using the (possibly updated) unitPrice
@@ -712,9 +730,10 @@ const createGRN = async (req, res) => {
                 materialModel,
                 orderedQuantity: poItem.quantity,
                 receivedQuantity: parseFloat(receivedQuantity),
+                extraReceivedQty: parseFloat(extraReceivedQty),
                 unitPrice: parseFloat(unitPrice),
                 totalPrice: parseFloat(totalPrice),
-                damagedQuantity: parseFloat(damagedQuantity),
+
                 remarks: item.remarks || '',
                 lastUnitPrice: priceData.lastUnitPrice,
                 priceDifference: priceData.priceDifference,
@@ -725,12 +744,20 @@ const createGRN = async (req, res) => {
         }
         
         // Determine GRN status based on whether all items are fully received:
-        // 1. If all quantities are fully received → "Completed"
-        // 2. If quantities are partially received → "Partial"
+        // 1. If all normal quantities are fully received → "Normal Completed"
+        // 2. If all extra quantities are fully received → "Extra Completed"
+        // 3. If both normal and extra quantities are fully received → "Completed"
+        // 4. If quantities are partially received → "Partial"
         let status;
-        if (allItemsMatch) {
+        if (allItemsMatch && allExtraItemsMatch) {
             // All quantities fully received - set to Completed
             status = 'Completed';
+        } else if (allItemsMatch && !allExtraItemsMatch) {
+            // Normal quantities fully received but extra not - set to Normal Completed
+            status = 'Normal Completed';
+        } else if (!allItemsMatch && allExtraItemsMatch) {
+            // Extra quantities fully received but normal not - set to Extra Completed
+            status = 'Extra Completed';
         } else {
             // Quantity partially received - set to Partial
             status = 'Partial';
@@ -790,7 +817,8 @@ const createGRN = async (req, res) => {
             // Calculate weighted average price
             const existingQuantity = material.quantity || 0;
             const existingPrice = material.perQuantityPrice || 0;
-            const newQuantity = item.receivedQuantity;
+            // Total quantity to add is normal received + extra received
+            const newQuantity = item.receivedQuantity + item.extraReceivedQty;
             const newPrice = item.unitPrice || 0; // Use the provided unitPrice or 0
             
             // Calculate total values
@@ -819,7 +847,7 @@ const createGRN = async (req, res) => {
                 supplier: supplierName,
                 poNumber: po.poNumber, // Use purchase order number
                 grnNumber: grnNumber,
-                qty: item.receivedQuantity,
+                qty: newQuantity, // Use total quantity (normal + extra)
                 unitPrice: newPrice,
                 total: newTotalValue
             };
@@ -1416,7 +1444,7 @@ const updateGRN = async (req, res) => {
             });
         }
         for (const item of items) {
-            const { material, materialModel, receivedQuantity, damagedQuantity = 0 } = item;
+            const { material, materialModel, receivedQuantity, extraReceivedQty = 0, damagedQuantity = 0 } = item;
             
             // Check if price details are missing and fetch from PO if needed (only for PO-based GRNs)
             let unitPrice = item.unitPrice;
@@ -1450,12 +1478,14 @@ const updateGRN = async (req, res) => {
                 });
                 
                 let previousReceived = 0;
+                let previousExtraReceived = 0;
                 for (const existingGRN of existingGRNs) {
                     for (const grnItem of existingGRN.items) {
                         const grnItemId = typeof grnItem.material === 'object' ? grnItem.material.toString() : grnItem.material;
                         const itemMaterialId = typeof material === 'object' ? material.toString() : material;
                         if (grnItemId === itemMaterialId && grnItem.materialModel === materialModel) {
                             previousReceived += grnItem.receivedQuantity || 0;
+                            previousExtraReceived += grnItem.extraReceivedQty || 0;
                         }
                     }
                 }
@@ -1470,9 +1500,24 @@ const updateGRN = async (req, res) => {
                     });
                 }
                 
+                // Calculate pending extra quantity
+                const pendingExtraQuantity = poItem.extraAllowedQty - previousExtraReceived;
+                
+                // Check if extra received quantity exceeds pending extra quantity
+                if (extraReceivedQty > pendingExtraQuantity) {
+                    return res.status(400).json({ 
+                        message: `Extra received quantity (${extraReceivedQty}) cannot exceed pending extra quantity (${pendingExtraQuantity}) for material ${poItem.material.name || material}.` 
+                    });
+                }
+                
                 // Check if all items are fully received to determine status
                 if (previousReceived + receivedQuantity !== poItem.quantity) {
                     allItemsMatch = false;
+                }
+                
+                // Check if all extra items are fully received to determine status
+                if (previousExtraReceived + extraReceivedQty !== poItem.extraAllowedQty) {
+                    allExtraItemsMatch = false;
                 }
             } else if (grn.sourceType === 'jobber' && grn.deliveryChallan) {
                 // For jobber GRNs, find the corresponding item in the delivery challan
@@ -1545,20 +1590,23 @@ const updateGRN = async (req, res) => {
         }
         
         // Determine GRN status based on quantity match:
-        // 1. If all quantities match exactly → "Completed"
-        // 2. If quantities differ:
-        //    - Admins: "Partial" (auto-approved)
-        //    - Non-admins: "Pending Admin Approval"
+        // 1. If all normal quantities are fully received → "Normal Completed"
+        // 2. If all extra quantities are fully received → "Extra Completed"
+        // 3. If both normal and extra quantities are fully received → "Completed"
+        // 4. If quantities are partially received → "Partial"
         let status;
-        if (allItemsMatch) {
-            // All quantities match exactly - set to Completed
+        if (allItemsMatch && allExtraItemsMatch) {
+            // All quantities fully received - set to Completed
             status = 'Completed';
-        } else if (req.user && req.user.role === 'Admin') {
-            // Quantity mismatch but user is admin - set to Partial (auto-approved)
-            status = 'Partial';
+        } else if (allItemsMatch && !allExtraItemsMatch) {
+            // Normal quantities fully received but extra not - set to Normal Completed
+            status = 'Normal Completed';
+        } else if (!allItemsMatch && allExtraItemsMatch) {
+            // Extra quantities fully received but normal not - set to Extra Completed
+            status = 'Extra Completed';
         } else {
-            // Quantity mismatch and user is not admin - requires approval
-            status = 'Pending Admin Approval';
+            // Quantity partially received - set to Partial
+            status = 'Partial';
         }
 
         // Update GRN fields
@@ -1579,9 +1627,11 @@ const updateGRN = async (req, res) => {
         if (grn.sourceType === 'purchase_order' && grn.purchaseOrder) {
             for (const item of processedItems) {
                 const materialId = typeof item.material === 'object' ? item.material._id || item.material : item.material;
+                // Update with total received quantity (normal + extra)
+                const totalReceivedQuantity = item.receivedQuantity + item.extraReceivedQty;
                 await PurchaseOrder.updateOne(
                     { "_id": grn.purchaseOrder._id, "items.material": materialId, "items.materialModel": item.materialModel },
-                    { "$inc": { "items.$.quantityReceived": item.receivedQuantity } }
+                    { "$inc": { "items.$.quantityReceived": totalReceivedQuantity } }
                 );
             }
         }
@@ -1644,7 +1694,8 @@ const updateGRN = async (req, res) => {
             // Calculate weighted average price
             const existingQuantity = material.quantity || 0;
             const existingPrice = material.perQuantityPrice || 0;
-            const newQuantity = item.receivedQuantity;
+            // Total quantity to add is normal received + extra received
+            const newQuantity = item.receivedQuantity + item.extraReceivedQty;
             const newPrice = item.unitPrice || 0; // Use the provided unitPrice or 0
             
             // Calculate total values
@@ -1676,7 +1727,7 @@ const updateGRN = async (req, res) => {
                 supplier: supplierName,
                 poNumber: grn.purchaseOrder.poNumber, // Use purchase order number
                 grnNumber: grn.grnNumber,
-                qty: item.receivedQuantity,
+                qty: newQuantity, // Use total quantity (normal + extra)
                 unitPrice: newPrice,
                 total: newTotalValue
             };
@@ -1854,7 +1905,8 @@ const approveOrRejectGRN = async (req, res) => {
                 // Calculate weighted average price
                 const existingQuantity = material.quantity || 0;
                 const existingPrice = material.perQuantityPrice || 0;
-                const newQuantity = item.receivedQuantity;
+                // Total quantity to add is normal received + extra received
+                const newQuantity = item.receivedQuantity + (item.extraReceivedQty || 0);
                 const newPrice = item.unitPrice;
                 
                 // Calculate total values
@@ -1875,9 +1927,11 @@ const approveOrRejectGRN = async (req, res) => {
                 
                 // Also update the quantityReceived on the PO (only for PO-based GRNs)
                 if (grn.sourceType === 'purchase_order') {
+                    // Update with total received quantity (normal + extra)
+                    const totalReceivedQuantity = item.receivedQuantity + (item.extraReceivedQty || 0);
                     await PurchaseOrder.updateOne(
                         { "_id": grn.purchaseOrder._id, "items.material": item.material },
-                        { "$inc": { "items.$.quantityReceived": item.receivedQuantity } }
+                        { "$inc": { "items.$.quantityReceived": totalReceivedQuantity } }
                     );
                 }
                 
@@ -1910,13 +1964,15 @@ const approveOrRejectGRN = async (req, res) => {
                 }
                 
                 // Create new GRN history entry with correct prices
+                // Total quantity to add is normal received + extra received
+                const totalQuantity = item.receivedQuantity + (item.extraReceivedQty || 0);
                 const grnHistoryEntry = {
                     date: new Date(),
                     type: 'New GRN',
                     supplier: supplierName,
                     poNumber: referenceNumber,
                     grnNumber: grn.grnNumber,
-                    qty: item.receivedQuantity,
+                    qty: totalQuantity, // Use total quantity (normal + extra)
                     unitPrice: newPrice,
                     total: newTotalValue
                 };

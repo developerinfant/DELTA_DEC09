@@ -1,6 +1,7 @@
 const ProductStock = require('../models/ProductStock');
 const GRN = require('../models/GRN');
 const FinishedGoodsDC = require('../models/FinishedGoodsDC');
+const ProductMaterialMapping = require('../models/ProductMaterialMapping');
 
 /**
  * @desc    Get FG products that are below their stock alert threshold
@@ -53,6 +54,17 @@ const getFGStockReport = async (req, res) => {
         // 4. Last updated date
         
         const reportData = await Promise.all(productStocks.map(async (product) => {
+            // Get units per carton from product mapping
+            let unitsPerCarton = 1; // Default value
+            try {
+                const productMapping = await ProductMaterialMapping.findOne({ product_name: product.productName });
+                if (productMapping && productMapping.units_per_carton) {
+                    unitsPerCarton = productMapping.units_per_carton;
+                }
+            } catch (error) {
+                console.error(`Error fetching product mapping for ${product.productName}:`, error.message);
+            }
+            
             // Calculate total inward from completed GRNs
             const inwardGRNs = await GRN.find({
                 sourceType: 'jobber',
@@ -75,9 +87,12 @@ const getFGStockReport = async (req, res) => {
                     // For "Both" issue type, we need to consider both carton and piece quantities
                     if (dc.issue_type === 'Both') {
                         // Convert cartons to pieces and add piece quantity
-                        return total + (dc.carton_quantity * dc.units_per_carton) + (dc.piece_quantity || 0);
+                        return total + (dc.carton_quantity * unitsPerCarton) + (dc.piece_quantity || 0);
+                    } else if (dc.issue_type === 'Carton') {
+                        // For Carton issue type, quantity is in cartons, so convert to pieces
+                        return total + ((dc.quantity || 0) * unitsPerCarton);
                     } else {
-                        // For Carton/Pieces issue types, use the quantity field
+                        // For Pieces issue type, quantity is already in pieces
                         return total + (dc.quantity || 0);
                     }
                 }
@@ -94,7 +109,7 @@ const getFGStockReport = async (req, res) => {
                 available_cartons: product.available_cartons,
                 available_pieces: product.available_pieces,
                 broken_carton_pieces: product.broken_carton_pieces,
-                units_per_carton: product.units_per_carton,
+                units_per_carton: unitsPerCarton, // Use the value from product mapping
                 lastUpdated: product.lastUpdated
             };
         }));
