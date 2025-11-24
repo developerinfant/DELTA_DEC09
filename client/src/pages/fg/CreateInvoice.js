@@ -237,7 +237,7 @@ const CreateInvoice = () => {
                         const selectedProduct = products.find(p => p.productName === value);
                         if (selectedProduct) {
                             updatedItem.itemCode = selectedProduct.itemCode || '';
-                            updatedItem.hsn = ''; // HSN would need to be stored in the product data
+                            updatedItem.hsn = selectedProduct.hsnCode || ''; // Auto-fill HSN code
                             updatedItem.available_cartons = selectedProduct.available_cartons;
                             updatedItem.available_pieces = selectedProduct.available_pieces;
                             updatedItem.broken_carton_pieces = selectedProduct.broken_carton_pieces;

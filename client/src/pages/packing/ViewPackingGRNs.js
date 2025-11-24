@@ -2,12 +2,15 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import api from '../../api';
 import Card from '../../components/common/Card';
-import { FaSpinner, FaEye } from 'react-icons/fa';
+import { FaSpinner, FaEye, FaDownload } from 'react-icons/fa';
 import ViewReportTools from '../../components/common/ViewReportTools';
 import Modal from '../../components/common/Modal';
 
 // This component can be moved to its own file later if needed
 const GRNTable = ({ grns }) => {
+    const [dropdownOpen, setDropdownOpen] = useState(null);
+    const navigate = useNavigate();
+
     const formatDate = (dateString) => {
         return new Date(dateString).toLocaleDateString(undefined, {
             year: 'numeric', month: 'short', day: 'numeric'
@@ -34,6 +37,36 @@ const GRNTable = ({ grns }) => {
     // Function to get the supplier name
     const getSupplierName = (grn) => {
         return grn.supplier?.name || 'N/A';
+    };
+
+    // Toggle dropdown for a specific GRN
+    const toggleDropdown = (grnId) => {
+        setDropdownOpen(dropdownOpen === grnId ? null : grnId);
+    };
+
+    // Close dropdown
+    const closeDropdown = () => {
+        setDropdownOpen(null);
+    };
+
+    // Handle View Report
+    const handleViewReport = (grn) => {
+        navigate(`/packing/grn/${grn._id}`);
+        closeDropdown();
+    };
+
+    // Handle Download PDF
+    const handleDownloadPDF = (grn) => {
+        // In a real implementation, this would trigger a PDF download
+        console.log('Download PDF for GRN:', grn._id);
+        closeDropdown();
+    };
+
+    // Handle Print PDF
+    const handlePrintPDF = (grn) => {
+        // In a real implementation, this would trigger a print dialog
+        console.log('Print PDF for GRN:', grn._id);
+        closeDropdown();
     };
 
     return (
@@ -68,10 +101,48 @@ const GRNTable = ({ grns }) => {
                                     </span>
                                 </td>
                                 <td className="td-style">{grn.receivedBy || 'N/A'}</td>
-                                <td className="td-style">
-                                    <Link to={`/packing/grn/${grn._id}`} className="text-blue-500 hover:text-blue-700">
-                                        <FaEye />
-                                    </Link>
+                                <td className="td-style relative">
+                                    <div className="flex items-center space-x-2">
+                                        <Link to={`/packing/grn/${grn._id}`} className="text-blue-500 hover:text-blue-700">
+                                            <FaEye />
+                                        </Link>
+                                        <div className="relative">
+                                            <button 
+                                                onClick={() => toggleDropdown(grn._id)}
+                                                className="text-blue-500 hover:text-blue-700 focus:outline-none"
+                                            >
+                                                <FaDownload />
+                                            </button>
+                                            
+                                            {dropdownOpen === grn._id && (
+                                                <div className="origin-top-right absolute right-0 mt-2 w-48 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 z-10">
+                                                    <div className="py-1" role="menu">
+                                                        <button
+                                                            onClick={() => handleViewReport(grn)}
+                                                            className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-gray-900"
+                                                            role="menuitem"
+                                                        >
+                                                            View Report
+                                                        </button>
+                                                        <button
+                                                            onClick={() => handleDownloadPDF(grn)}
+                                                            className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-gray-900"
+                                                            role="menuitem"
+                                                        >
+                                                            Download PDF
+                                                        </button>
+                                                        <button
+                                                            onClick={() => handlePrintPDF(grn)}
+                                                            className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-gray-900"
+                                                            role="menuitem"
+                                                        >
+                                                            Print PDF
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
                                 </td>
                             </tr>
                         ))

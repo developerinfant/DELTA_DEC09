@@ -163,6 +163,23 @@ const grnSchema = new mongoose.Schema({
         type: String,
         enum: ['Own Unit', 'Jobber'],
     },
+    // Add reference document fields
+    referenceType: {
+        type: String,
+        enum: ['invoice', 'dc'],
+    },
+    invoiceNo: {
+        type: String,
+    },
+    invoiceDate: {
+        type: Date,
+    },
+    dcNo: {
+        type: String,
+    },
+    dcDate: {
+        type: Date,
+    },
 }, {
     timestamps: true,
 });

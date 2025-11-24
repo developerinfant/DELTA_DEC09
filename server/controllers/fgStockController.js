@@ -110,6 +110,8 @@ const getFGStockReport = async (req, res) => {
                 available_pieces: product.available_pieces,
                 broken_carton_pieces: product.broken_carton_pieces,
                 units_per_carton: unitsPerCarton, // Use the value from product mapping
+                alertThreshold: product.alertThreshold,
+                hsnCode: product.hsnCode || '', // Include HSN Code
                 lastUpdated: product.lastUpdated
             };
         }));
@@ -121,7 +123,50 @@ const getFGStockReport = async (req, res) => {
     }
 };
 
+/**
+ * @desc    Update FG product HSN code and alert threshold
+ * @route   PUT /api/fg/stock/:id
+ * @access  Private
+ */
+const updateFGStock = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { alertThreshold, hsnCode } = req.body;
+        
+        // Validate input
+        if (alertThreshold === undefined && hsnCode === undefined) {
+            return res.status(400).json({ message: 'At least one field (alertThreshold or hsnCode) is required' });
+        }
+        
+        // Prepare update object
+        const updateData = {};
+        if (alertThreshold !== undefined) {
+            updateData.alertThreshold = alertThreshold;
+        }
+        if (hsnCode !== undefined) {
+            updateData.hsnCode = hsnCode;
+        }
+        
+        // Update the product stock
+        const updatedProductStock = await ProductStock.findByIdAndUpdate(
+            id,
+            updateData,
+            { new: true, runValidators: true }
+        );
+        
+        if (!updatedProductStock) {
+            return res.status(404).json({ message: 'Product stock not found' });
+        }
+        
+        res.json(updatedProductStock);
+    } catch (error) {
+        console.error(`Error updating FG stock: ${error.message}`);
+        res.status(500).json({ message: 'Server error while updating FG stock' });
+    }
+};
+
 module.exports = {
     getFGStockAlerts,
-    getFGStockReport
+    getFGStockReport,
+    updateFGStock
 };
