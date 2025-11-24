@@ -776,6 +776,11 @@ const createGRN = async (req, res) => {
             referenceNumber: po.poNumber, // Store the PO number
             dcNumber: po.poNumber,
             supplierName: po.supplier.name,
+            // Add reference fields
+            referenceType: referenceType || undefined,
+            invoiceNo: invoiceNo || undefined,
+            invoiceDate: invoiceDate || undefined,
+            dcNo: dcNo || undefined
         };
 
         if (mongoose.Types.ObjectId.isValid(req.user._id)) {
