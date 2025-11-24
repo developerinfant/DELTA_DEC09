@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../../api';
@@ -10,13 +9,21 @@ const GRNForm = ({ purchaseOrders, onCreate }) => {
     const [poDetails, setPoDetails] = useState(null);
     const [items, setItems] = useState([]);
     const [poSummary, setPoSummary] = useState({});
-
+    
     const [summaryLoaded, setSummaryLoaded] = useState(false); 
     const [receivedBy, setReceivedBy] = useState(''); // Will be auto-filled and locked
     const [dateReceived, setDateReceived] = useState(new Date().toISOString().split('T')[0]);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
+    
+    // New states for Invoice/DC selection
+    const [referenceType, setReferenceType] = useState(''); // 'invoice' or 'dc'
+    const [invoiceNo, setInvoiceNo] = useState('');
+    const [invoiceDate, setInvoiceDate] = useState(new Date().toISOString().split('T')[0]);
+    const [dcNo, setDcNo] = useState('');
+    const [dcDate, setDcDate] = useState(new Date().toISOString().split('T')[0]); // Add DC date state
+    
     const navigate = useNavigate();
     const { user } = useAuth(); // Get the logged-in user from context
 
@@ -178,11 +185,30 @@ useEffect(() => {
             }
         }
 
+        // Validate reference fields based on selection
+        if (referenceType === 'invoice' && (!invoiceNo || !invoiceDate)) {
+            setError('Please provide both Invoice No and Invoice Date.');
+            setIsLoading(false);
+            return;
+        }
+        
+        if (referenceType === 'dc' && !dcNo) {
+            setError('Please provide DC No.');
+            setIsLoading(false);
+            return;
+        }
+
         const grnData = {
             purchaseOrderId: selectedPOId,
             items: items.filter(item => item.receivedQuantity > 0 || item.extraReceivedQty > 0), // Only send items with received quantity
             receivedBy,
             dateReceived,
+            // Add reference data based on selection
+            referenceType: referenceType,
+            invoiceNo: referenceType === 'invoice' ? invoiceNo : undefined,
+            invoiceDate: referenceType === 'invoice' ? invoiceDate : undefined,
+            dcNo: referenceType === 'dc' ? dcNo : undefined,
+            dcDate: referenceType === 'dc' ? dcDate : undefined, // Add DC date to the data
         };
 
         try {
@@ -359,6 +385,78 @@ if (normalPending === 0 && extraPending === 0) {
                     </div>
                 </div>
             </div>
+
+            {/* Reference Type Selection */}
+            {poDetails && (
+                <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200">
+                    <label className="block text-sm font-semibold text-dark-700 mb-2">Reference Document</label>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div>
+                            <select
+                                value={referenceType}
+                                onChange={(e) => setReferenceType(e.target.value)}
+                                className="mt-1 block w-full px-4 py-2 text-dark-700 bg-light-100 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                            >
+                                <option value="">-- Select Reference Type --</option>
+                                <option value="invoice">Invoice</option>
+                                <option value="dc">Delivery Challan (DC)</option>
+                            </select>
+                        </div>
+                        
+                        {referenceType === 'invoice' && (
+                            <>
+                                <div>
+                                    <label htmlFor="invoiceNo" className="block text-xs font-medium text-dark-700 mb-1">Invoice No</label>
+                                    <input
+                                        type="text"
+                                        id="invoiceNo"
+                                        value={invoiceNo}
+                                        onChange={(e) => setInvoiceNo(e.target.value)}
+                                        className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
+                                        placeholder="Enter Invoice No"
+                                    />
+                                </div>
+                                <div>
+                                    <label htmlFor="invoiceDate" className="block text-xs font-medium text-dark-700 mb-1">Invoice Date</label>
+                                    <input
+                                        type="date"
+                                        id="invoiceDate"
+                                        value={invoiceDate}
+                                        onChange={(e) => setInvoiceDate(e.target.value)}
+                                        className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
+                                    />
+                                </div>
+                            </>
+                        )}
+                        
+                        {referenceType === 'dc' && (
+                            <>
+                                <div>
+                                    <label htmlFor="dcNo" className="block text-xs font-medium text-dark-700 mb-1">DC No</label>
+                                    <input
+                                        type="text"
+                                        id="dcNo"
+                                        value={dcNo}
+                                        onChange={(e) => setDcNo(e.target.value)}
+                                        className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
+                                        placeholder="Enter DC No"
+                                    />
+                                </div>
+                                <div>
+                                    <label htmlFor="dcDate" className="block text-xs font-medium text-dark-700 mb-1">DC Date</label>
+                                    <input
+                                        type="date"
+                                        id="dcDate"
+                                        value={dcDate}
+                                        onChange={(e) => setDcDate(e.target.value)}
+                                        className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
+                                    />
+                                </div>
+                            </>
+                        )}
+                    </div>
+                </div>
+            )}
 
             {poDetails && (
                 <>

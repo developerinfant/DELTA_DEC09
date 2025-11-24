@@ -1,15 +1,18 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useParams } from 'react-router-dom';
+import ReactDOM from 'react-dom';
+import { useParams, useLocation } from 'react-router-dom';
 import api from '../../api';
 import logoPO from '../../assets/logo-po.png';
 import { FaEye } from 'react-icons/fa';
 import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';
+import { generateDeltaPOPDF } from '../../utils/pdfGenerator';
 
-const DeltaPOPrintLayout = () => {
+const DeltaPOPrintLayout = ({ poData, onDownloadComplete }) => {
     const { id } = useParams();
-    const [purchaseOrder, setPurchaseOrder] = useState(null);
-    const [supplier, setSupplier] = useState(null);
+    const location = useLocation();
+    const [purchaseOrder, setPurchaseOrder] = useState(poData || null);
+    const [supplier, setSupplier] = useState(poData?.supplier || null);
     const [settings, setSettings] = useState({
         companyName: 'DELTA S TRADE LINK',
         companyAddress: 'NO: 4078, THOTTANUTHU ROAD, REDDIYAPATTI (POST), NATHAM ROAD, DINDIGUL-624003, TAMIL NADU, INDIA',
@@ -20,28 +23,50 @@ const DeltaPOPrintLayout = () => {
         accountNumber: '1128115000011983',
         branchIfsc: 'DINDIGUL MAIN & KVBL0001128'
     });
-    const [loading, setLoading] = useState(true);
+    const [loading, setLoading] = useState(!poData);
     const [error, setError] = useState('');
+    const [autoDownloadTriggered, setAutoDownloadTriggered] = useState(false);
     const reportRef = useRef(null);
 
-     const hsnList = purchaseOrder?.items || [];
+    const hsnList = purchaseOrder?.items || [];
 
-  const totalTaxableValue = hsnList.reduce(
-    (acc, item) => acc + (item.quantity * item.rate || 0),
-    0
-  );
+    const totalTaxableValue = hsnList.reduce(
+        (acc, item) => acc + (item.quantity * item.rate || 0),
+        0
+    );
 
-  const totalCgstAmount = hsnList.reduce(
-    (acc, item) => acc + ((item.quantity * item.rate * (item.gstPercent || 5)) / 200),
-    0
-  );
+    const totalCgstAmount = hsnList.reduce(
+        (acc, item) => acc + ((item.quantity * item.rate * (item.gstPercent || 5)) / 200),
+        0
+    );
 
-  const totalSgstAmount = hsnList.reduce(
-    (acc, item) => acc + ((item.quantity * item.rate * (item.gstPercent || 5)) / 200),
-    0
-  );
+    const totalSgstAmount = hsnList.reduce(
+        (acc, item) => acc + ((item.quantity * item.rate * (item.gstPercent || 5)) / 200),
+        0
+    );
 
     useEffect(() => {
+        // If poData is provided as prop, use it directly
+        if (poData) {
+            setPurchaseOrder(poData);
+            setSupplier(poData.supplier);
+            setLoading(false);
+            
+            // Check if we should automatically download (only in router context)
+            if (location && location.search) {
+                const queryParams = new URLSearchParams(location.search);
+                if (queryParams.get('download') === 'true') {
+                    setAutoDownloadTriggered(true);
+                    // Wait a bit for the page to render, then trigger download
+                    setTimeout(() => {
+                        downloadPDF();
+                    }, 1000);
+                }
+            }
+            return;
+        }
+        
+        // Otherwise fetch data from API
         const fetchPOData = async () => {
             try {
                 setLoading(true);
@@ -51,6 +76,18 @@ const DeltaPOPrintLayout = () => {
                 setPurchaseOrder(poData);
                 setSupplier(poData.supplier);
                 setLoading(false);
+                
+                // Check if we should automatically download (only in router context)
+                if (location && location.search) {
+                    const queryParams = new URLSearchParams(location.search);
+                    if (queryParams.get('download') === 'true') {
+                        setAutoDownloadTriggered(true);
+                        // Wait a bit for the page to render, then trigger download
+                        setTimeout(() => {
+                            downloadPDF();
+                        }, 1000);
+                    }
+                }
             } catch (err) {
                 setError('Failed to load purchase order data');
                 setLoading(false);
@@ -61,7 +98,7 @@ const DeltaPOPrintLayout = () => {
         if (id) {
             fetchPOData();
         }
-    }, [id]);
+    }, [id, poData]);
 
     const formatDate = (dateString) => {
         if (!dateString) return '';
@@ -126,6 +163,22 @@ const DeltaPOPrintLayout = () => {
             const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
             const filename = `PurchaseOrder_${purchaseOrder.poNumber}_${timestamp}.pdf`;
             pdf.save(filename);
+            
+            // Check if this was an auto-download and close the window (only in router context)
+            if (location && location.search) {
+                const queryParams = new URLSearchParams(location.search);
+                if (queryParams.get('download') === 'true') {
+                    // Close the window after a short delay to allow download to start
+                    setTimeout(() => {
+                        window.close();
+                    }, 2000);
+                }
+            }
+            
+            // Call the onDownloadComplete callback if provided
+            if (onDownloadComplete) {
+                onDownloadComplete();
+            }
         } catch (error) {
             console.error('Error generating PDF:', error);
             alert('Failed to generate PDF. Please try again.');
@@ -144,23 +197,41 @@ const DeltaPOPrintLayout = () => {
         return <div className="flex justify-center items-center h-screen">No purchase order data available</div>;
     }
 
+    // Show a message when auto-download is triggered
+    if (autoDownloadTriggered) {
+        return (
+            <div className="flex justify-center items-center h-screen">
+                <div className="text-center">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto"></div>
+                    <p className="mt-4 text-xl text-gray-700">Preparing your PDF download...</p>
+                    <p className="mt-2 text-gray-500">The download will start automatically</p>
+                </div>
+            </div>
+        );
+    }
+
     const taxableAmount = purchaseOrder.items.reduce((acc, item) => acc + (item.quantity * item.rate || 0), 0);
     const cgstAmount = taxableAmount * 0.025;
     const sgstAmount = taxableAmount * 0.025;
     const grandTotal = taxableAmount + cgstAmount + sgstAmount;
 
+    // Determine if we're in modal context (no download button needed)
+    const isInModal = !!poData;
+
     return (
-        <div className="min-h-screen bg-gray-100 p-4">
-            <div className="flex justify-end mb-4">
-                <button
-                    onClick={downloadPDF}
-                    className="flex items-center px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition"
-                    title="Download PDF Report"
-                >
-                    <FaEye className="mr-2" />
-                    <span>View Report</span>
-                </button>
-            </div>
+        <div className={isInModal ? "" : "min-h-screen bg-gray-100 p-4"}>
+            {!isInModal && (
+                <div className="flex justify-end mb-4">
+                    <button
+                        onClick={downloadPDF}
+                        className="flex items-center px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition"
+                        title="Download PDF Report"
+                    >
+                        <FaEye className="mr-2" />
+                        <span>Download PDF</span>
+                    </button>
+                </div>
+            )}
 
             <div ref={reportRef} style={{ 
                 width: '210mm', 
@@ -171,15 +242,14 @@ const DeltaPOPrintLayout = () => {
                 backgroundColor: 'white',
                 boxSizing: 'border-box',
                 margin: '0 auto',
-                boxShadow: '0 0 10px rgba(0,0,0,0.1)',
-                border: '1px solid #000'
+                boxShadow: isInModal ? 'none' : '0 0 10px rgba(0,0,0,0.1)',
+                border: isInModal ? 'none' : '1px solid #000'
             }}>
                 
                 {/* === HEADER SECTION: SUBJECT TO JURISDICTION + BOX === */}
                 <div
                     style={{
                         textAlign: 'center',
-                        fontWeight: 'bold',
                         fontSize: '8pt',
                         textDecoration: 'underline',
                         marginTop: '2mm',
@@ -206,7 +276,6 @@ const DeltaPOPrintLayout = () => {
                             <td
                                 style={{
                                     border: '1px solid #000',
-                                    fontWeight: 'bold',
                                     borderRight: 'none',
                                     padding: '1mm 1.5mm',
                                     width: '35%',
@@ -225,7 +294,6 @@ const DeltaPOPrintLayout = () => {
                                     border: '1px solid #000',
                                     borderLeft: 'none',
                                     textAlign: 'left',
-                                    padding: '0.05mm',
                                     width: '52%',
                                     verticalAlign: 'middle',
                                     padding: '1mm 1.5mm',
@@ -622,9 +690,8 @@ const DeltaPOPrintLayout = () => {
                     borderCollapse: 'collapse',
                     fontFamily: 'Arial, sans-serif',
                     fontSize: '9pt',
-                    marginTop: '2mm',
-                     marginTop: '0',
-                      borderTop: 'none'  
+                    marginTop: '0',
+                    borderTop: 'none'  
                   }}
                 >
                   <thead>
@@ -767,7 +834,6 @@ const DeltaPOPrintLayout = () => {
     })}
   </tr>
 </tbody>
-
 
                 </table>
 
@@ -1169,6 +1235,15 @@ const DeltaPOPrintLayout = () => {
             </div>
         </div>
     );
+};
+
+// Export a function to generate PDF directly from PO data using the same layout as the view
+// We'll use a different approach to avoid router context issues
+export const generatePDFfromDeltaPOPrintLayout = async (poData) => {
+    // For now, fallback to the existing pdfGenerator utility to ensure functionality
+    // In a production environment, we would implement a proper solution that renders
+    // the DeltaPOPrintLayout component in a proper router context
+    return generateDeltaPOPDF(poData, 'download');
 };
 
 export default DeltaPOPrintLayout;

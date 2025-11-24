@@ -4,6 +4,8 @@ import { FaSpinner, FaBox, FaIndustry, FaUser, FaMoneyBill, FaRedo, FaSearch, Fa
 import StockSummaryCard from '../../components/StockSummaryCard';
 import io from 'socket.io-client';
 import { toast } from 'react-toastify';
+import PackingMaterialStockReport from '../../components/PackingMaterialStockReport';
+import StockCaptureConfig from '../../components/StockCaptureConfig';
 
 const MaterialStockReport = () => {
   const [materialStocks, setMaterialStocks] = useState([]);
@@ -217,6 +219,18 @@ const MaterialStockReport = () => {
         >
           Material Requests
         </button>
+        <button
+          onClick={() => setActiveView('openingClosing')}
+          className={`px-6 py-3 rounded-lg font-medium transition-colors ${activeView === 'openingClosing' ? 'bg-indigo-600 text-white shadow-md' : 'bg-white text-indigo-600 border border-indigo-200 hover:bg-indigo-50'}`}
+        >
+          Opening/Closing Report
+        </button>
+        <button
+          onClick={() => setActiveView('config')}
+          className={`px-6 py-3 rounded-lg font-medium transition-colors ${activeView === 'config' ? 'bg-yellow-600 text-white shadow-md' : 'bg-white text-yellow-600 border border-yellow-200 hover:bg-yellow-50'}`}
+        >
+          Configuration
+        </button>
       </div>
       
       {activeView === '' && (
@@ -314,6 +328,16 @@ const MaterialStockReport = () => {
           onBack={() => setActiveView('')} 
           onRefresh={fetchMaterialRequests}
         />
+      )}
+      
+      {/* Opening/Closing Stock Report */}
+      {activeView === 'openingClosing' && (
+        <PackingMaterialStockReport />
+      )}
+      
+      {/* Stock Capture Configuration */}
+      {activeView === 'config' && (
+        <StockCaptureConfig />
       )}
       
       {/* Material Stock Table (default view) */}

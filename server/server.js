@@ -6,6 +6,9 @@ const mongoose = require('mongoose');
 const http = require('http');
 const { Server } = require('socket.io');
 
+// Import stock scheduler
+const { scheduleStockCapture } = require('./utils/stockScheduler');
+
 // 2. Initial Setup
 // Load environment variables from .env file
 dotenv.config(); 
@@ -133,6 +136,9 @@ app.use('*', (req, res) => {
 // 7. Start the Server
 const server = httpServer.listen(PORT, () => {
     console.log(`Server is running in ${process.env.NODE_ENV || 'development'} mode on port ${PORT}`);
+    
+    // Initialize stock capture scheduler
+    scheduleStockCapture();
 });
 
 // Graceful shutdown

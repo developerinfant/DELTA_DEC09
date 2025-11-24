@@ -672,6 +672,68 @@ const getPackingMaterialStockByName = async (req, res) => {
 };
 
 /**
+ * @desc    Get packing material stock report with date range filter
+ * @route   GET /api/packing/material-stock-report-range
+ * @access  Private (Admin/Manager)
+ */
+const getPackingMaterialStockReportByDateRange = async (req, res) => {
+    try {
+        const { fromDate, toDate } = req.query;
+        
+        // Validate date parameters
+        if (!fromDate || !toDate) {
+            return res.status(400).json({ message: 'Both fromDate and toDate are required' });
+        }
+        
+        const startDate = new Date(fromDate);
+        const endDate = new Date(toDate);
+        
+        // Set to start of day for fromDate and end of day for toDate
+        startDate.setHours(0, 0, 0, 0);
+        endDate.setHours(23, 59, 59, 999);
+        
+        // Validate date range
+        if (startDate > endDate) {
+            return res.status(400).json({ message: 'fromDate must be before toDate' });
+        }
+        
+        // Get all packing material stock records within the date range
+        const stockRecords = await PackingMaterialStockRecord.find({
+            date: {
+                $gte: startDate,
+                $lte: endDate
+            }
+        }).sort({ date: 1, materialName: 1 });
+        
+        // Group records by date
+        const reportData = {};
+        
+        stockRecords.forEach(record => {
+            const dateStr = record.date.toISOString().split('T')[0];
+            
+            if (!reportData[dateStr]) {
+                reportData[dateStr] = [];
+            }
+            
+            reportData[dateStr].push({
+                materialName: record.materialName,
+                openingStock: record.openingStock,
+                inward: record.inward,
+                outward: record.outward,
+                closingStock: record.closingStock,
+                unit: record.unit || 'pcs',
+                date: record.date
+            });
+        });
+        
+        res.json(reportData);
+    } catch (error) {
+        console.error(`Error fetching packing material stock report by date range: ${error.message}`);
+        res.status(500).json({ message: 'Server error while fetching stock report' });
+    }
+};
+
+/**
  * @desc    Import packing materials from Excel with smart column mapping
  * @route   POST /api/materials/import
  * @access  Private (Admin/Manager)
@@ -1092,6 +1154,51 @@ const importMaterialsWithDuplicates = async (req, res) => {
 };
 
 /**
+ * @desc    Configure opening and closing stock capture times
+ * @route   POST /api/packing/configure-stock-times
+ * @access  Private (Admin)
+ */
+const configureStockCaptureTimes = async (req, res) => {
+    try {
+        const { openingTime, closingTime } = req.body;
+        
+        // Validate input
+        if (!openingTime || !closingTime) {
+            return res.status(400).json({ message: 'Both openingTime and closingTime are required' });
+        }
+        
+        // Import and update scheduler configuration
+        const { setStockCaptureTimes } = require('../utils/stockScheduler');
+        await setStockCaptureTimes(openingTime, closingTime);
+        
+        res.json({ message: 'Stock capture times configured successfully' });
+    } catch (error) {
+        console.error(`Error configuring stock capture times: ${error.message}`);
+        res.status(500).json({ message: 'Server error while configuring stock capture times' });
+    }
+};
+
+/**
+ * @desc    Get current stock capture configuration
+ * @route   GET /api/packing/stock-config
+ * @access  Private (Admin)
+ */
+const getStockCaptureConfig = async (req, res) => {
+    try {
+        const StockCaptureConfig = require('../models/StockCaptureConfig');
+        const config = await StockCaptureConfig.getConfig();
+        
+        res.json({
+            openingTime: config.openingTime,
+            closingTime: config.closingTime
+        });
+    } catch (error) {
+        console.error(`Error fetching stock capture configuration: ${error.message}`);
+        res.status(500).json({ message: 'Server error while fetching stock capture configuration' });
+    }
+};
+
+/**
  * @desc    Export packing materials to Excel or PDF
  * @route   GET /api/materials/export?format=excel|pdf
  * @access  Private (Admin/Manager)
@@ -1159,7 +1266,10 @@ module.exports = {
     getStats,
     getNextItemCode,
     getPackingMaterialStockReport,
+    getPackingMaterialStockReportByDateRange, // Add this new function
     getPackingMaterialStockByName, // Add this new function
+    configureStockCaptureTimes, // Add this new function
+    getStockCaptureConfig, // Add this new function
     importMaterials,
     importMaterialsWithDuplicates, // Add the new function
     exportMaterials
