@@ -8,7 +8,7 @@ import { toast } from 'react-toastify';
 import { Plus, Eye } from 'lucide-react';
 
 // This component can be moved to its own file later if needed
-const GRNTable = ({ grns, onRecordDamagedStock }) => {
+const GRNTable = ({ grns }) => {
     const formatDate = (dateString) => {
         return new Date(dateString).toLocaleDateString(undefined, {
             year: 'numeric', month: 'short', day: 'numeric'
@@ -100,18 +100,10 @@ const GRNTable = ({ grns, onRecordDamagedStock }) => {
                                     </span>
                                 </td>
                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{grn.receivedBy || 'N/A'}</td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 flex space-x-2">
+                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                                     <Link to={`/fg/grn/${grn._id}`} className="text-blue-600 hover:text-blue-900">
                                         <Eye size={18} />
                                     </Link>
-                                    {(grn.status === 'Completed' || grn.status === 'Partial') && (
-                                        <button 
-                                            onClick={() => onRecordDamagedStock(grn)}
-                                            className="px-2 py-1 text-xs bg-red-100 text-red-800 rounded-full hover:bg-red-200 focus:outline-none focus:ring-1 focus:ring-red-500"
-                                        >
-                                            Damaged
-                                        </button>
-                                    )}
                                 </td>
                             </tr>
                         ))
@@ -239,166 +231,6 @@ const JobberGRNDetailsModal = ({ isOpen, onClose, grn }) => {
     );
 };
 
-// Modal component for recording damaged stock
-const RecordDamagedStockModal = ({ isOpen, onClose, grn, onRecord }) => {
-    const [damagedItems, setDamagedItems] = useState([]);
-    const [isLoading, setIsLoading] = useState(false);
-    const [error, setError] = useState('');
-
-    useEffect(() => {
-        if (grn && isOpen) {
-            // Initialize damaged items with GRN items
-            const initialItems = grn.items.map(item => ({
-                material_name: typeof item.material === 'string' ? item.material : item.material?.name || 'N/A',
-                received_qty: item.receivedQuantity || 0,
-                damaged_qty: 0
-            }));
-            setDamagedItems(initialItems);
-        }
-    }, [grn, isOpen]);
-
-    const handleDamagedQtyChange = (index, value) => {
-        const updatedItems = [...damagedItems];
-        const receivedQty = updatedItems[index].received_qty;
-        const damagedQty = Math.max(0, Math.min(receivedQty, parseInt(value) || 0));
-        updatedItems[index].damaged_qty = damagedQty;
-        setDamagedItems(updatedItems);
-    };
-
-    const handleSave = async () => {
-        setIsLoading(true);
-        setError('');
-        
-        try {
-            // Filter items with damaged quantity > 0
-            const itemsWithDamage = damagedItems.filter(item => item.damaged_qty > 0);
-            
-            if (itemsWithDamage.length === 0) {
-                toast.warn('No damaged items to record');
-                onClose();
-                return;
-            }
-            
-            // Create damaged stock entries for each item
-            const promises = itemsWithDamage.map(item => {
-                return api.post('/damaged-stock', {
-                    grn_id: grn._id,
-                    dc_no: grn.dcNumber || grn.deliveryChallan?.dc_no || 'N/A',
-                    product_name: grn.productName || 'N/A',
-                    material_name: item.material_name,
-                    received_qty: item.received_qty,
-                    damaged_qty: item.damaged_qty,
-                    remarks: 'Recorded from FG GRN'
-                });
-            });
-            
-            await Promise.all(promises);
-            
-            toast.success('Damaged stock entries recorded successfully');
-            onRecord();
-            onClose();
-        } catch (err) {
-            console.error('Failed to save damaged stock entries:', err);
-            const errorMessage = err.response?.data?.message || 
-                                err.message || 
-                                'Failed to save damaged stock entries. Please try again.';
-            setError(errorMessage);
-            toast.error(errorMessage);
-        } finally {
-            setIsLoading(false);
-        }
-    };
-
-    if (!grn) return null;
-
-    return (
-        <Modal isOpen={isOpen} onClose={onClose} title="Record Damaged Stock">
-            <div className="space-y-6">
-                {error && (
-                    <div className="p-3 bg-red-50 text-red-700 rounded-md">
-                        {error}
-                    </div>
-                )}
-                
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700">GRN Number</label>
-                        <p className="mt-1 text-sm text-gray-900">{grn.grnNumber}</p>
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700">DC Number</label>
-                        <p className="mt-1 text-sm text-gray-900">{grn.dcNumber || grn.deliveryChallan?.dc_no || 'N/A'}</p>
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700">Product</label>
-                        <p className="mt-1 text-sm text-gray-900">{grn.productName || 'N/A'}</p>
-                    </div>
-                </div>
-                
-                <div className="overflow-x-auto">
-                    <table className="min-w-full divide-y divide-gray-200">
-                        <thead className="bg-gray-50">
-                            <tr>
-                                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Material</th>
-                                <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Received Qty</th>
-                                <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Damaged Qty</th>
-                            </tr>
-                        </thead>
-                        <tbody className="bg-white divide-y divide-gray-200">
-                            {damagedItems.map((item, index) => (
-                                <tr key={index}>
-                                    <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">
-                                        {item.material_name}
-                                    </td>
-                                    <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900 text-right">
-                                        {item.received_qty}
-                                    </td>
-                                    <td className="px-4 py-2 whitespace-nowrap text-sm">
-                                        <input
-                                            type="number"
-                                            min="0"
-                                            max={item.received_qty}
-                                            value={item.damaged_qty}
-                                            onChange={(e) => handleDamagedQtyChange(index, e.target.value)}
-                                            className="w-20 px-2 py-1 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 text-right"
-                                        />
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                </div>
-                
-                <div className="flex justify-end space-x-3">
-                    <button
-                        type="button"
-                        onClick={onClose}
-                        className="px-4 py-2 text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-500"
-                        disabled={isLoading}
-                    >
-                        Cancel
-                    </button>
-                    <button
-                        type="button"
-                        onClick={handleSave}
-                        className="px-4 py-2 text-white bg-amber-600 rounded-md hover:bg-amber-700 focus:outline-none focus:ring-2 focus:ring-amber-500 flex items-center"
-                        disabled={isLoading}
-                    >
-                        {isLoading ? (
-                            <>
-                                <FaSpinner className="animate-spin mr-2" />
-                                Saving...
-                            </>
-                        ) : (
-                            'Save Damaged Stock'
-                        )}
-                    </button>
-                </div>
-            </div>
-        </Modal>
-    );
-};
-
 const ViewFGGRNs = () => {
     const navigate = useNavigate();
     const [grns, setGrns] = useState([]);
@@ -408,7 +240,6 @@ const ViewFGGRNs = () => {
     const [statusFilter, setStatusFilter] = useState('');
     const [selectedGRN, setSelectedGRN] = useState(null);
     const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
-    const [isDamagedStockModalOpen, setIsDamagedStockModalOpen] = useState(false);
     const [lastUpdated, setLastUpdated] = useState(new Date());
 
     const fetchGRNs = async () => {
@@ -456,16 +287,6 @@ const ViewFGGRNs = () => {
             return matchesSearch && matchesStatus;
         });
     }, [grns, searchTerm, statusFilter]);
-
-    const handleRecordDamagedStock = (grn) => {
-        setSelectedGRN(grn);
-        setIsDamagedStockModalOpen(true);
-    };
-
-    const handleDamagedStockRecorded = () => {
-        // Refresh GRNs to show updated status
-        fetchGRNs();
-    };
 
     if (isLoading) {
         return (
@@ -538,7 +359,6 @@ const ViewFGGRNs = () => {
                 
                 <GRNTable 
                     grns={filteredGRNs} 
-                    onRecordDamagedStock={handleRecordDamagedStock}
                 />
                 
                 <div className="mt-6 text-sm text-gray-500 flex justify-between items-center">
@@ -555,13 +375,6 @@ const ViewFGGRNs = () => {
                 isOpen={isDetailModalOpen}
                 onClose={() => setIsDetailModalOpen(false)}
                 grn={selectedGRN}
-            />
-            
-            <RecordDamagedStockModal
-                isOpen={isDamagedStockModalOpen}
-                onClose={() => setIsDamagedStockModalOpen(false)}
-                grn={selectedGRN}
-                onRecord={handleDamagedStockRecorded}
             />
         </div>
     );

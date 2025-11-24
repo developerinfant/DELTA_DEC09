@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import api from '../../api';
-import { FaSpinner, FaBox, FaTruck, FaClipboardCheck, FaExclamationTriangle, FaRedo, FaSearch } from 'react-icons/fa';
+import { FaSpinner, FaBox, FaTruck, FaClipboardCheck, FaExclamationTriangle, FaRedo, FaSearch, FaEdit } from 'react-icons/fa';
 import * as XLSX from 'xlsx';
 import { jsPDF } from 'jspdf';
 import 'jspdf-autotable';
@@ -14,6 +14,10 @@ const FGStockReport = () => {
   const [dateRange, setDateRange] = useState({ start: '', end: '' });
   const [socket, setSocket] = useState(null);
   const [updatedProducts, setUpdatedProducts] = useState(new Set());
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editingProduct, setEditingProduct] = useState(null);
+  const [editForm, setEditForm] = useState({ alertThreshold: '', hsnCode: '' });
+  const [isSaving, setIsSaving] = useState(false);
   const updatedProductTimers = useRef({});
 
   // Fetch data
@@ -113,6 +117,61 @@ const FGStockReport = () => {
       totalPieces: 0
     });
   }, [filteredProducts]);
+
+  // Handle edit button click
+  const handleEditClick = (product) => {
+    setEditingProduct(product);
+    setEditForm({
+      alertThreshold: product.alertThreshold || '',
+      hsnCode: product.hsnCode || ''
+    });
+    setShowEditModal(true);
+  };
+
+  // Handle form input changes
+  const handleFormChange = (e) => {
+    const { name, value } = e.target;
+    setEditForm(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+
+  // Handle save changes
+  const handleSaveChanges = async () => {
+    if (!editingProduct) return;
+    
+    setIsSaving(true);
+    try {
+      const response = await api.put(`/fg/stock/${editingProduct._id}`, editForm);
+      
+      // Update the product in the state
+      setProductStocks(prevStocks => 
+        prevStocks.map(stock => 
+          stock._id === editingProduct._id 
+            ? { ...stock, ...response.data }
+            : stock
+        )
+      );
+      
+      // Close modal and reset
+      setShowEditModal(false);
+      setEditingProduct(null);
+      setEditForm({ alertThreshold: '', hsnCode: '' });
+    } catch (err) {
+      console.error('Error updating product:', err);
+      alert('Failed to update product. Please try again.');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  // Handle cancel edit
+  const handleCancelEdit = () => {
+    setShowEditModal(false);
+    setEditingProduct(null);
+    setEditForm({ alertThreshold: '', hsnCode: '' });
+  };
 
   if (isLoading) {
     return (
@@ -332,12 +391,15 @@ const FGStockReport = () => {
                     {column.header}
                   </th>
                 ))}
+                <th className="px-6 py-3 text-left text-xs font-medium text-red-600 uppercase tracking-wider">
+                  Actions
+                </th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {filteredProducts.length === 0 ? (
                 <tr>
-                  <td colSpan={tableColumns.length} className="px-6 py-4 text-center text-gray-500">
+                  <td colSpan={tableColumns.length + 1} className="px-6 py-4 text-center text-gray-500">
                     No products found.
                   </td>
                 </tr>
@@ -359,6 +421,14 @@ const FGStockReport = () => {
                         {column.render ? column.render(product[column.key]) : product[column.key]}
                       </td>
                     ))}
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                      <button
+                        onClick={() => handleEditClick(product)}
+                        className="text-indigo-600 hover:text-indigo-900"
+                      >
+                        <FaEdit />
+                      </button>
+                    </td>
                   </tr>
                 ))
               )}
@@ -371,6 +441,7 @@ const FGStockReport = () => {
                 <td className="px-6 py-3 text-sm text-gray-700">{summaryTotals.totalCartons}</td>
                 <td className="px-6 py-3 text-sm text-gray-700">{summaryTotals.totalPieces}</td>
                 <td className="px-6 py-3 text-sm text-gray-700"></td>
+                <td className="px-6 py-3 text-sm text-gray-700"></td> {/* Empty cell for Actions */}
               </tr>
             </tfoot>
           </table>
@@ -379,6 +450,123 @@ const FGStockReport = () => {
           Showing {filteredProducts.length} of {productStocks.length} products
         </div>
       </div>
+
+      {/* Apple Style Glassmorphism Blur Modal */}
+      {showEditModal && editingProduct && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          {/* Background overlay with blur */}
+          <div 
+            className="fixed inset-0 bg-black bg-opacity-35 backdrop-blur-sm transition-opacity"
+            onClick={handleCancelEdit}
+          ></div>
+          
+          {/* Modal container with glassmorphism effect */}
+          <div className="relative bg-white bg-opacity-35 backdrop-blur-2xl border border-white border-opacity-30 rounded-2xl shadow-2xl transform transition-all sm:max-w-lg w-full animate-fade-in-up">
+            <div className="px-6 py-4 border-b border-white border-opacity-20">
+              <h3 className="text-lg font-medium text-gray-800">Edit Product</h3>
+            </div>
+            <div className="px-6 py-4 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Product Name</label>
+                <input
+                  type="text"
+                  value={editingProduct.productName}
+                  readOnly
+                  className="mt-1 block w-full px-4 py-3 bg-white bg-opacity-50 border border-white border-opacity-30 rounded-xl shadow-inner backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Item Code</label>
+                <input
+                  type="text"
+                  value={editingProduct.itemCode || 'N/A'}
+                  readOnly
+                  className="mt-1 block w-full px-4 py-3 bg-white bg-opacity-50 border border-white border-opacity-30 rounded-xl shadow-inner backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Total Cartons</label>
+                <input
+                  type="text"
+                  value={editingProduct.available_cartons}
+                  readOnly
+                  className="mt-1 block w-full px-4 py-3 bg-white bg-opacity-50 border border-white border-opacity-30 rounded-xl shadow-inner backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Broken Pieces</label>
+                <input
+                  type="text"
+                  value={editingProduct.broken_carton_pieces}
+                  readOnly
+                  className="mt-1 block w-full px-4 py-3 bg-white bg-opacity-50 border border-white border-opacity-30 rounded-xl shadow-inner backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Alert Threshold</label>
+                <input
+                  type="number"
+                  name="alertThreshold"
+                  value={editForm.alertThreshold}
+                  onChange={handleFormChange}
+                  min="0"
+                  className="mt-1 block w-full px-4 py-3 bg-white bg-opacity-50 border border-white border-opacity-30 rounded-xl shadow-inner backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all hover:shadow-md"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">HSN Code</label>
+                <input
+                  type="text"
+                  name="hsnCode"
+                  value={editForm.hsnCode}
+                  onChange={handleFormChange}
+                  className="mt-1 block w-full px-4 py-3 bg-white bg-opacity-50 border border-white border-opacity-30 rounded-xl shadow-inner backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all hover:shadow-md"
+                />
+              </div>
+            </div>
+            <div className="px-6 py-4 bg-white bg-opacity-20 border-t border-white border-opacity-20 flex justify-end space-x-3 rounded-b-2xl">
+              <button
+                type="button"
+                onClick={handleCancelEdit}
+                className="px-6 py-2 bg-gray-200 bg-opacity-50 border border-gray-300 border-opacity-30 text-gray-700 rounded-full hover:bg-gray-300 hover:bg-opacity-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition-all"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveChanges}
+                disabled={isSaving}
+                className="px-6 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-full hover:from-purple-700 hover:to-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 disabled:opacity-50 transition-all shadow-md hover:shadow-lg"
+              >
+                {isSaving ? 'Saving...' : 'Save'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* Add animation styles */}
+      <style jsx>{`
+        @keyframes fade-in-up {
+          0% {
+            opacity: 0;
+            transform: translateY(20px) scale(0.95);
+          }
+          100% {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+          }
+        }
+        .animate-fade-in-up {
+          animation: fade-in-up 0.3s ease-out forwards;
+        }
+        .backdrop-blur-2xl {
+          backdrop-filter: blur(20px);
+        }
+        .backdrop-blur-sm {
+          backdrop-filter: blur(6px);
+        }
+      `}</style>
     </div>
   );
 };

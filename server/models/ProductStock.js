@@ -56,13 +56,20 @@ const productStockSchema = new mongoose.Schema({
         type: Number,
         required: true,
         default: 1,
-        min: [1, 'Units per carton must be at least 1']
+        min: [0, 'Units per carton must be at least 1']
     },
     alertThreshold: {
         type: Number,
         required: true,
         default: 10,
         min: [0, 'Alert threshold cannot be negative']
+    },
+    // Add HSN Code field for Finished Goods
+    hsnCode: {
+        type: String,
+        required: false,
+        trim: true,
+        default: ''
     },
     lastUpdated: {
         type: Date,
