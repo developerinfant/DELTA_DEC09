@@ -275,7 +275,7 @@ const Dashboard = () => {
                     title="Stock Alerts"
                     value={packingStats?.stockAlerts || 0}
                     subtitle="Low Stock Items"
-                    linkTo="/packing/stock-alerts"
+                    linkTo="/materials/alerts"
                     gradient="bg-gradient-to-br from-green-400 to-emerald-600"
                     icon={<FaExclamationTriangle />}
                 />
@@ -295,7 +295,7 @@ const Dashboard = () => {
                     title="Active Products"
                     value={fgStats?.activeFGProducts || 0}
                     subtitle="Finished Goods"
-                    linkTo="/fg/products"
+                    linkTo="/fg/delivery-challan/view"
                     gradient="bg-gradient-to-br from-purple-400 to-purple-600"
                     icon={<FaBoxes />}
                 />
@@ -319,7 +319,7 @@ const Dashboard = () => {
                     title="Monthly Revenue"
                     value={`₹${fgStats?.monthlyRevenue ? Math.round(fgStats.monthlyRevenue).toLocaleString() : '0'}`}
                     subtitle="This Month"
-                    linkTo="/fg/invoices"
+                    linkTo="/fg/invoice/view"
                     gradient="bg-gradient-to-br from-cyan-500 to-cyan-700"
                     icon={<FaChartLine />}
                 />
@@ -352,7 +352,7 @@ const Dashboard = () => {
                     icon={<FaUsers />}
                     title="Suppliers"
                     description="Manage vendors"
-                    linkTo="/suppliers"
+                    linkTo="/packing/suppliers"
                     color="bg-gradient-to-br from-orange-500 to-orange-700"
                 />
             </div>
