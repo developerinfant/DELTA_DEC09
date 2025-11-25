@@ -469,7 +469,27 @@ const getPackingMaterialStockReport = async (req, res) => {
             
             // Check DCs for more recent updates
             deliveryChallans.forEach(dc => {
-                const dcMaterial = dc.materials.find(m => m.material_name === material.name);
+                // Handle both old single product DCs and new multi-product DCs
+                let dcMaterial = null;
+                
+                // Check if this is a new multi-product DC
+                if (dc.products && dc.products.length > 0) {
+                    // For multi-product DCs, check if any product uses this material
+                    for (const product of dc.products) {
+                        if (product.materials) {
+                            const foundMaterial = product.materials.find(m => m.material_name === material.name);
+                            if (foundMaterial) {
+                                dcMaterial = foundMaterial;
+                                break;
+                            }
+                        }
+                    }
+                } 
+                // Check if this is an old single product DC
+                else if (dc.materials) {
+                    dcMaterial = dc.materials.find(m => m.material_name === material.name);
+                }
+                
                 if (dcMaterial && dc.updatedAt > lastUpdated) {
                     lastUpdated = dc.updatedAt;
                 }
@@ -535,11 +555,26 @@ const getPackingMaterialStockReport = async (req, res) => {
                 dcDate.setHours(0, 0, 0, 0);
                 
                 if (dcDate.getTime() === selectedDate.getTime()) {
-                    dc.materials.forEach(dcMaterial => {
-                        if (dcMaterial.material_name === material.name) {
-                            outward += dcMaterial.total_qty;
-                        }
-                    });
+                    // Handle both old single product DCs and new multi-product DCs
+                    if (dc.products && dc.products.length > 0) {
+                        // For multi-product DCs, sum materials from all products
+                        dc.products.forEach(product => {
+                            if (product.materials) {
+                                product.materials.forEach(dcMaterial => {
+                                    if (dcMaterial.material_name === material.name) {
+                                        outward += dcMaterial.total_qty;
+                                    }
+                                });
+                            }
+                        });
+                    } else if (dc.materials) {
+                        // For old single product DCs
+                        dc.materials.forEach(dcMaterial => {
+                            if (dcMaterial.material_name === material.name) {
+                                outward += dcMaterial.total_qty;
+                            }
+                        });
+                    }
                 }
             });
             

@@ -1,14 +1,17 @@
 const express = require('express');
 const router = express.Router();
-const {
-    createGRN,
+// PO-based GRN functions
+const { createGRN: createPackingGRN, updateGRN: updatePackingGRN, approveOrRejectGRN, checkPOForGRN } = require('../controllers/packingGRNController');
+
+// DC-based GRN functions
+const { createGRN: createFGGRN, updateGRN: updateFGGRN } = require('../controllers/fgGRNController');
+
+// Shared functions (keeping these in the original controller for now)
+const { 
     getGRNs,
     getGRNById,
-    updateGRN,
-    approveOrRejectGRN,
     getMaterialPriceHistory,
     getSupplierPriceComparison,
-    checkPOForGRN,
     getWeeklyGRNStats,
     getGRNItemsForDamagedStock
 } = require('../controllers/grnController');
@@ -32,7 +35,19 @@ router.route('/check-po/:poId')
 // @access  Private
 router.route('/')
     .get(protect, getGRNs)
-    .post(protect, createGRN);
+    .post(protect, (req, res, next) => {
+        // Determine which controller to use based on request body
+        if (req.body.purchaseOrderId) {
+            // PO-based GRN
+            createPackingGRN(req, res, next);
+        } else if (req.body.deliveryChallanId) {
+            // DC-based GRN
+            createFGGRN(req, res, next);
+        } else {
+            // Default to original controller for backward compatibility
+            require('../controllers/grnController').createGRN(req, res, next);
+        }
+    });
 
 // @desc    Approve or reject a GRN
 // @route   PUT /api/grn/:id/approve
@@ -58,7 +73,31 @@ router.route('/supplier-comparison/:materialId/:materialModel')
 // @access  Private
 router.route('/:id')
     .get(protect, getGRNById)
-    .put(protect, updateGRN);
+    .put(protect, (req, res, next) => {
+        // Determine which controller to use based on existing GRN
+        require('../models/GRN').findById(req.params.id)
+            .then(grn => {
+                if (grn) {
+                    if (grn.sourceType === 'purchase_order') {
+                        // PO-based GRN
+                        updatePackingGRN(req, res, next);
+                    } else if (grn.sourceType === 'jobber') {
+                        // DC-based GRN
+                        updateFGGRN(req, res, next);
+                    } else {
+                        // Default to original controller for backward compatibility
+                        require('../controllers/grnController').updateGRN(req, res, next);
+                    }
+                } else {
+                    // GRN not found, use original controller
+                    require('../controllers/grnController').updateGRN(req, res, next);
+                }
+            })
+            .catch(err => {
+                // Error fetching GRN, use original controller
+                require('../controllers/grnController').updateGRN(req, res, next);
+            });
+    });
 
 // @desc    Get GRN items for damaged stock recording
 // @route   GET /api/grn/:id/damaged-items

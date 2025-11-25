@@ -84,22 +84,43 @@ const DeliveryChallanDetailModal = ({ isOpen, onClose, deliveryChallanId, onStat
     // Excel Export Function
     const exportToExcel = () => {
         if (!dc) return;
-
-        // Prepare data for Excel
+        
+        // DC Info
         const dcInfo = [
             { 'Field': 'DC Number', 'Value': dc.dc_no || 'N/A' },
             { 'Field': 'Unit Type', 'Value': dc.unit_type || 'N/A' },
             { 'Field': dc.unit_type === 'Jobber' ? 'Supplier' : 'Issued To', 
-              'Value': dc.unit_type === 'Jobber' 
-                ? (dc.supplier_id?.name || 'N/A') 
-                : (dc.person_name || 'N/A') },
-            { 'Field': 'Status', 'Value': dc.status || 'N/A' },
-            { 'Field': 'Product Name', 'Value': dc.product_name || 'N/A' },
-            { 'Field': 'Carton Quantity', 'Value': dc.carton_qty || 0 },
-            { 'Field': 'Date', 'Value': formatDate(dc.date) }
+              'Value': dc.unit_type === 'Jobber' ? (dc.supplier_id?.name || 'N/A') : (dc.person_name || 'N/A') },
+            { 'Field': 'Date', 'Value': formatDate(dc.date) },
+            { 'Field': 'Status', 'Value': dc.status || 'N/A' }
         ];
-
-        const materialsData = dc.materials.map((item, index) => {
+        
+        // Add product information based on whether it's single or multiple products
+        if (dc.products && dc.products.length > 0) {
+            // For multiple products, add a summary row
+            dcInfo.push({ 'Field': 'Total Products', 'Value': dc.products.length });
+            dcInfo.push({ 'Field': 'Total Cartons', 'Value': dc.products.reduce((sum, product) => sum + (product.carton_qty || 0), 0) });
+        } else {
+            // For single product (backward compatibility)
+            dcInfo.push({ 'Field': 'Product Name', 'Value': dc.product_name || 'N/A' });
+            dcInfo.push({ 'Field': 'Carton Quantity', 'Value': dc.carton_qty || 0 });
+        }
+        
+        // Handle materials for both single and multiple products
+        let materialsToProcess = [];
+        if (dc.products && dc.products.length > 0) {
+            // For multiple products, collect all materials from all products
+            dc.products.forEach(product => {
+                if (product.materials && Array.isArray(product.materials)) {
+                    materialsToProcess = materialsToProcess.concat(product.materials);
+                }
+            });
+        } else if (dc.materials && Array.isArray(dc.materials)) {
+            // For single product (backward compatibility)
+            materialsToProcess = dc.materials;
+        }
+        
+        const materialsData = materialsToProcess.map((item, index) => {
             // Use the total_qty directly from the database as Sent Qty (same as orderedQuantity in GRN)
             const sentQty = item.total_qty || 0;
             // Use the received_qty directly from the database (updated by GRN controller)
@@ -114,7 +135,7 @@ const DeliveryChallanDetailModal = ({ isOpen, onClose, deliveryChallanId, onStat
             } else if (balance < 0) {
                 itemStatus = 'Over Received';
             }
-
+            
             return {
                 'S.No': index + 1,
                 'Material Name': item.material_name || 'N/A',
@@ -125,12 +146,12 @@ const DeliveryChallanDetailModal = ({ isOpen, onClose, deliveryChallanId, onStat
                 'Status': itemStatus
             };
         });
-
+        
         // Add totals row
-        const totalSent = dc.materials.reduce((sum, item) => sum + (item.total_qty || 0), 0);
-        const totalReceived = dc.materials.reduce((sum, item) => sum + (item.received_qty || 0), 0);
-        const totalBalance = dc.materials.reduce((sum, item) => sum + (item.balance_qty || 0), 0);
-
+        const totalSent = materialsToProcess.reduce((sum, item) => sum + (item.total_qty || 0), 0);
+        const totalReceived = materialsToProcess.reduce((sum, item) => sum + (item.received_qty || 0), 0);
+        const totalBalance = materialsToProcess.reduce((sum, item) => sum + (item.balance_qty || 0), 0);
+        
         materialsData.push({
             'S.No': '',
             'Material Name': '',
@@ -140,7 +161,7 @@ const DeliveryChallanDetailModal = ({ isOpen, onClose, deliveryChallanId, onStat
             'Balance': totalBalance,
             'Status': ''
         });
-
+        
         // Create a new workbook
         const wb = XLSX.utils.book_new();
         
@@ -262,14 +283,49 @@ const DeliveryChallanDetailModal = ({ isOpen, onClose, deliveryChallanId, onStat
                             {dc?.status || 'N/A'}
                         </span>
                     </div>
-                    <div className="bg-gray-50 p-4 rounded-lg">
-                        <p className="text-sm text-gray-500 uppercase tracking-wider">Product Name</p>
-                        <p className="font-bold text-lg">{dc?.product_name || 'N/A'}</p>
-                    </div>
-                    <div className="bg-gray-50 p-4 rounded-lg">
-                        <p className="text-sm text-gray-500 uppercase tracking-wider">Carton Quantity</p>
-                        <p className="font-bold text-lg">{dc?.carton_qty || 'N/A'}</p>
-                    </div>
+                    
+                    {/* Check if DC has multiple products */}
+                    {dc && dc.products && dc.products.length > 0 ? (
+                        // Display multiple products section
+                        <div className="bg-gray-50 p-4 rounded-lg md:col-span-2 lg:col-span-4">
+                            <p className="text-sm text-gray-500 uppercase tracking-wider">Products</p>
+                            <div className="mt-2 overflow-x-auto">
+                                <table className="min-w-full divide-y divide-gray-200">
+                                    <thead>
+                                        <tr>
+                                            <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Product Name</th>
+                                            <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Carton Quantity</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="bg-white divide-y divide-gray-200">
+                                        {dc.products.map((product, index) => (
+                                            <tr key={index}>
+                                                <td className="px-4 py-2 whitespace-nowrap text-sm font-medium text-gray-900">
+                                                    {product.product_name}
+                                                </td>
+                                                <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">
+                                                    {product.carton_qty || 0}
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    ) : (
+                        // Display single product (backward compatibility)
+                        <>
+                            <div className="bg-gray-50 p-4 rounded-lg">
+                                <p className="text-sm text-gray-500 uppercase tracking-wider">Product Name</p>
+                                <p className="font-bold text-lg">{dc?.product_name || 'N/A'}</p>
+                            </div>
+                            <div className="bg-gray-50 p-4 rounded-lg">
+                                <p className="text-sm text-gray-500 uppercase tracking-wider">Carton Quantity</p>
+                                <p className="font-bold text-lg">{dc?.carton_qty || 'N/A'}</p>
+                            </div>
+                        </>
+                    )}
+                    
                     <div className="bg-gray-50 p-4 rounded-lg">
                         <p className="text-sm text-gray-500 uppercase tracking-wider">Date</p>
                         <p className="font-bold text-lg">{formatDate(dc?.date)}</p>
@@ -298,54 +354,70 @@ const DeliveryChallanDetailModal = ({ isOpen, onClose, deliveryChallanId, onStat
                             </tr>
                         </thead>
                         <tbody className="bg-white divide-y divide-gray-200">
-                            {dc.materials.map((item, index) => {
-                                // Use the total_qty directly from the database as Sent Qty (same as orderedQuantity in GRN)
-                                const sentQty = item.total_qty || 0;
-                                // Use the received_qty directly from the database (updated by GRN controller)
-                                const receivedQty = item.received_qty || 0;
-                                // Use the balance_qty directly from the database (updated by GRN controller)
-                                const balance = item.balance_qty || 0;
-                                
-                                // Calculate item status based on quantities
-                                let itemStatus = 'Completed';
-                                let itemStatusClass = 'bg-green-100 text-green-800';
-                                // Use the balance quantity to determine status
-                                if (balance > 0) {
-                                    itemStatus = 'Pending';
-                                    itemStatusClass = 'bg-yellow-100 text-yellow-800';
-                                } else if (balance < 0) {
-                                    // This shouldn't happen, but just in case
-                                    itemStatus = 'Over Received';
-                                    itemStatusClass = 'bg-red-100 text-red-800';
+                            {(() => {
+                                // Handle materials for both single and multiple products
+                                let materialsToProcess = [];
+                                if (dc && dc.products && dc.products.length > 0) {
+                                    // For multiple products, collect all materials from all products
+                                    dc.products.forEach(product => {
+                                        if (product.materials && Array.isArray(product.materials)) {
+                                            materialsToProcess = materialsToProcess.concat(product.materials);
+                                        }
+                                    });
+                                } else if (dc && dc.materials && Array.isArray(dc.materials)) {
+                                    // For single product (backward compatibility)
+                                    materialsToProcess = dc.materials;
                                 }
                                 
-                                return (
-                                    <tr key={index} className="hover:bg-gray-50">
-                                        <td className="px-6 py-4 whitespace-nowrap">
-                                            <div className="text-sm font-medium text-gray-900">{item.material_name || 'N/A'}</div>
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-center">
-                                            <div className="text-sm font-bold text-blue-600">{item?.qty_per_carton || 0}</div>
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-center">
-                                            <div className="text-sm font-bold text-gray-900">{sentQty}</div>
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-center">
-                                            <div className="text-sm font-bold text-green-600">{receivedQty}</div>
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-center">
-                                            <div className={`text-sm font-bold ${balance > 0 ? 'text-red-600' : 'text-gray-600'}`}>
-                                                {balance}
-                                            </div>
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-center">
-                                            <span className={`px-2 py-1 text-xs font-semibold rounded-full ${itemStatusClass}`}>
-                                                {itemStatus}
-                                            </span>
-                                        </td>
-                                    </tr>
-                                );
-                            })}
+                                return materialsToProcess && materialsToProcess.length > 0 ? materialsToProcess.map((item, index) => {
+                                    // Use the total_qty directly from the database as Sent Qty (same as orderedQuantity in GRN)
+                                    const sentQty = item.total_qty || 0;
+                                    // Use the received_qty directly from the database (updated by GRN controller)
+                                    const receivedQty = item.received_qty || 0;
+                                    // Use the balance_qty directly from the database (updated by GRN controller)
+                                    const balance = item.balance_qty || 0;
+                                    
+                                    // Calculate item status based on quantities
+                                    let itemStatus = 'Completed';
+                                    let itemStatusClass = 'bg-green-100 text-green-800';
+                                    // Use the balance quantity to determine status
+                                    if (balance > 0) {
+                                        itemStatus = 'Pending';
+                                        itemStatusClass = 'bg-yellow-100 text-yellow-800';
+                                    } else if (balance < 0) {
+                                        // This shouldn't happen, but just in case
+                                        itemStatus = 'Over Received';
+                                        itemStatusClass = 'bg-red-100 text-red-800';
+                                    }
+                                    
+                                    return (
+                                        <tr key={index} className="hover:bg-gray-50">
+                                            <td className="px-6 py-4 whitespace-nowrap">
+                                                <div className="text-sm font-medium text-gray-900">{item.material_name || 'N/A'}</div>
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-center">
+                                                <div className="text-sm font-bold text-blue-600">{item?.qty_per_carton || 0}</div>
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-center">
+                                                <div className="text-sm font-bold text-gray-900">{sentQty}</div>
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-center">
+                                                <div className="text-sm font-bold text-green-600">{receivedQty}</div>
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-center">
+                                                <div className={`text-sm font-bold ${balance > 0 ? 'text-red-600' : 'text-gray-600'}`}>
+                                                    {balance}
+                                                </div>
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-center">
+                                                <span className={`px-2 py-1 text-xs font-semibold rounded-full ${itemStatusClass}`}>
+                                                    {itemStatus}
+                                                </span>
+                                            </td>
+                                        </tr>
+                                    );
+                                }) : null;
+                            })()}
                         </tbody>
                     </table>
                 </div>
@@ -354,25 +426,89 @@ const DeliveryChallanDetailModal = ({ isOpen, onClose, deliveryChallanId, onStat
                 <div className="mt-4 pt-4 border-t border-gray-200">
                     <div className="flex justify-between items-center">
                         <div className="text-sm text-gray-500">
-                            Total Items: {dc.materials.length}
+                            {(() => {
+                                // Handle materials for both single and multiple products
+                                let materialsToProcess = [];
+                                if (dc && dc.products && dc.products.length > 0) {
+                                    // For multiple products, collect all materials from all products
+                                    dc.products.forEach(product => {
+                                        if (product.materials && Array.isArray(product.materials)) {
+                                            materialsToProcess = materialsToProcess.concat(product.materials);
+                                        }
+                                    });
+                                } else if (dc && dc.materials && Array.isArray(dc.materials)) {
+                                    // For single product (backward compatibility)
+                                    materialsToProcess = dc.materials;
+                                }
+                                
+                                return `Total Items: ${materialsToProcess ? materialsToProcess.length : 0}`;
+                            })()}
                         </div>
                         <div className="flex space-x-4">
                             <div className="text-sm">
                                 <span className="text-gray-500">Total Sent: </span>
                                 <span className="font-bold text-gray-900">
-                                    {dc.materials.reduce((sum, item) => sum + (item.total_qty || 0), 0)}
+                                    {(() => {
+                                        // Handle materials for both single and multiple products
+                                        let materialsToProcess = [];
+                                        if (dc && dc.products && dc.products.length > 0) {
+                                            // For multiple products, collect all materials from all products
+                                            dc.products.forEach(product => {
+                                                if (product.materials && Array.isArray(product.materials)) {
+                                                    materialsToProcess = materialsToProcess.concat(product.materials);
+                                                }
+                                            });
+                                        } else if (dc && dc.materials && Array.isArray(dc.materials)) {
+                                            // For single product (backward compatibility)
+                                            materialsToProcess = dc.materials;
+                                        }
+                                        
+                                        return materialsToProcess ? materialsToProcess.reduce((sum, item) => sum + (item.total_qty || 0), 0) : 0;
+                                    })()}
                                 </span>
                             </div>
                             <div className="text-sm">
                                 <span className="text-gray-500">Total Received: </span>
                                 <span className="font-bold text-green-600">
-                                    {dc.materials.reduce((sum, item) => sum + (item.received_qty || 0), 0)}
+                                    {(() => {
+                                        // Handle materials for both single and multiple products
+                                        let materialsToProcess = [];
+                                        if (dc && dc.products && dc.products.length > 0) {
+                                            // For multiple products, collect all materials from all products
+                                            dc.products.forEach(product => {
+                                                if (product.materials && Array.isArray(product.materials)) {
+                                                    materialsToProcess = materialsToProcess.concat(product.materials);
+                                                }
+                                            });
+                                        } else if (dc && dc.materials && Array.isArray(dc.materials)) {
+                                            // For single product (backward compatibility)
+                                            materialsToProcess = dc.materials;
+                                        }
+                                        
+                                        return materialsToProcess ? materialsToProcess.reduce((sum, item) => sum + (item.received_qty || 0), 0) : 0;
+                                    })()}
                                 </span>
                             </div>
                             <div className="text-sm">
                                 <span className="text-gray-500">Total Balance: </span>
                                 <span className="font-bold text-red-600">
-                                    {dc.materials.reduce((sum, item) => sum + (item.balance_qty || 0), 0)}
+                                    {(() => {
+                                        // Handle materials for both single and multiple products
+                                        let materialsToProcess = [];
+                                        if (dc && dc.products && dc.products.length > 0) {
+                                            // For multiple products, collect all materials from all products
+                                            dc.products.forEach(product => {
+                                                if (product.materials && Array.isArray(product.materials)) {
+                                                    materialsToProcess = materialsToProcess.concat(product.materials);
+                                                }
+                                            });
+                                        } else if (dc && dc.materials && Array.isArray(dc.materials)) {
+                                            // For single product (backward compatibility)
+                                            materialsToProcess = dc.materials;
+                                        }
+                                        
+                                        return materialsToProcess ? materialsToProcess.reduce((sum, item) => sum + (item.balance_qty || 0), 0) : 0;
+                                    })()}
                                 </span>
                             </div>
                         </div>

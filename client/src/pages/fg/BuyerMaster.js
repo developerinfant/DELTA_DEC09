@@ -7,11 +7,11 @@ import ViewReportTools from '../../components/common/ViewReportTools';
 
 // Indian states list
 const INDIAN_STATES = [
-    'Andhra Pradesh', 'Arunachal Pradesh', 'Assam', 'Bihar', 'Chhattisgarh', 'Goa', 'Gujarat', 
-    'Haryana', 'Himachal Pradesh', 'Jharkhand', 'Karnataka', 'Kerala', 'Madhya Pradesh', 
-    'Maharashtra', 'Manipur', 'Meghalaya', 'Mizoram', 'Nagaland', 'Odisha', 'Punjab', 
-    'Rajasthan', 'Sikkim', 'Tamil Nadu', 'Telangana', 'Tripura', 'Uttar Pradesh', 
-    'Uttarakhand', 'West Bengal', 'Andaman and Nicobar Islands', 'Chandigarh', 
+    'Andhra Pradesh', 'Arunachal Pradesh', 'Assam', 'Bihar', 'Chhattisgarh', 'Goa', 'Gujarat',
+    'Haryana', 'Himachal Pradesh', 'Jharkhand', 'Karnataka', 'Kerala', 'Madhya Pradesh',
+    'Maharashtra', 'Manipur', 'Meghalaya', 'Mizoram', 'Nagaland', 'Odisha', 'Punjab',
+    'Rajasthan', 'Sikkim', 'Tamil Nadu', 'Telangana', 'Tripura', 'Uttar Pradesh',
+    'Uttarakhand', 'West Bengal', 'Andaman and Nicobar Islands', 'Chandigarh',
     'Dadra and Nagar Haveli and Daman and Diu', 'Lakshadweep', 'Delhi', 'Puducherry'
 ];
 
@@ -123,60 +123,60 @@ const BuyerForm = ({ onSave, initialData = {}, onCancel }) => {
     const handleSubmit = async (e) => {
         e.preventDefault();
         setError('');
-        
+
         // Validation
         if (!formData.name) {
             setError('Buyer Name is required');
             return;
         }
-        
+
         if (!formData.contactPerson) {
             setError('Contact Person is required');
             return;
         }
-        
+
         if (!formData.phoneNumber) {
             setError('Phone Number is required');
             return;
         }
-        
+
         if (!formData.email) {
             setError('Email is required');
             return;
         }
-        
+
         if (!formData.address) {
             setError('Address is required');
             return;
         }
-        
+
         if (!formData.city) {
             setError('City is required');
             return;
         }
-        
+
         if (!formData.state) {
             setError('State is required');
             return;
         }
-        
+
         if (!formData.pincode) {
             setError('Pincode is required');
             return;
         }
-        
+
         // GSTIN validation (15 characters)
         if (formData.gstin && formData.gstin.length !== 15) {
             setError('GSTIN must be 15 characters long');
             return;
         }
-        
+
         // Email validation
         if (formData.email && !/^\w+([.-]?\w+)*@\w+([.-]?\w+)*(\.\w{2,3})+$/.test(formData.email)) {
             setError('Please provide a valid email address');
             return;
         }
-        
+
         // IFSC validation (11 characters: 4 letters + 0 + 6 digits)
         const ifscRegex = /^[A-Za-z]{4}0[A-Za-z0-9]{6}$/;
         if (formData.ifscCode && !ifscRegex.test(formData.ifscCode)) {
@@ -205,95 +205,95 @@ const BuyerForm = ({ onSave, initialData = {}, onCancel }) => {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                         <label htmlFor="buyerCode" className="block text-sm font-medium text-dark-700">Buyer Code</label>
-                        <input 
-                            type="text" 
-                            name="buyerCode" 
-                            id="buyerCode" 
-                            value={nextBuyerCode} 
-                            readOnly 
-                            className={`${commonInputClass} bg-gray-100 cursor-not-allowed`} 
+                        <input
+                            type="text"
+                            name="buyerCode"
+                            id="buyerCode"
+                            value={nextBuyerCode}
+                            readOnly
+                            className={`${commonInputClass} bg-gray-100 cursor-not-allowed`}
                         />
                     </div>
                     <div>
                         <label htmlFor="name" className="block text-sm font-medium text-dark-700">Buyer Name <span className="text-red-500">*</span></label>
-                        <input 
-                            type="text" 
-                            name="name" 
-                            id="name" 
-                            value={formData.name} 
-                            onChange={handleChange} 
-                            required 
-                            className={commonInputClass} 
+                        <input
+                            type="text"
+                            name="name"
+                            id="name"
+                            value={formData.name}
+                            onChange={handleChange}
+                            required
+                            className={commonInputClass}
                         />
                     </div>
                     <div>
                         <label htmlFor="contactPerson" className="block text-sm font-medium text-dark-700">Contact Person <span className="text-red-500">*</span></label>
-                        <input 
-                            type="text" 
-                            name="contactPerson" 
-                            id="contactPerson" 
-                            value={formData.contactPerson} 
-                            onChange={handleChange} 
-                            required 
-                            className={commonInputClass} 
+                        <input
+                            type="text"
+                            name="contactPerson"
+                            id="contactPerson"
+                            value={formData.contactPerson}
+                            onChange={handleChange}
+                            required
+                            className={commonInputClass}
                         />
                     </div>
                     <div>
                         <label htmlFor="phoneNumber" className="block text-sm font-medium text-dark-700">Phone Number <span className="text-red-500">*</span></label>
-                        <input 
-                            type="tel" 
-                            name="phoneNumber" 
-                            id="phoneNumber" 
-                            value={formData.phoneNumber} 
-                            onChange={handleChange} 
-                            required 
-                            className={commonInputClass} 
+                        <input
+                            type="tel"
+                            name="phoneNumber"
+                            id="phoneNumber"
+                            value={formData.phoneNumber}
+                            onChange={handleChange}
+                            required
+                            className={commonInputClass}
                         />
                     </div>
                     <div>
                         <label htmlFor="email" className="block text-sm font-medium text-dark-700">Email <span className="text-red-500">*</span></label>
-                        <input 
-                            type="email" 
-                            name="email" 
-                            id="email" 
-                            value={formData.email} 
-                            onChange={handleChange} 
-                            required 
-                            className={commonInputClass} 
+                        <input
+                            type="email"
+                            name="email"
+                            id="email"
+                            value={formData.email}
+                            onChange={handleChange}
+                            required
+                            className={commonInputClass}
                         />
                     </div>
                     <div className="md:col-span-2">
                         <label htmlFor="address" className="block text-sm font-medium text-dark-700">Address <span className="text-red-500">*</span></label>
-                        <textarea 
-                            name="address" 
-                            id="address" 
-                            value={formData.address} 
-                            onChange={handleChange} 
-                            required 
-                            rows="3" 
-                            className={commonInputClass} 
+                        <textarea
+                            name="address"
+                            id="address"
+                            value={formData.address}
+                            onChange={handleChange}
+                            required
+                            rows="3"
+                            className={commonInputClass}
                         />
                     </div>
                     <div>
                         <label htmlFor="city" className="block text-sm font-medium text-dark-700">City <span className="text-red-500">*</span></label>
-                        <input 
-                            type="text" 
-                            name="city" 
-                            id="city" 
-                            value={formData.city} 
-                            onChange={handleChange} 
-                            required 
-                            className={commonInputClass} 
+                        <input
+                            type="text"
+                            name="city"
+                            id="city"
+                            value={formData.city}
+                            onChange={handleChange}
+                            required
+                            className={commonInputClass}
                         />
                     </div>
                     <div>
                         <label htmlFor="state" className="block text-sm font-medium text-dark-700">State <span className="text-red-500">*</span></label>
-                        <select 
-                            name="state" 
-                            id="state" 
-                            value={formData.state} 
-                            onChange={handleStateChange} 
-                            required 
+                        <select
+                            name="state"
+                            id="state"
+                            value={formData.state}
+                            onChange={handleStateChange}
+                            required
                             className={commonInputClass}
                         >
                             <option value="">Select State</option>
@@ -304,35 +304,35 @@ const BuyerForm = ({ onSave, initialData = {}, onCancel }) => {
                     </div>
                     <div>
                         <label htmlFor="pincode" className="block text-sm font-medium text-dark-700">Pincode <span className="text-red-500">*</span></label>
-                        <input 
-                            type="text" 
-                            name="pincode" 
-                            id="pincode" 
-                            value={formData.pincode} 
-                            onChange={handleChange} 
-                            required 
-                            className={commonInputClass} 
+                        <input
+                            type="text"
+                            name="pincode"
+                            id="pincode"
+                            value={formData.pincode}
+                            onChange={handleChange}
+                            required
+                            className={commonInputClass}
                         />
                     </div>
                     <div>
                         <label htmlFor="country" className="block text-sm font-medium text-dark-700">Country</label>
-                        <input 
-                            type="text" 
-                            name="country" 
-                            id="country" 
-                            value={formData.country} 
-                            onChange={handleChange} 
-                            className={commonInputClass} 
+                        <input
+                            type="text"
+                            name="country"
+                            id="country"
+                            value={formData.country}
+                            onChange={handleChange}
+                            className={commonInputClass}
                         />
                     </div>
                     {/* Display GST Type */}
                     <div>
                         <label className="block text-sm font-medium text-dark-700">GST Type (Auto-calculated)</label>
-                        <input 
-                            type="text" 
-                            value={calculateGstType(formData.state)} 
-                            readOnly 
-                            className={`${commonInputClass} bg-gray-100 cursor-not-allowed`} 
+                        <input
+                            type="text"
+                            value={calculateGstType(formData.state)}
+                            readOnly
+                            className={`${commonInputClass} bg-gray-100 cursor-not-allowed`}
                         />
                         <p className="text-xs text-gray-500 mt-1">Automatically set based on state selection</p>
                     </div>
@@ -347,33 +347,33 @@ const BuyerForm = ({ onSave, initialData = {}, onCancel }) => {
                         <label htmlFor="gstin" className="block text-sm font-medium text-dark-700">GSTIN</label>
                         <FaInfoCircle className="ml-2 text-gray-400" title="15-character GST identification number" />
                     </div>
-                    <input 
-                        type="text" 
-                        name="gstin" 
-                        id="gstin" 
-                        value={formData.gstin} 
-                        onChange={handleChange} 
+                    <input
+                        type="text"
+                        name="gstin"
+                        id="gstin"
+                        value={formData.gstin}
+                        onChange={handleChange}
                         maxLength="15"
-                        className={commonInputClass} 
+                        className={commonInputClass}
                     />
                     <div>
                         <label htmlFor="panNumber" className="block text-sm font-medium text-dark-700">PAN Number</label>
-                        <input 
-                            type="text" 
-                            name="panNumber" 
-                            id="panNumber" 
-                            value={formData.panNumber} 
-                            onChange={handleChange} 
-                            className={commonInputClass} 
+                        <input
+                            type="text"
+                            name="panNumber"
+                            id="panNumber"
+                            value={formData.panNumber}
+                            onChange={handleChange}
+                            className={commonInputClass}
                         />
                     </div>
                     <div>
                         <label htmlFor="businessCategory" className="block text-sm font-medium text-dark-700">Business Category</label>
-                        <select 
-                            name="businessCategory" 
-                            id="businessCategory" 
-                            value={formData.businessCategory} 
-                            onChange={handleChange} 
+                        <select
+                            name="businessCategory"
+                            id="businessCategory"
+                            value={formData.businessCategory}
+                            onChange={handleChange}
                             className={commonInputClass}
                         >
                             <option value="">Select Category</option>
@@ -392,59 +392,59 @@ const BuyerForm = ({ onSave, initialData = {}, onCancel }) => {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                         <label htmlFor="bankName" className="block text-sm font-medium text-dark-700">Bank Name</label>
-                        <input 
-                            type="text" 
-                            name="bankName" 
-                            id="bankName" 
-                            value={formData.bankName} 
-                            onChange={handleChange} 
-                            className={commonInputClass} 
+                        <input
+                            type="text"
+                            name="bankName"
+                            id="bankName"
+                            value={formData.bankName}
+                            onChange={handleChange}
+                            className={commonInputClass}
                         />
                     </div>
                     <div>
                         <label htmlFor="branch" className="block text-sm font-medium text-dark-700">Branch</label>
-                        <input 
-                            type="text" 
-                            name="branch" 
-                            id="branch" 
-                            value={formData.branch} 
-                            onChange={handleChange} 
-                            className={commonInputClass} 
+                        <input
+                            type="text"
+                            name="branch"
+                            id="branch"
+                            value={formData.branch}
+                            onChange={handleChange}
+                            className={commonInputClass}
                         />
                     </div>
                     <div>
                         <label htmlFor="accountNumber" className="block text-sm font-medium text-dark-700">Account Number</label>
-                        <input 
-                            type="text" 
-                            name="accountNumber" 
-                            id="accountNumber" 
-                            value={formData.accountNumber} 
-                            onChange={handleChange} 
-                            className={commonInputClass} 
+                        <input
+                            type="text"
+                            name="accountNumber"
+                            id="accountNumber"
+                            value={formData.accountNumber}
+                            onChange={handleChange}
+                            className={commonInputClass}
                         />
                     </div>
                     <div className="flex items-center">
                         <label htmlFor="ifscCode" className="block text-sm font-medium text-dark-700">IFSC Code</label>
                         <FaInfoCircle className="ml-2 text-gray-400" title="11-character code: 4 letters + 0 + 6 alphanumeric characters" />
                     </div>
-                    <input 
-                        type="text" 
-                        name="ifscCode" 
-                        id="ifscCode" 
-                        value={formData.ifscCode} 
-                        onChange={handleChange} 
+                    <input
+                        type="text"
+                        name="ifscCode"
+                        id="ifscCode"
+                        value={formData.ifscCode}
+                        onChange={handleChange}
                         maxLength="11"
-                        className={commonInputClass} 
+                        className={commonInputClass}
                     />
                     <div>
                         <label htmlFor="upiId" className="block text-sm font-medium text-dark-700">UPI ID</label>
-                        <input 
-                            type="text" 
-                            name="upiId" 
-                            id="upiId" 
-                            value={formData.upiId} 
-                            onChange={handleChange} 
-                            className={commonInputClass} 
+                        <input
+                            type="text"
+                            name="upiId"
+                            id="upiId"
+                            value={formData.upiId}
+                            onChange={handleChange}
+                            className={commonInputClass}
                         />
                     </div>
                 </div>
@@ -456,22 +456,22 @@ const BuyerForm = ({ onSave, initialData = {}, onCancel }) => {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                         <label htmlFor="transportName" className="block text-sm font-medium text-dark-700">Transport Name</label>
-                        <input 
-                            type="text" 
-                            name="transportName" 
-                            id="transportName" 
-                            value={formData.transportName} 
-                            onChange={handleChange} 
-                            className={commonInputClass} 
+                        <input
+                            type="text"
+                            name="transportName"
+                            id="transportName"
+                            value={formData.transportName}
+                            onChange={handleChange}
+                            className={commonInputClass}
                         />
                     </div>
                     <div>
                         <label htmlFor="paymentTerms" className="block text-sm font-medium text-dark-700">Payment Terms</label>
-                        <select 
-                            name="paymentTerms" 
-                            id="paymentTerms" 
-                            value={formData.paymentTerms} 
-                            onChange={handleChange} 
+                        <select
+                            name="paymentTerms"
+                            id="paymentTerms"
+                            value={formData.paymentTerms}
+                            onChange={handleChange}
                             className={commonInputClass}
                         >
                             <option value="Net 15">Net 15</option>
@@ -481,22 +481,22 @@ const BuyerForm = ({ onSave, initialData = {}, onCancel }) => {
                     </div>
                     <div>
                         <label htmlFor="destination" className="block text-sm font-medium text-dark-700">Destination</label>
-                        <input 
-                            type="text" 
-                            name="destination" 
-                            id="destination" 
-                            value={formData.destination} 
-                            onChange={handleChange} 
-                            className={commonInputClass} 
+                        <input
+                            type="text"
+                            name="destination"
+                            id="destination"
+                            value={formData.destination}
+                            onChange={handleChange}
+                            className={commonInputClass}
                         />
                     </div>
                     <div>
                         <label htmlFor="status" className="block text-sm font-medium text-dark-700">Status</label>
-                        <select 
-                            name="status" 
-                            id="status" 
-                            value={formData.status} 
-                            onChange={handleChange} 
+                        <select
+                            name="status"
+                            id="status"
+                            value={formData.status}
+                            onChange={handleChange}
                             className={commonInputClass}
                         >
                             <option value="Active">Active</option>
@@ -505,13 +505,13 @@ const BuyerForm = ({ onSave, initialData = {}, onCancel }) => {
                     </div>
                     <div className="md:col-span-2">
                         <label htmlFor="notes" className="block text-sm font-medium text-dark-700">Notes</label>
-                        <textarea 
-                            name="notes" 
-                            id="notes" 
-                            value={formData.notes} 
-                            onChange={handleChange} 
-                            rows="3" 
-                            className={commonInputClass} 
+                        <textarea
+                            name="notes"
+                            id="notes"
+                            value={formData.notes}
+                            onChange={handleChange}
+                            rows="3"
+                            className={commonInputClass}
                         />
                     </div>
                 </div>
@@ -551,7 +551,7 @@ const BuyerMaster = () => {
     useEffect(() => {
         fetchBuyers();
     }, []);
-    
+
     const showSuccessMessage = (message) => {
         setSuccessMessage(message);
         setTimeout(() => setSuccessMessage(''), 3000); // Hide after 3 seconds
@@ -577,7 +577,7 @@ const BuyerMaster = () => {
             showSuccessMessage('Buyer deleted successfully.');
         }
     };
-    
+
     const openModal = (buyer = null) => {
         setSelectedBuyer(buyer);
         setIsModalOpen(true);
@@ -613,13 +613,14 @@ const BuyerMaster = () => {
         { header: 'GSTIN', key: 'gstin' },
         { header: 'Email', key: 'email' },
         { header: 'City', key: 'city' },
-        { header: 'STATUS', key: 'status', render: (value) => (
-            <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                value === 'Active' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-            }`}>
-                {value}
-            </span>
-        ) }
+        {
+            header: 'STATUS', key: 'status', render: (value) => (
+                <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${value === 'Active' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                    }`}>
+                    {value}
+                </span>
+            )
+        }
     ];
 
     return (
@@ -636,10 +637,10 @@ const BuyerMaster = () => {
                     columns={reportColumns}
                 />
             </div>
-            
+
             <Card title="Add New Buyer" action={
-                <button 
-                    onClick={() => openModal()} 
+                <button
+                    onClick={() => openModal()}
                     className="flex items-center px-4 py-2 bg-primary-500 text-white rounded-lg hover:bg-primary-600"
                 >
                     <FaPlus className="mr-2" /> Add Buyer
@@ -682,9 +683,8 @@ const BuyerMaster = () => {
                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-dark-700">{buyer.email || 'N/A'}</td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-dark-700">{buyer.city || 'N/A'}</td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-dark-700">
-                                            <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                                                buyer.status === 'Active' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                                            }`}>
+                                            <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${buyer.status === 'Active' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                                                }`}>
                                                 {buyer.status}
                                             </span>
                                         </td>
@@ -699,7 +699,7 @@ const BuyerMaster = () => {
                     </table>
                 </div>
             </Card>
-            
+
             <Modal isOpen={isModalOpen} onClose={closeModal} title={selectedBuyer ? `Edit Buyer: ${selectedBuyer.name}` : "Add New Buyer"}>
                 <BuyerForm onSave={handleUpdate} initialData={selectedBuyer} onCancel={closeModal} />
             </Modal>

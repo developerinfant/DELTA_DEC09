@@ -128,11 +128,37 @@ const DeltaDCPrintLayout = () => {
 
     // Calculate totals for materials
     const materials = deliveryChallan.materials || [];
-    const totalSent = materials.reduce((sum, item) => sum + (item.qty_per_carton * deliveryChallan.carton_qty), 0);
-    const totalReceived = materials.reduce((sum, item) => sum + (item.received_qty !== undefined ? item.received_qty : (item.total_qty || 0)), 0);
-    const totalBalance = materials.reduce((sum, item) => {
-        return sum + (item.balance_qty !== undefined ? item.balance_qty : ((item.qty_per_carton * deliveryChallan.carton_qty) - (item.received_qty !== undefined ? item.received_qty : (item.total_qty || 0))));
-    }, 0);
+    
+    // Handle multiple products vs single product
+    let totalSent = 0;
+    let totalReceived = 0;
+    let totalBalance = 0;
+    
+    if (deliveryChallan.products && deliveryChallan.products.length > 0) {
+        // Multiple products - calculate totals for all products
+        totalSent = materials.reduce((sum, item) => {
+            // For multiple products, we need to calculate based on each product's materials
+            // This is a simplified approach - in reality, you might need to aggregate differently
+            return sum + (item.total_qty || 0);
+        }, 0);
+        
+        totalReceived = materials.reduce((sum, item) => {
+            return sum + (item.received_qty !== undefined ? item.received_qty : (item.total_qty || 0));
+        }, 0);
+        
+        totalBalance = materials.reduce((sum, item) => {
+            const receivedQty = item.received_qty !== undefined ? item.received_qty : (item.total_qty || 0);
+            const totalQty = item.total_qty || 0;
+            return sum + (totalQty - receivedQty);
+        }, 0);
+    } else {
+        // Single product (backward compatibility)
+        totalSent = materials.reduce((sum, item) => sum + (item.qty_per_carton * deliveryChallan.carton_qty), 0);
+        totalReceived = materials.reduce((sum, item) => sum + (item.received_qty !== undefined ? item.received_qty : (item.total_qty || 0)), 0);
+        totalBalance = materials.reduce((sum, item) => {
+            return sum + (item.balance_qty !== undefined ? item.balance_qty : ((item.qty_per_carton * deliveryChallan.carton_qty) - (item.received_qty !== undefined ? item.received_qty : (item.total_qty || 0))));
+        }, 0);
+    }
 
     return (
         <div className="min-h-screen bg-gray-100 p-4">
@@ -507,18 +533,51 @@ const DeltaDCPrintLayout = () => {
               <td style={{ fontWeight: '800' }}>Date</td>
               <td style={{ fontWeight: '400' }}>: {formatDate(deliveryChallan.date)}</td>
             </tr>
-            <tr>
-              <td style={{ fontWeight: '800' }}>Product</td>
-              <td style={{ fontWeight: '400' }}>: {deliveryChallan.product_name || ''}</td>
-            </tr>
-            <tr>
-              <td style={{ fontWeight: '800' }}>Carton Qty</td>
-              <td style={{ fontWeight: '400' }}>: {deliveryChallan.carton_qty || ''}</td>
-            </tr>
+            
+            {/* Check if DC has multiple products */}
+            {deliveryChallan.products && deliveryChallan.products.length > 0 ? (
+                // Display multiple products
+                <tr>
+                  <td style={{ fontWeight: '800' }}>Products</td>
+                  <td style={{ fontWeight: '400' }}>
+                    : 
+                    <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: '2mm' }}>
+                      <thead>
+                        <tr>
+                          <th style={{ textAlign: 'left', borderBottom: '1px solid #000' }}>Product Name</th>
+                          <th style={{ textAlign: 'right', borderBottom: '1px solid #000' }}>Carton Qty</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {deliveryChallan.products.map((product, index) => (
+                          <tr key={index}>
+                            <td style={{ textAlign: 'left' }}>{product.product_name}</td>
+                            <td style={{ textAlign: 'right' }}>{product.carton_qty || 0}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </td>
+                </tr>
+            ) : (
+                // Display single product (backward compatibility)
+                <>
+                  <tr>
+                    <td style={{ fontWeight: '800' }}>Product</td>
+                    <td style={{ fontWeight: '400' }}>: {deliveryChallan.product_name || ''}</td>
+                  </tr>
+                  <tr>
+                    <td style={{ fontWeight: '800' }}>Carton Qty</td>
+                    <td style={{ fontWeight: '400' }}>: {deliveryChallan.carton_qty || ''}</td>
+                  </tr>
+                </>
+            )}
+            
             <tr>
               <td style={{ fontWeight: '800' }}>Status</td>
               <td style={{ fontWeight: '400' }}>: {deliveryChallan.status || ''}</td>
             </tr>
+
           </tbody>
         </table>
       </td>
@@ -642,9 +701,20 @@ const DeltaDCPrintLayout = () => {
 
                   <tbody>
   {materials.map((item, index) => {
-    const sentQty = item.qty_per_carton * deliveryChallan.carton_qty;
-    const receivedQty = item.received_qty !== undefined ? item.received_qty : item.total_qty;
-    const balance = item.balance_qty !== undefined ? item.balance_qty : (sentQty - receivedQty);
+    // Handle multiple products vs single product
+    let sentQty, receivedQty, balance;
+    
+    if (deliveryChallan.products && deliveryChallan.products.length > 0) {
+      // Multiple products
+      sentQty = item.total_qty || 0;
+      receivedQty = item.received_qty !== undefined ? item.received_qty : item.total_qty;
+      balance = item.balance_qty !== undefined ? item.balance_qty : (sentQty - receivedQty);
+    } else {
+      // Single product (backward compatibility)
+      sentQty = item.qty_per_carton * deliveryChallan.carton_qty;
+      receivedQty = item.received_qty !== undefined ? item.received_qty : item.total_qty;
+      balance = item.balance_qty !== undefined ? item.balance_qty : (sentQty - receivedQty);
+    }
 
     return (
       <tr key={item._id || index}>

@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import apiWithOfflineSupport from '../../utils/apiWithOfflineSupport';
 import Card from '../../components/common/Card';
-import { FaSpinner, FaExclamationTriangle, FaEye, FaPlus, FaTimes } from 'react-icons/fa';
+import { FaSpinner, FaExclamationTriangle, FaEye, FaPlus, FaTimes, FaTrash } from 'react-icons/fa';
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import DeliveryChallanDetailModal from '../../components/deliveryChallan/DeliveryChallanDetailModal';
 import { useAuth } from '../../context/AuthContext'; // Add this import
+import Select from 'react-select'; // Add this import
 
 const OutgoingPackingMaterials = () => {
     // State for materials, product mappings, suppliers, and delivery challan records
@@ -17,7 +18,7 @@ const OutgoingPackingMaterials = () => {
     // Form state
     const [unitType, setUnitType] = useState('Own Unit');
     const [supplierId, setSupplierId] = useState('');
-    const [productName, setProductName] = useState('');
+    const [selectedProduct, setSelectedProduct] = useState(null); // For multi-select
     const [cartonQty, setCartonQty] = useState('');
     const [dcDate, setDcDate] = useState(new Date().toISOString().split('T')[0]);
     const [remarks, setRemarks] = useState('');
@@ -29,6 +30,9 @@ const OutgoingPackingMaterials = () => {
     const [newPersonName, setNewPersonName] = useState('');
     const [editingPersonName, setEditingPersonName] = useState(null);
     const [isPersonNamesLoading, setIsPersonNamesLoading] = useState(false);
+    
+    // Multi-product state
+    const [selectedProducts, setSelectedProducts] = useState([]); // Array of selected products with quantities
     
     // Calculated materials based on product mapping and carton quantity
     const [calculatedMaterials, setCalculatedMaterials] = useState([]);
@@ -46,24 +50,37 @@ const OutgoingPackingMaterials = () => {
     // Add auth context to get logged-in user
     const { user } = useAuth();
 
-    // Calculate materials when product and carton quantity change
+    // Calculate materials when selected products change
     useEffect(() => {
-        if (productName && cartonQty && cartonQty > 0) {
-            const mapping = productMappings.find(m => m.product_name === productName);
-            if (mapping) {
-                const calculated = mapping.materials.map(material => ({
-                    material_name: material.material_name,
-                    qty_per_carton: material.qty_per_carton,
-                    total_qty: material.qty_per_carton * cartonQty
-                }));
-                setCalculatedMaterials(calculated);
-            } else {
-                setCalculatedMaterials([]);
-            }
+        if (selectedProducts.length > 0) {
+            // Calculate total materials needed for all selected products
+            const allMaterials = [];
+            
+            selectedProducts.forEach(product => {
+                const mapping = productMappings.find(m => m.product_name === product.product_name);
+                if (mapping) {
+                    mapping.materials.forEach(material => {
+                        const existingMaterial = allMaterials.find(m => m.material_name === material.material_name);
+                        if (existingMaterial) {
+                            // If material already exists, add to the quantity
+                            existingMaterial.total_qty += material.qty_per_carton * product.carton_qty;
+                        } else {
+                            // If new material, add it to the list
+                            allMaterials.push({
+                                material_name: material.material_name,
+                                qty_per_carton: material.qty_per_carton,
+                                total_qty: material.qty_per_carton * product.carton_qty
+                            });
+                        }
+                    });
+                }
+            });
+            
+            setCalculatedMaterials(allMaterials);
         } else {
             setCalculatedMaterials([]);
         }
-    }, [productName, cartonQty, productMappings]);
+    }, [selectedProducts, productMappings]);
 
     // Initial data fetch for materials, product mappings, suppliers, and history
     useEffect(() => {
@@ -95,14 +112,47 @@ const OutgoingPackingMaterials = () => {
         fetchPageData();
     }, []);
 
+    // Add product to the selected products list
+    const addProductToList = () => {
+        if (!selectedProduct || !cartonQty || cartonQty <= 0) {
+            toast.warn('⚠️ Please select a product and enter a valid carton quantity.');
+            return;
+        }
+        
+        // Check if product is already in the list
+        const existingProduct = selectedProducts.find(p => p.product_name === selectedProduct.value);
+        if (existingProduct) {
+            toast.warn('⚠️ This product is already in the list.');
+            return;
+        }
+        
+        // Add product to the list
+        setSelectedProducts(prev => [
+            ...prev,
+            {
+                product_name: selectedProduct.value,
+                carton_qty: parseInt(cartonQty)
+            }
+        ]);
+        
+        // Reset product selection and quantity
+        setSelectedProduct(null);
+        setCartonQty('');
+    };
+
+    // Remove product from the selected products list
+    const removeProductFromList = (productName) => {
+        setSelectedProducts(prev => prev.filter(p => p.product_name !== productName));
+    };
+
     // Handler for form submission
     const handleSubmit = async (e) => {
         e.preventDefault();
         setError('');
         
         // Validate required fields
-        if (!productName || !cartonQty || cartonQty <= 0) {
-            toast.warn('⚠️ Please fill all required fields.');
+        if (selectedProducts.length === 0) {
+            toast.warn('⚠️ Please add at least one product to the list.');
             return;
         }
         
@@ -117,8 +167,7 @@ const OutgoingPackingMaterials = () => {
         try {
             const payload = {
                 unit_type: unitType,
-                product_name: productName,
-                carton_qty: parseInt(cartonQty),
+                products: selectedProducts, // Send array of products
                 date: dcDate,
                 remarks
             };
@@ -143,11 +192,12 @@ const OutgoingPackingMaterials = () => {
                 // Reset form
                 setUnitType('Own Unit');
                 setSupplierId('');
-                setProductName('');
+                setSelectedProduct(null);
                 setCartonQty('');
                 setDcDate(new Date().toISOString().split('T')[0]);
                 setRemarks('');
                 setPersonName(''); // Reset person name
+                setSelectedProducts([]);
                 setCalculatedMaterials([]);
                 
                 // Refresh history
@@ -199,6 +249,12 @@ const OutgoingPackingMaterials = () => {
         );
     };
     
+    // Create options for react-select
+    const productOptions = productMappings.map(mapping => ({
+        value: mapping.product_name,
+        label: mapping.product_name
+    }));
+
     // Handler for DC detail modal
     const handleViewDCDetail = (dcId) => {
         setSelectedDCId(dcId);
@@ -449,27 +505,88 @@ const OutgoingPackingMaterials = () => {
                                     </div>
                                 )}
                                 
-                                {/* Product Name */}
-                                <div>
+                                {/* Product Selection Section */}
+                                <div className="md:col-span-2">
                                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                                        Product Name <span className="text-red-500">*</span>
+                                        Product Selection
                                     </label>
-                                    <select
-                                        value={productName}
-                                        onChange={(e) => setProductName(e.target.value)}
-                                        className="mt-1 block w-full px-3 py-2 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                                    >
-                                        <option value="">Select Product</option>
-                                        {productMappings.map(mapping => (
-                                            <option key={mapping._id} value={mapping.product_name}>
-                                                {mapping.product_name}
-                                            </option>
-                                        ))}
-                                    </select>
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                                        <div className="md:col-span-1">
+                                            <Select
+                                                value={selectedProduct}
+                                                onChange={setSelectedProduct}
+                                                options={productOptions}
+                                                className="mt-1"
+                                                placeholder="Select Product"
+                                            />
+                                        </div>
+                                        
+                                        <div className="md:col-span-1">
+                                            <input
+                                                type="number"
+                                                min="1"
+                                                value={cartonQty}
+                                                onChange={(e) => setCartonQty(e.target.value)}
+                                                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                                                placeholder="Carton Quantity"
+                                            />
+                                        </div>
+                                        
+                                        <div className="md:col-span-1">
+                                            <button
+                                                type="button"
+                                                onClick={addProductToList}
+                                                className="mt-1 w-full inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                                            >
+                                                <FaPlus className="mr-2" /> Add Item
+                                            </button>
+                                        </div>
+                                    </div>
                                 </div>
                                 
+                                {/* Selected Products List */}
+                                {selectedProducts.length > 0 && (
+                                    <div className="md:col-span-2">
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                                            Selected Products
+                                        </label>
+                                        <div className="border border-gray-200 rounded-lg overflow-hidden">
+                                            <table className="min-w-full divide-y divide-gray-200">
+                                                <thead className="bg-gray-50">
+                                                    <tr>
+                                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Product Name</th>
+                                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Carton Quantity</th>
+                                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody className="bg-white divide-y divide-gray-200">
+                                                    {selectedProducts.map((product, index) => (
+                                                        <tr key={index}>
+                                                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                                                                {product.product_name}
+                                                            </td>
+                                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                                                {product.carton_qty}
+                                                            </td>
+                                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => removeProductFromList(product.product_name)}
+                                                                    className="text-red-600 hover:text-red-900"
+                                                                >
+                                                                    <FaTrash />
+                                                                </button>
+                                                            </td>
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                )}
+
                                 {/* Carton Quantity */}
-                                <div>
+                                {/* <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">
                                         Carton Quantity <span className="text-red-500">*</span>
                                     </label>
@@ -480,7 +597,7 @@ const OutgoingPackingMaterials = () => {
                                         onChange={(e) => setCartonQty(e.target.value)}
                                         className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
                                     />
-                                </div>
+                                </div> */}
                                 
                                 {/* Date */}
                                 <div>
@@ -542,7 +659,7 @@ const OutgoingPackingMaterials = () => {
                                         <p className="mt-1 text-xs text-gray-500">Select or add a person to whom materials are being issued</p>
                                     </div>
                                 )}
-                                
+
                                 {/* Issued By Field */}
                                 <div className="md:col-span-2">
                                     <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -702,8 +819,32 @@ const OutgoingPackingMaterials = () => {
                                     <tr key={record._id} className="hover:bg-gray-50">
                                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{record.dc_no}</td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{record.unit_type}</td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{record.product_name}</td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{record.carton_qty}</td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                                            {/* Check if record has multiple products */}
+                                            {record.products && record.products.length > 0 ? (
+                                                // Display multiple products
+                                                <div>
+                                                    {record.products.map((product, index) => (
+                                                        <div key={index}>
+                                                            {product.product_name} ({product.carton_qty})
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            ) : (
+                                                // Display single product (backward compatibility)
+                                                record.product_name
+                                            )}
+                                        </td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                                            {/* Check if record has multiple products */}
+                                            {record.products && record.products.length > 0 ? (
+                                                // Display total cartons for all products
+                                                record.products.reduce((total, product) => total + (product.carton_qty || 0), 0)
+                                            ) : (
+                                                // Display single product carton quantity (backward compatibility)
+                                                record.carton_qty
+                                            )}
+                                        </td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
                                             {getStatusBadge(record.status)}
                                         </td>
@@ -725,6 +866,7 @@ const OutgoingPackingMaterials = () => {
                                         </td>
                                     </tr>
                                 ))
+
                             )}
                         </tbody>
                     </table>

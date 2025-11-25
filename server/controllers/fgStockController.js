@@ -66,15 +66,54 @@ const getFGStockReport = async (req, res) => {
             }
             
             // Calculate total inward from completed GRNs
-            const inwardGRNs = await GRN.find({
+            // First, get GRNs that directly reference this product by productName
+            const directGRNs = await GRN.find({
                 sourceType: 'jobber',
                 status: 'Completed',
                 productName: product.productName
             });
             
-            const totalInward = inwardGRNs.reduce((total, grn) => {
+            let totalInward = directGRNs.reduce((total, grn) => {
                 return total + (grn.cartonsReturned || 0);
             }, 0);
+            
+            // Additionally, get GRNs that reference Delivery Challans with multiple products
+            // We need to find GRNs that reference DCs containing this product
+            const dcGRNs = await GRN.find({
+                sourceType: 'jobber',
+                status: 'Completed',
+                deliveryChallan: { $exists: true, $ne: null },
+                productName: { $ne: product.productName } // Exclude GRNs that already directly reference this product
+            }).populate('deliveryChallan');
+            
+            // For each of these GRNs, check if the referenced DC contains this product
+            for (const grn of dcGRNs) {
+                if (grn.deliveryChallan) {
+                    // Check if this DC contains the product we're looking for
+                    if (grn.deliveryChallan.products && Array.isArray(grn.deliveryChallan.products)) {
+                        const productInDC = grn.deliveryChallan.products.find(p => p.product_name === product.productName);
+                        if (productInDC) {
+                            // This DC contains our product, so we need to calculate the portion that belongs to this product
+                            // If the GRN has a productCartonsReceived field, use that, otherwise distribute evenly
+                            let productCartons = 0;
+                            if (grn.productCartonsReceived && Array.isArray(grn.productCartonsReceived)) {
+                                // Find the index of this product in the DC
+                                const productIndex = grn.deliveryChallan.products.findIndex(p => p.product_name === product.productName);
+                                if (productIndex !== -1 && grn.productCartonsReceived[productIndex] !== undefined) {
+                                    productCartons = parseFloat(grn.productCartonsReceived[productIndex]) || 0;
+                                }
+                            } else {
+                                // Fallback: distribute cartonsReturned evenly among products
+                                const totalCartonsInDC = grn.deliveryChallan.products.reduce((sum, p) => sum + (p.carton_qty || 0), 0);
+                                if (totalCartonsInDC > 0) {
+                                    productCartons = (grn.cartonsReturned || 0) * (productInDC.carton_qty / totalCartonsInDC);
+                                }
+                            }
+                            totalInward += productCartons;
+                        }
+                    }
+                }
+            }
             
             // Calculate total outward from all DCs
             const deliveryChallans = await FinishedGoodsDC.find({

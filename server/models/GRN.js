@@ -152,6 +152,11 @@ const grnSchema = new mongoose.Schema({
         type: Number,
         default: 0,
     },
+    // Add field to store individual product carton quantities for multi-product DCs
+    productCartonsReceived: [{
+        type: Number,
+        default: 0,
+    }],
     // Add fields to store DC number and supplier name for proper display
     dcNumber: {
         type: String,

@@ -30,11 +30,12 @@ const CreateFGGRN = () => {
     const [partialGRN, setPartialGRN] = useState(null);
     const [isEditingPartialGRN, setIsEditingPartialGRN] = useState(false);
     const [existingGRNId, setExistingGRNId] = useState(null);
-    const [cartonsReturned, setCartonsReturned] = useState('');
     const [status, setStatus] = useState('');
     const [materialUsage, setMaterialUsage] = useState([]);
     const [isDamagedStockSaved, setIsDamagedStockSaved] = useState(false); // New state to track if damaged stock has been saved
     const [showDamagedStockSection, setShowDamagedStockSection] = useState(false); // New state to control visibility of damaged stock section
+    // Add state for product-wise carton quantities
+    const [productCartonsReceived, setProductCartonsReceived] = useState([]);
     const navigate = useNavigate();
 
     const selectedDC = deliveryChallans.find(dc => dc._id === selectedDCOption?.value);
@@ -50,12 +51,33 @@ const CreateFGGRN = () => {
     
     // Function to calculate material usage based on cartons returned
     const calculateMaterialUsage = useCallback((dc, cartonsReturnedValue) => {
-        if (!dc || !dc.materials) return [];
+        if (!dc) return [];
         
-        const cartonsSent = dc.carton_qty || 0;
+        // Handle both single product (backward compatibility) and multiple products
+        let materialsToProcess = [];
+        let cartonsSent = 0;
+        
+        if (dc.products && dc.products.length > 0) {
+            // For multiple products, collect all materials from all products
+            dc.products.forEach(product => {
+                if (product.materials && Array.isArray(product.materials)) {
+                    materialsToProcess = materialsToProcess.concat(product.materials);
+                }
+            });
+            // For multiple products, we need to calculate total cartons sent
+            cartonsSent = dc.products.reduce((total, product) => total + (product.carton_qty || 0), 0);
+        } else if (dc.materials && Array.isArray(dc.materials)) {
+            // For single product (backward compatibility)
+            materialsToProcess = dc.materials;
+            cartonsSent = dc.carton_qty || 0;
+        }
+        
+        // If no materials to process, return empty array
+        if (materialsToProcess.length === 0) return [];
+        
         const cartonsReturnedNum = parseInt(cartonsReturnedValue) || 0;
         
-        return dc.materials.map(material => {
+        return materialsToProcess.map(material => {
             const sentQty = material.total_qty || 0;
             // UsedQty = (CartonsReturned / CartonsSent) * SentQty
             const usedQty = cartonsSent > 0 ? (cartonsReturnedNum / cartonsSent) * sentQty : 0;
@@ -71,34 +93,26 @@ const CreateFGGRN = () => {
         });
     }, []);
     
-    // Update material usage when cartons returned changes
-    useEffect(() => {
-        if (dcDetails && cartonsReturned !== '') {
-            const usage = calculateMaterialUsage(dcDetails, cartonsReturned);
-            setMaterialUsage(usage);
-            
-            // Update status based on carton quantities
-            const cartonsSent = dcDetails.carton_qty || 0;
-            const cartonsReturnedNum = parseInt(cartonsReturned) || 0;
-            
-            if (cartonsReturnedNum > cartonsSent) {
-                toast.error("Returned cartons cannot exceed sent cartons");
-                setStatus("Error");
-            } else if (cartonsReturnedNum < cartonsSent) {
-                setStatus("Partial");
-            } else {
-                setStatus("Completed");
-            }
-        } else {
-            setMaterialUsage([]);
-        }
-    }, [cartonsReturned, dcDetails, calculateMaterialUsage]);
-    
     // Initialize damaged stock when dcDetails changes
     useEffect(() => {
         if (dcDetails) {
             // Initialize damaged stock with materials from DC and their sent quantities
-            const initialDamagedStock = dcDetails.materials.map(material => ({
+            // Handle both single product (backward compatibility) and multiple products
+            let materialsToProcess = [];
+            
+            if (dcDetails.products && dcDetails.products.length > 0) {
+                // For multiple products, collect all materials from all products
+                dcDetails.products.forEach(product => {
+                    if (product.materials && Array.isArray(product.materials)) {
+                        materialsToProcess = materialsToProcess.concat(product.materials);
+                    }
+                });
+            } else if (dcDetails.materials && Array.isArray(dcDetails.materials)) {
+                // For single product (backward compatibility)
+                materialsToProcess = dcDetails.materials;
+            }
+            
+            const initialDamagedStock = materialsToProcess.map(material => ({
                 material_name: material.material_name,
                 received_qty: material.total_qty || 0, // Use sent quantity as received quantity
                 damaged_qty: 0
@@ -140,6 +154,16 @@ const CreateFGGRN = () => {
                     const dcData = dcResponse.data;
                     setDcDetails(dcData);
                     
+                    // Initialize product-wise carton quantities for multiple products
+                    if (dcData.products && dcData.products.length > 0) {
+                        // Initialize with empty values for each product
+                        const initialProductCartons = dcData.products.map(() => '');
+                        setProductCartonsReceived(initialProductCartons);
+                    } else {
+                        // Reset for single product
+                        setProductCartonsReceived([]);
+                    }
+                    
                     // Fetch existing GRNs for this DC to check for partial receipts
                     const grnResponse = await api.get(`/grn?deliveryChallan=${selectedDCOption.value}`);
                     const existingGRNs = grnResponse.data;
@@ -178,12 +202,8 @@ const CreateFGGRN = () => {
                             pending: pendingQty,
                             currentGRNReceived: 0
                         });
-                        
-                        // Always start with an empty input for the new receipt.
-                        setCartonsReturned('');
                     } else {
                         // No existing GRNs
-                        setCartonsReturned('');
                         setHasExistingGRN(false);
                         setExistingGRNStatus(null);
                         setExistingGRNId(null);
@@ -202,7 +222,23 @@ const CreateFGGRN = () => {
                     // Initialize items with received quantities from existing partial GRN if available
                     // For jobber delivery challans, we need to look up the material IDs
                     const initializedItems = [];
-                    for (const material of dcData.materials) {
+                    
+                    // Handle both single product (backward compatibility) and multiple products
+                    let materialsToProcess = [];
+                    
+                    if (dcData.products && dcData.products.length > 0) {
+                        // For multiple products, collect all materials from all products
+                        dcData.products.forEach(product => {
+                            if (product.materials && Array.isArray(product.materials)) {
+                                materialsToProcess = materialsToProcess.concat(product.materials);
+                            }
+                        });
+                    } else if (dcData.materials && Array.isArray(dcData.materials)) {
+                        // For single product (backward compatibility)
+                        materialsToProcess = dcData.materials;
+                    }
+                    
+                    for (const material of materialsToProcess) {
                         // Look up the material by name to get its ID
                         try {
                             // Use the updated API endpoint that supports name search
@@ -273,7 +309,22 @@ const CreateFGGRN = () => {
                     setItems(initializedItems);
                     
                     // Initialize damaged stock with materials from DC and their sent quantities
-                    const initialDamagedStock = dcData.materials.map(material => ({
+                    // Handle both single product (backward compatibility) and multiple products
+                    let materialsToProcessForDamaged = [];
+                    
+                    if (dcData.products && dcData.products.length > 0) {
+                        // For multiple products, collect all materials from all products
+                        dcData.products.forEach(product => {
+                            if (product.materials && Array.isArray(product.materials)) {
+                                materialsToProcessForDamaged = materialsToProcessForDamaged.concat(product.materials);
+                            }
+                        });
+                    } else if (dcData.materials && Array.isArray(dcData.materials)) {
+                        // For single product (backward compatibility)
+                        materialsToProcessForDamaged = dcData.materials;
+                    }
+                    
+                    const initialDamagedStock = materialsToProcessForDamaged.map(material => ({
                         material_name: material.material_name,
                         received_qty: material.total_qty || 0, // Use sent quantity as received quantity
                         damaged_qty: 0
@@ -306,7 +357,6 @@ const CreateFGGRN = () => {
             setPartialGRN(null);
             setExistingGRNId(null);
             setIsEditingPartialGRN(false);
-            setCartonsReturned('');
             setMaterialUsage([]);
             setDamagedStock([]);
             setSavedDamagedStock([]);
@@ -320,6 +370,13 @@ const CreateFGGRN = () => {
         setItems(newItems);
     };
     
+    // Handler for product-wise carton quantities
+    const handleProductCartonsReceivedChange = (index, value) => {
+        const newProductCartonsReceived = [...productCartonsReceived];
+        newProductCartonsReceived[index] = value;
+        setProductCartonsReceived(newProductCartonsReceived);
+    };
+
     // Calculate remaining quantity for each material based on saved damaged stock entries
     const calculateRemainingQty = (materialName, sentQty) => {
         const savedEntries = savedDamagedStock.filter(entry => entry.material_name === materialName);
@@ -407,7 +464,22 @@ const CreateFGGRN = () => {
             }
             
             // Reset damaged stock form
-            const resetDamagedStock = dcDetails.materials.map(material => ({
+            // Handle both single product (backward compatibility) and multiple products
+            let materialsToProcess = [];
+            
+            if (dcDetails.products && dcDetails.products.length > 0) {
+                // For multiple products, collect all materials from all products
+                dcDetails.products.forEach(product => {
+                    if (product.materials && Array.isArray(product.materials)) {
+                        materialsToProcess = materialsToProcess.concat(product.materials);
+                    }
+                });
+            } else if (dcDetails.materials && Array.isArray(dcDetails.materials)) {
+                // For single product (backward compatibility)
+                materialsToProcess = dcDetails.materials;
+            }
+            
+            const resetDamagedStock = materialsToProcess.map(material => ({
                 material_name: material.material_name,
                 received_qty: material.total_qty || 0,
                 damaged_qty: 0
@@ -431,7 +503,22 @@ const CreateFGGRN = () => {
     // New function to reset damaged stock
     const handleResetDamagedStock = () => {
         if (dcDetails) {
-            const resetDamagedStock = dcDetails.materials.map(material => ({
+            // Handle both single product (backward compatibility) and multiple products
+            let materialsToProcess = [];
+            
+            if (dcDetails.products && dcDetails.products.length > 0) {
+                // For multiple products, collect all materials from all products
+                dcDetails.products.forEach(product => {
+                    if (product.materials && Array.isArray(product.materials)) {
+                        materialsToProcess = materialsToProcess.concat(product.materials);
+                    }
+                });
+            } else if (dcDetails.materials && Array.isArray(dcDetails.materials)) {
+                // For single product (backward compatibility)
+                materialsToProcess = dcDetails.materials;
+            }
+            
+            const resetDamagedStock = materialsToProcess.map(material => ({
                 material_name: material.material_name,
                 received_qty: material.total_qty || 0,
                 damaged_qty: 0
@@ -461,100 +548,123 @@ const CreateFGGRN = () => {
         }
     };
 
+    // Handle form submission
     const handleSubmit = async (e) => {
         e.preventDefault();
+        e.stopPropagation(); // Prevent event bubbling
+        
+        // Clear previous messages
         setError('');
         setSuccess('');
-        setIsLoading(true);
-
-        // Prevent submission if GRN is locked
-        if (isGRNLocked) {
-            setError('This GRN is locked and cannot be modified.');
-            setIsLoading(false);
+        
+        // Validate form
+        if (!selectedDCOption) {
+            const errorMessage = 'Please select a delivery challan.';
+            setError(errorMessage);
+            toast.error(errorMessage);
             return;
         }
-
-        // Validate carton quantities
-        if (dcDetails) {
-            const cartonsReturnedNum = parseInt(cartonsReturned);
-            const cartonsSent = dcDetails.carton_qty || 0;
-            
-            // Calculate total received quantity from all existing GRNs for this DC (excluding current GRN if editing)
-            let totalReceived = 0;
-            if (hasExistingGRN && partialGRN) {
-                totalReceived = partialGRN.totalReceived;
-                // If we're editing a partial GRN, subtract the current GRN's cartonsReturned
-                if (isEditingPartialGRN && partialGRN.currentGRNReceived) {
-                    totalReceived = totalReceived - partialGRN.currentGRNReceived;
-                }
-            }
-            
-            // Calculate pending cartons based on existing GRNs
-            const pendingCartons = cartonsSent - totalReceived;
-            
-            if (cartonsReturned === '') {
-                setError('Please enter the number of cartons returned.');
-                setIsLoading(false);
-                return;
-            }
-            
-            // Validate that newReceivedQty > 0 and ≤ pendingQty
-            if (cartonsReturnedNum <= 0) {
-                setError('Returned cartons must be greater than zero.');
-                setIsLoading(false);
-                return;
-            }
-            
-            if (cartonsReturnedNum > pendingCartons) {
-                setError(`Returned cartons cannot exceed pending cartons. Pending: ${pendingCartons}`);
-                setIsLoading(false);
-                return;
-            }
-            
-            // Validate receiver name
-            if (!receivedBy || receivedBy.trim() === '') {
-                setError('Receiver name is required.');
-                setIsLoading(false);
-                return;
-            }
-            
-            // Validate damaged stock quantities
-            if (damagedStock && Array.isArray(damagedStock)) {
-                for (const item of damagedStock) {
-                    const receivedQty = item.received_qty || 0;
-                    const damagedQty = item.damaged_qty || 0;
-                    
-                    if (damagedQty > receivedQty) {
-                        setError(`Damaged quantity for ${item.material_name} cannot exceed received quantity.`);
-                        setIsLoading(false);
-                        return;
-                    }
-                }
-            }
-            
-            // Set status based on carton quantities
-            let grnStatus = 'Partial';
-            if (cartonsReturnedNum === pendingCartons) {
-                grnStatus = 'Completed';
-                toast.success("GRN and Delivery Challan marked as Completed.");
-            } else {
-                toast.warn("GRN saved as Partial.");
-            }
-            
-            setStatus(grnStatus);
+        
+        if (!receivedBy.trim()) {
+            const errorMessage = 'Please enter who received the materials.';
+            setError(errorMessage);
+            toast.error(errorMessage);
+            return;
         }
+        
+        // Handle multiple products vs single product
+        let cartonsReturnedNum = 0;
+        let pendingCartons = 0;
+        
+        if (dcDetails.products && dcDetails.products.length > 0) {
+            // Handle multiple products
+            // Calculate total cartons sent
+            const totalCartonsSent = dcDetails.products.reduce((total, product) => total + (product.carton_qty || 0), 0);
+            
+            // Calculate total cartons received from product inputs
+            cartonsReturnedNum = productCartonsReceived.reduce((total, cartons, index) => {
+                const product = dcDetails.products[index];
+                const cartonsSent = product ? product.carton_qty || 0 : 0;
+                const cartonsReceived = parseInt(cartons) || 0;
+                
+                // Validate that received doesn't exceed sent
+                if (cartonsReceived > cartonsSent) {
+                    toast.error(`Cartons received for ${product.product_name} cannot exceed cartons sent (${cartonsSent})`);
+                    throw new Error('Invalid carton quantity');
+                }
+                
+                return total + cartonsReceived;
+            }, 0);
+            
+            // Calculate pending cartons from existing GRNs
+            const grnResponse = await api.get(`/grn?deliveryChallan=${selectedDCOption.value}`);
+            const existingGRNs = grnResponse.data;
+            const jobberGRNs = existingGRNs.filter(grn => grn.sourceType === 'jobber');
+            const totalReceivedQty = jobberGRNs.reduce((sum, grn) => sum + (grn.cartonsReturned || 0), 0);
+            pendingCartons = totalCartonsSent - totalReceivedQty;
+            
+            // Set the main cartonsReturned field for the API call
+        }
+        
+        // Validate carton quantities
+        if (cartonsReturnedNum > pendingCartons) {
+            const errorMessage = `Returned cartons cannot exceed pending cartons. Pending: ${pendingCartons}`;
+            setError(errorMessage);
+            toast.error(errorMessage);
+            return;
+        }
+        
+        if (cartonsReturnedNum <= 0) {
+            const errorMessage = 'Returned cartons must be greater than zero.';
+            setError(errorMessage);
+            toast.error(errorMessage);
+            return;
+        }
+        
+        // Validate receiver name
+        if (!receivedBy || receivedBy.trim() === '') {
+            setError('Receiver name is required.');
+            return;
+        }
+        
+        // Validate damaged stock quantities
+        if (damagedStock && Array.isArray(damagedStock)) {
+            for (const item of damagedStock) {
+                const receivedQty = item.received_qty || 0;
+                const damagedQty = item.damaged_qty || 0;
+                
+                if (damagedQty > receivedQty) {
+                    setError(`Damaged quantity for ${item.material_name} cannot exceed received quantity.`);
+                    return;
+                }
+            }
+        }
+        
+        // Set status based on carton quantities
+        let grnStatus = 'Partial';
+        if (cartonsReturnedNum === pendingCartons) {
+            grnStatus = 'Completed';
+            toast.success("GRN and Delivery Challan marked as Completed.");
+        } else {
+            toast.warn("GRN saved as Partial.");
+        }
+        
+        setStatus(grnStatus);
         
         // Prepare GRN data - only for jobber DCs
         const grnData = {
             deliveryChallanId: selectedDCOption?.value,
-            cartonsReturned: parseInt(cartonsReturned),
-            receivedBy,
-            dateReceived,
-            damagedStock, // Include damaged stock data
+            cartonsReturned: cartonsReturnedNum.toString(), // Send as string to match server expectations
+            receivedBy: receivedBy.trim(), // Ensure no leading/trailing whitespace
+            dateReceived: new Date(dateReceived).toISOString(), // Ensure proper date format
+            damagedStock: damagedStock && Array.isArray(damagedStock) ? damagedStock : [], // Ensure it's always an array
+            // Add individual product carton quantities for multiple products
+            productCartonsReceived: dcDetails.products && dcDetails.products.length > 0 ? productCartonsReceived : undefined
         };
 
         
         try {
+            setIsLoading(true);
             // We are now ALWAYS creating a new GRN, so we only need the api.post call.
             const response = await api.post('/grn', grnData);
             toast.success('GRN created successfully!');
@@ -580,7 +690,6 @@ const CreateFGGRN = () => {
         setItems([]);
         setReceivedBy('');
         setDateReceived(new Date().toISOString().split('T')[0]);
-        setCartonsReturned('');
         setStatus('');
         setMaterialUsage([]);
         setError('');
@@ -596,6 +705,8 @@ const CreateFGGRN = () => {
         setDamagedStock([]);
         setSavedDamagedStock([]);
         setShowDamagedStockSection(false); // Hide damaged stock section on reset
+        // Reset product-wise carton quantities
+        setProductCartonsReceived([]);
     };
 
     // Initialize receivedBy with user's name when component mounts
@@ -716,55 +827,118 @@ const CreateFGGRN = () => {
                             
                             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                                 <h3 className="font-medium text-blue-800 mb-3">Delivery Challan Details</h3>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                                    <div>
-                                        <span className="font-medium">DC Number:</span> {dcDetails.dc_no}
+                                
+                                {/* Check if DC has multiple products */}
+                                {dcDetails.products && dcDetails.products.length > 0 ? (
+                                    // Display multiple products
+                                    <div className="space-y-4">
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                                            <div>
+                                                <span className="font-medium">DC Number:</span> {dcDetails.dc_no}
+                                            </div>
+                                            <div>
+                                                <span className="font-medium">Issued To:</span> {dcDetails.unit_type === 'Own Unit' ? (dcDetails.person_name || 'N/A') : (dcDetails.supplier_id?.name || 'N/A')} / {dcDetails.unit_type === 'Own Unit' ? 'Own Unit' : 'Jobber'}
+                                            </div>
+                                            <div>
+                                                <span className="font-medium">Date:</span> {new Date(dcDetails.date).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' }).replace(/\//g, '-')}
+                                            </div>
+                                            <div>
+                                                <span className="font-medium">Unit Type:</span> {dcDetails.unit_type === 'Own Unit' ? 'Own Unit' : 'Jobber'}
+                                            </div>
+                                            <div>
+                                                <span className="font-medium">Status:</span> 
+                                                <span className={`ml-2 px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                                                    dcDetails.status === 'Completed' ? 'bg-green-100 text-green-800' :
+                                                    dcDetails.status === 'Partial' ? 'bg-orange-100 text-orange-800' :
+                                                    dcDetails.status === 'Pending' ? 'bg-yellow-100 text-yellow-800' :
+                                                    'bg-gray-100 text-gray-800'
+                                                }`}>
+                                                    {dcDetails.status}
+                                                </span>
+                                            </div>
+                                        </div>
+                                        
+                                        {/* Products Table */}
+                                        <div className="mt-4">
+                                            <h4 className="font-medium text-blue-700 mb-2">Products</h4>
+                                            <div className="overflow-x-auto">
+                                                <table className="min-w-full divide-y divide-gray-200">
+                                                    <thead className="bg-gray-50">
+                                                        <tr>
+                                                            <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Product Name</th>
+                                                            <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Cartons Sent</th>
+                                                            <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Cartons Received*</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody className="bg-white divide-y divide-gray-200">
+                                                        {dcDetails.products.map((product, index) => (
+                                                            <tr key={index}>
+                                                                <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">
+                                                                    {product.product_name}
+                                                                </td>
+                                                                <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">
+                                                                    {product.carton_qty || 0}
+                                                                </td>
+                                                                <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">
+                                                                    <input
+                                                                        type="number"
+                                                                        min="0"
+                                                                        value={productCartonsReceived[index] || ''}
+                                                                        onChange={(e) => handleProductCartonsReceivedChange(index, e.target.value)}
+                                                                        className="w-24 px-2 py-1 border border-gray-300 rounded"
+                                                                        disabled={isLoading || isGRNLocked}
+                                                                    />
+                                                                </td>
+                                                            </tr>
+                                                        ))}
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        </div>
                                     </div>
-                                    <div>
-                                        <span className="font-medium">Issued To:</span> {dcDetails.unit_type === 'Own Unit' ? (dcDetails.person_name || 'N/A') : (dcDetails.supplier_id?.name || 'N/A')} / {dcDetails.unit_type === 'Own Unit' ? 'Own Unit' : 'Jobber'}
+                                ) : (
+                                    // Display single product (backward compatibility)
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                                        <div>
+                                            <span className="font-medium">DC Number:</span> {dcDetails.dc_no}
+                                        </div>
+                                        <div>
+                                            <span className="font-medium">Issued To:</span> {dcDetails.unit_type === 'Own Unit' ? (dcDetails.person_name || 'N/A') : (dcDetails.supplier_id?.name || 'N/A')} / {dcDetails.unit_type === 'Own Unit' ? 'Own Unit' : 'Jobber'}
+                                        </div>
+                                        <div>
+                                            <span className="font-medium">Date:</span> {new Date(dcDetails.date).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' }).replace(/\//g, '-')}
+                                        </div>
+                                        <div>
+                                            <span className="font-medium">Cartons Sent:</span> {dcDetails.carton_qty || 0}
+                                        </div>
+                                        <div>
+                                            <span className="font-medium">Unit Type:</span> {dcDetails.unit_type === 'Own Unit' ? 'Own Unit' : 'Jobber'}
+                                        </div>
+                                        <div>
+                                            <span className="font-medium">Status:</span> 
+                                            <span className={`ml-2 px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                                                dcDetails.status === 'Completed' ? 'bg-green-100 text-green-800' :
+                                                dcDetails.status === 'Partial' ? 'bg-orange-100 text-orange-800' :
+                                                dcDetails.status === 'Pending' ? 'bg-yellow-100 text-yellow-800' :
+                                                'bg-gray-100 text-gray-800'
+                                            }`}>
+                                                {dcDetails.status}
+                                            </span>
+                                        </div>
                                     </div>
-                                    <div>
-                                        <span className="font-medium">Date:</span> {new Date(dcDetails.date).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' }).replace(/\//g, '-')}
-                                    </div>
-                                    <div>
-                                        <span className="font-medium">Cartons Sent:</span> {dcDetails.carton_qty || 0}
-                                    </div>
-                                    <div>
-                                        <span className="font-medium">Unit Type:</span> {dcDetails.unit_type === 'Own Unit' ? 'Own Unit' : 'Jobber'}
-                                    </div>
-                                    <div>
-                                        <span className="font-medium">Status:</span> 
-                                        <span className={`ml-2 px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                                            dcDetails.status === 'Completed' ? 'bg-green-100 text-green-800' :
-                                            dcDetails.status === 'Partial' ? 'bg-orange-100 text-orange-800' :
-                                            dcDetails.status === 'Pending' ? 'bg-yellow-100 text-yellow-800' :
-                                            'bg-gray-100 text-gray-800'
-                                        }`}>
-                                            {dcDetails.status}
-                                        </span>
-                                    </div>
-                                </div>
+                                )}
                             </div>
 
                             {/* Carton Information */}
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                                 
-                                    <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
-                                        <div className="bg-blue-100 text-blue-800 px-3 py-3 rounded-lg font-medium whitespace-nowrap">
-                                            Cartons Sent: {dcDetails.carton_qty || 0}
-                                        </div>
-                                        <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                                        Cartons Received *
-                                    </label>
-                                        <input
-                                            type="number"
-                                            value={cartonsReturned}
-                                            onChange={(e) => setCartonsReturned(e.target.value)}
-                                            className="flex-1 w-full sm:w-auto px-4 py-3 text-gray-700 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                                            min="0"
-                                            disabled={isLoading || isGRNLocked}
-                                        />
+                                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+                                    <div className="bg-blue-100 text-blue-800 px-3 py-3 rounded-lg font-medium whitespace-nowrap">
+                                        Cartons Sent: {
+                                            dcDetails.products && dcDetails.products.length > 0 
+                                                ? dcDetails.products.reduce((total, product) => total + (product.carton_qty || 0), 0)
+                                                : (dcDetails.carton_qty || 0)
+                                        }
                                     </div>
                                 </div>
                                 

@@ -205,17 +205,30 @@ const updateDeliveryChallanQuantities = async (deliveryChallanId, grnItems, grnI
         }
         
         // Update each material's received and balance quantities in the delivery challan
-        for (const dcMaterial of dc.materials) {
-            const totalReceived = materialReceivedTotals[dcMaterial.material_name] || 0;
-            
-            // Update received quantity
-            dcMaterial.received_qty = totalReceived;
-            // Update balance quantity
-            dcMaterial.balance_qty = dcMaterial.total_qty - dcMaterial.received_qty;
-            
-            // Update material status
-            if (dcMaterial.balance_qty === 0) {
-                // Material status is not stored in the DC model, but we can use this for overall DC status calculation
+        // Handle both single product (backward compatibility) and multiple products
+        if (dc.products && dc.products.length > 0) {
+            // For multiple products, update materials in each product
+            for (const product of dc.products) {
+                if (product.materials && Array.isArray(product.materials)) {
+                    for (const material of product.materials) {
+                        const totalReceived = materialReceivedTotals[material.material_name] || 0;
+                        
+                        // Update received quantity
+                        material.received_qty = totalReceived;
+                        // Update balance quantity
+                        material.balance_qty = material.total_qty - material.received_qty;
+                    }
+                }
+            }
+        } else {
+            // For single product (backward compatibility)
+            for (const dcMaterial of dc.materials) {
+                const totalReceived = materialReceivedTotals[dcMaterial.material_name] || 0;
+                
+                // Update received quantity
+                dcMaterial.received_qty = totalReceived;
+                // Update balance quantity
+                dcMaterial.balance_qty = dcMaterial.total_qty - dcMaterial.received_qty;
             }
         }
         
@@ -290,19 +303,22 @@ const checkPOForGRN = async (req, res) => {
 const createGRN = async (req, res) => {
     let { purchaseOrderId, deliveryChallanId, items, receivedBy, dateReceived, cartonsReturned, damagedStock } = req.body;
         
-        // Parse cartonsReturned as a number if it's provided
-        console.log(`Parsing cartonsReturned: ${cartonsReturned}`);
-        if (cartonsReturned !== undefined) {
-            cartonsReturned = parseFloat(cartonsReturned);
-            console.log(`Parsed cartonsReturned: ${cartonsReturned}`);
-            // Validate that cartonsReturned is a valid number
-            if (isNaN(cartonsReturned)) {
-                console.log(`Invalid carton quantity provided: ${cartonsReturned}`);
-                return res.status(400).json({ 
-                    message: 'Invalid carton quantity provided.' 
-                });
-            }
+    // Add logging to help diagnose issues
+    console.log('GRN Creation Request Body:', JSON.stringify(req.body, null, 2));
+    
+    // Parse cartonsReturned as a number if it's provided
+    console.log(`Parsing cartonsReturned: ${cartonsReturned}`);
+    if (cartonsReturned !== undefined) {
+        cartonsReturned = parseFloat(cartonsReturned);
+        console.log(`Parsed cartonsReturned: ${cartonsReturned}`);
+        // Validate that cartonsReturned is a valid number
+        if (isNaN(cartonsReturned)) {
+            console.log(`Invalid carton quantity provided: ${cartonsReturned}`);
+            return res.status(400).json({ 
+                message: 'Invalid carton quantity provided.' 
+            });
         }
+    }
 
     try {
         // Check if user is authenticated
@@ -337,8 +353,16 @@ const createGRN = async (req, res) => {
             // Handle carton-based GRN creation for delivery challans
             if (cartonsReturned !== undefined) {
                 // Carton-based GRN logic
-                console.log(`Parsing cartonsSent from dc.carton_qty: ${dc.carton_qty}`);
-                const cartonsSent = parseFloat(dc.carton_qty) || 0;
+                // Handle both single product (backward compatibility) and multiple products
+                let cartonsSent = 0;
+                if (dc.products && dc.products.length > 0) {
+                    // For multiple products, calculate total cartons sent
+                    cartonsSent = dc.products.reduce((total, product) => total + (product.carton_qty || 0), 0);
+                } else {
+                    // For single product (backward compatibility)
+                    cartonsSent = parseFloat(dc.carton_qty) || 0;
+                }
+                
                 console.log(`Parsed cartonsSent: ${cartonsSent}`);
                 // Validate that cartonsSent is a valid number
                 if (isNaN(cartonsSent) || cartonsSent <= 0) {
@@ -431,34 +455,79 @@ const createGRN = async (req, res) => {
                 
                 // Process items to calculate usedQty and remainingQty based on carton return
                 const processedItems = [];
-                for (const material of dc.materials) {
-                    // Calculate usedQty and remainingQty using the formula:
-                    // UsedQty = (CartonsReturned / CartonsSent) * SentQty
-                    // RemainingQty = SentQty - UsedQty
-                    const sentQty = material.total_qty || 0;
-                    const usedQty = cartonsSent > 0 ? (cartonsReturned / cartonsSent) * sentQty : 0;
-                    const remainingQty = sentQty - usedQty;
+                
+                // Handle multiple products in the DC
+                // Handle both single product (backward compatibility) and multiple products
+                let productNameForGRN = '';
+                if (dc.products && dc.products.length > 0) {
+                    // Handle multiple products
+                    // For backward compatibility, we'll use the first product name for the main GRN field
+                    productNameForGRN = dc.products[0].product_name;
                     
-                    // Get damaged quantity from the request if provided
-                    let damagedQty = 0;
-                    if (damagedStock && Array.isArray(damagedStock)) {
-                        const damagedItem = damagedStock.find(item => item.material_name === material.material_name);
-                        damagedQty = damagedItem ? damagedItem.damaged_qty : 0;
+                    // Process materials for all products
+                    for (const product of dc.products) {
+                        for (const material of product.materials) {
+                            // Calculate usedQty and remainingQty using the formula:
+                            // UsedQty = (CartonsReturned / CartonsSent) * SentQty
+                            // RemainingQty = SentQty - UsedQty
+                            const sentQty = material.total_qty || 0;
+                            const usedQty = cartonsSent > 0 ? (cartonsReturned / cartonsSent) * sentQty : 0;
+                            const remainingQty = sentQty - usedQty;
+                            
+                            // Get damaged quantity from the request if provided
+                            let damagedQty = 0;
+                            if (damagedStock && Array.isArray(damagedStock)) {
+                                const damagedItem = damagedStock.find(item => item.material_name === material.material_name);
+                                damagedQty = damagedItem ? damagedItem.damaged_qty : 0;
+                            }
+                            
+                            processedItems.push({
+                                material: material.material_name, // For jobber DCs, we store material name as string
+                                materialModel: 'PackingMaterial', // Jobber is always packing materials
+                                orderedQuantity: sentQty,
+                                receivedQuantity: usedQty, // Use calculated usedQty as received quantity
+                                unitPrice: 0, // No price info for delivery challans
+                                totalPrice: 0,
+                                damagedQuantity: damagedQty,
+                                remarks: '',
+                                balanceQuantity: remainingQty,
+                                usedQty: usedQty,
+                                remainingQty: remainingQty
+                            });
+                        }
                     }
-                    
-                    processedItems.push({
-                        material: material.material_name, // For jobber DCs, we store material name as string
-                        materialModel: 'PackingMaterial', // Jobber is always packing materials
-                        orderedQuantity: sentQty,
-                        receivedQuantity: usedQty, // Use calculated usedQty as received quantity
-                        unitPrice: 0, // No price info for delivery challans
-                        totalPrice: 0,
-                        damagedQuantity: damagedQty,
-                        remarks: '',
-                        balanceQuantity: remainingQty,
-                        usedQty: usedQty,
-                        remainingQty: remainingQty
-                    });
+                } else {
+                    // Handle single product (backward compatibility)
+                    productNameForGRN = dc.product_name;
+                    for (const material of dc.materials) {
+                        // Calculate usedQty and remainingQty using the formula:
+                        // UsedQty = (CartonsReturned / CartonsSent) * SentQty
+                        // RemainingQty = SentQty - UsedQty
+                        const sentQty = material.total_qty || 0;
+                        const usedQty = cartonsSent > 0 ? (cartonsReturned / cartonsSent) * sentQty : 0;
+                        const remainingQty = sentQty - usedQty;
+                        
+                        // Get damaged quantity from the request if provided
+                        let damagedQty = 0;
+                        if (damagedStock && Array.isArray(damagedStock)) {
+                            const damagedItem = damagedStock.find(item => item.material_name === material.material_name);
+                            damagedQty = damagedItem ? damagedItem.damaged_qty : 0;
+                        }
+                        
+                        processedItems.push({
+                            material: material.material_name, // For jobber DCs, we store material name as string
+                            materialModel: 'PackingMaterial', // Jobber is always packing materials
+                            orderedQuantity: sentQty,
+                            receivedQuantity: usedQty, // Use calculated usedQty as received quantity
+                            unitPrice: 0, // No price info for delivery challans
+                            totalPrice: 0,
+                            damagedQuantity: damagedQty,
+                            remarks: '',
+                            balanceQuantity: remainingQty,
+                            usedQty: usedQty,
+                            remainingQty: remainingQty
+                        });
+                    }
                 }
 
                 const grnData = {
@@ -472,7 +541,7 @@ const createGRN = async (req, res) => {
                     isSubmitted: true,
                     sourceType: 'jobber',
                     referenceNumber: dc.dc_no,
-                    productName: dc.product_name,
+                    productName: productNameForGRN,
                     cartonsSent,
                     cartonsReturned: parseFloat(cartonsReturned.toFixed(3)),
                     cartonBalance: balance,
@@ -517,10 +586,20 @@ const createGRN = async (req, res) => {
                         
                         // Create damaged stock records for each item
                         const damagedStockPromises = damagedItems.map(item => {
+                            // Handle both single product (backward compatibility) and multiple products
+                            let productName = '';
+                            if (dc.products && dc.products.length > 0) {
+                                // For multiple products, use the first product for backward compatibility
+                                productName = dc.products[0].product_name;
+                            } else {
+                                // For single product (backward compatibility)
+                                productName = dc.product_name;
+                            }
+                            
                             return new DamagedStock({
                                 grn_id: savedGRN._id,
                                 dc_no: dc.dc_no,
-                                product_name: dc.product_name,
+                                product_name: productName,
                                 material_name: item.material_name,
                                 received_qty: item.received_qty,
                                 damaged_qty: item.damaged_qty,
@@ -546,37 +625,75 @@ const createGRN = async (req, res) => {
                 
                 // Immediately update product stock with newly received quantity
                 try {
-                    // Generate item code for the product (only for first GRN)
-                    let productStock = await ProductStock.findOne({ productName: dc.product_name });
-                    if (!productStock || !productStock.itemCode) {
-                        const itemCode = await generateItemCode();
-                        
-                        if (productStock) {
-                            // If product stock exists, update it with the item code
-                            productStock.itemCode = itemCode;
-                            await productStock.save();
-                        } else {
-                            // If product stock doesn't exist, create it with the item code
-                            productStock = new ProductStock({
-                                productName: dc.product_name,
-                                itemCode: itemCode,
-                                ownUnitStock: dc.unit_type === 'Own Unit' ? dc.carton_qty : 0,
-                                jobberStock: dc.unit_type === 'Jobber' ? dc.carton_qty : 0,
-                                available_cartons: 0, // Will be updated with new quantity
-                                units_per_carton: dc.units_per_carton || 1,
-                                lastUpdatedFrom: dc.unit_type,
-                                lastProductionDetails: {
-                                    unitType: dc.unit_type,
-                                    cartonQty: cartonsReturned,
-                                    date: new Date()
-                                }
-                            });
-                            await productStock.save();
+                    // Handle both single product (backward compatibility) and multiple products
+                    if (dc.products && dc.products.length > 0) {
+                        // Handle multiple products
+                        // Update stock for the first product (for backward compatibility)
+                        const firstProduct = dc.products[0];
+                        let productStock = await ProductStock.findOne({ productName: firstProduct.product_name });
+                        if (!productStock || !productStock.itemCode) {
+                            const itemCode = await generateItemCode();
+                            
+                            if (productStock) {
+                                // If product stock exists, update it with the item code
+                                productStock.itemCode = itemCode;
+                                await productStock.save();
+                            } else {
+                                // If product stock doesn't exist, create it with the item code
+                                productStock = new ProductStock({
+                                    productName: firstProduct.product_name,
+                                    itemCode: itemCode,
+                                    ownUnitStock: dc.unit_type === 'Own Unit' ? firstProduct.carton_qty : 0,
+                                    jobberStock: dc.unit_type === 'Jobber' ? firstProduct.carton_qty : 0,
+                                    available_cartons: 0, // Will be updated with new quantity
+                                    units_per_carton: firstProduct.units_per_carton || 1,
+                                    lastUpdatedFrom: dc.unit_type,
+                                    lastProductionDetails: {
+                                        unitType: dc.unit_type,
+                                        cartonQty: cartonsReturned,
+                                        date: new Date()
+                                    }
+                                });
+                                await productStock.save();
+                            }
                         }
+                        
+                        // Update product stock with newly received quantity
+                        await updateProductStockWithNewQuantity(dc, cartonsReturned, req.user ? req.user.name : 'System');
+                    } else {
+                        // Handle single product (backward compatibility)
+                        // Generate item code for the product (only for first GRN)
+                        let productStock = await ProductStock.findOne({ productName: dc.product_name });
+                        if (!productStock || !productStock.itemCode) {
+                            const itemCode = await generateItemCode();
+                            
+                            if (productStock) {
+                                // If product stock exists, update it with the item code
+                                productStock.itemCode = itemCode;
+                                await productStock.save();
+                            } else {
+                                // If product stock doesn't exist, create it with the item code
+                                productStock = new ProductStock({
+                                    productName: dc.product_name,
+                                    itemCode: itemCode,
+                                    ownUnitStock: dc.unit_type === 'Own Unit' ? dc.carton_qty : 0,
+                                    jobberStock: dc.unit_type === 'Jobber' ? dc.carton_qty : 0,
+                                    available_cartons: 0, // Will be updated with new quantity
+                                    units_per_carton: dc.units_per_carton || 1,
+                                    lastUpdatedFrom: dc.unit_type,
+                                    lastProductionDetails: {
+                                        unitType: dc.unit_type,
+                                        cartonQty: cartonsReturned,
+                                        date: new Date()
+                                    }
+                                });
+                                await productStock.save();
+                            }
+                        }
+                        
+                        // Update product stock with newly received quantity
+                        await updateProductStockWithNewQuantity(dc, cartonsReturned, req.user ? req.user.name : 'System');
                     }
-                    
-                    // Update product stock with newly received quantity
-                    await updateProductStockWithNewQuantity(dc, cartonsReturned, req.user ? req.user.name : 'System');
                 } catch (stockError) {
                     console.error(`Error updating product stock: ${stockError.message}`);
                     // Don't fail the GRN creation if stock update fails, just log it
@@ -2276,14 +2393,17 @@ const getGRNItemsForDamagedStock = async (req, res) => {
 };
 
 module.exports = {
-    createGRN,
+    // These functions are now in packingGRNController.js and fgGRNController.js
+    // createGRN,
+    // updateGRN,
+    // approveOrRejectGRN,
+    // checkPOForGRN,
+    
+    // These functions remain in this controller as they are shared
     getGRNs,
     getGRNById,
-    updateGRN,
-    approveOrRejectGRN,
     getMaterialPriceHistory,
     getSupplierPriceComparison,
-    checkPOForGRN,
     getWeeklyGRNStats,
     getGRNItemsForDamagedStock
 };

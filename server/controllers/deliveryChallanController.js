@@ -24,53 +24,56 @@ const generateDCNumber = async () => {
 // Helper function to update product stock when DC is completed
 const updateProductStockOnDCCompletion = async (dc, updatedBy) => {
     try {
-        // Find or create product stock record
-        let productStock = await ProductStock.findOne({ productName: dc.product_name });
-        
-        if (!productStock) {
-            productStock = new ProductStock({
-                productName: dc.product_name,
-                ownUnitStock: 0,
-                jobberStock: 0
-            });
+        // Handle multiple products
+        for (const product of dc.products) {
+            // Find or create product stock record
+            let productStock = await ProductStock.findOne({ productName: product.product_name });
+            
+            if (!productStock) {
+                productStock = new ProductStock({
+                    productName: product.product_name,
+                    ownUnitStock: 0,
+                    jobberStock: 0
+                });
+            }
+            
+            // Update stock based on unit type
+            const stockHistoryEntry = {
+                date: new Date(),
+                unitType: dc.unit_type,
+                cartonQty: product.carton_qty,
+                action: dc.unit_type === 'Jobber' ? 'TRANSFER' : 'ADD',
+                updatedBy: updatedBy || 'System'
+            };
+            
+            if (dc.unit_type === 'Own Unit') {
+                // Add to own unit stock
+                productStock.ownUnitStock += product.carton_qty;
+                productStock.lastUpdatedFrom = 'Own Unit';
+            } else if (dc.unit_type === 'Jobber') {
+                // Add to jobber stock (transfer from jobber to main warehouse)
+                productStock.jobberStock += product.carton_qty;
+                productStock.lastUpdatedFrom = 'Jobber';
+            }
+            
+            // Update last production details
+            productStock.lastProductionDetails = {
+                unitType: dc.unit_type,
+                cartonQty: product.carton_qty,
+                date: new Date()
+            };
+            
+            // Add to stock history
+            productStock.stockHistory.push(stockHistoryEntry);
+            
+            // Update last updated timestamp
+            productStock.lastUpdated = new Date();
+            
+            // Save the updated product stock
+            await productStock.save();
         }
         
-        // Update stock based on unit type
-        const stockHistoryEntry = {
-            date: new Date(),
-            unitType: dc.unit_type,
-            cartonQty: dc.carton_qty,
-            action: dc.unit_type === 'Jobber' ? 'TRANSFER' : 'ADD',
-            updatedBy: updatedBy || 'System'
-        };
-        
-        if (dc.unit_type === 'Own Unit') {
-            // Add to own unit stock
-            productStock.ownUnitStock += dc.carton_qty;
-            productStock.lastUpdatedFrom = 'Own Unit';
-        } else if (dc.unit_type === 'Jobber') {
-            // Add to jobber stock (transfer from jobber to main warehouse)
-            productStock.jobberStock += dc.carton_qty;
-            productStock.lastUpdatedFrom = 'Jobber';
-        }
-        
-        // Update last production details
-        productStock.lastProductionDetails = {
-            unitType: dc.unit_type,
-            cartonQty: dc.carton_qty,
-            date: new Date()
-        };
-        
-        // Add to stock history
-        productStock.stockHistory.push(stockHistoryEntry);
-        
-        // Update last updated timestamp
-        productStock.lastUpdated = new Date();
-        
-        // Save the updated product stock
-        await productStock.save();
-        
-        return productStock;
+        return true;
     } catch (error) {
         console.error(`Error updating product stock: ${error.message}`);
         throw error;
@@ -83,14 +86,38 @@ const updateProductStockOnDCCompletion = async (dc, updatedBy) => {
  * @access  Private
  */
 const createDeliveryChallan = async (req, res) => {
-    const { unit_type, supplier_id, product_name, carton_qty, date, remarks, person_name } = req.body;
+    // Accept either single product (backward compatibility) or multiple products
+    const { unit_type, supplier_id, product_name, carton_qty, products, date, remarks, person_name } = req.body;
 
     try {
-        // Validate required fields
-        if (!product_name || !carton_qty || !unit_type || carton_qty < 1) {
+        let productsToProcess = [];
+        
+        // Handle backward compatibility - if single product fields are provided
+        if (product_name && carton_qty) {
+            productsToProcess = [{
+                product_name,
+                carton_qty: parseInt(carton_qty)
+            }];
+        } 
+        // Handle new multiple products format
+        else if (products && Array.isArray(products) && products.length > 0) {
+            productsToProcess = products.map(p => ({
+                product_name: p.product_name,
+                carton_qty: parseInt(p.carton_qty)
+            }));
+        } else {
             return res.status(400).json({ 
-                message: 'Product name, carton quantity, and unit type are required. Carton quantity must be at least 1.' 
+                message: 'Either single product details or multiple products array is required.' 
             });
+        }
+
+        // Validate required fields
+        for (const product of productsToProcess) {
+            if (!product.product_name || !product.carton_qty || product.carton_qty < 1) {
+                return res.status(400).json({ 
+                    message: 'Product name and carton quantity are required for all products. Carton quantity must be at least 1.' 
+                });
+            }
         }
 
         // If Jobber, supplier_id is required
@@ -100,24 +127,53 @@ const createDeliveryChallan = async (req, res) => {
             });
         }
 
-        // Fetch product mapping
-        const productMapping = await ProductMaterialMapping.findOne({ product_name });
-        if (!productMapping) {
-            return res.status(404).json({ 
-                message: `Product mapping not found for ${product_name}` 
-            });
+        // Process materials for all products
+        const allMaterials = [];
+        const productMaterialsMap = {}; // To track which materials belong to which product
+        
+        for (const product of productsToProcess) {
+            // Fetch product mapping
+            const productMapping = await ProductMaterialMapping.findOne({ product_name: product.product_name });
+            if (!productMapping) {
+                return res.status(404).json({ 
+                    message: `Product mapping not found for ${product.product_name}` 
+                });
+            }
+
+            // Calculate material requirements for this product
+            const productMaterials = productMapping.materials.map(material => ({
+                material_name: material.material_name,
+                qty_per_carton: material.qty_per_carton,
+                total_qty: material.qty_per_carton * product.carton_qty,
+                product_name: product.product_name // Track which product this material belongs to
+            }));
+            
+            // Add to all materials array
+            allMaterials.push(...productMaterials);
+            
+            // Store in map for later reference
+            productMaterialsMap[product.product_name] = productMaterials;
         }
 
-        // Calculate material requirements
-        const materials = productMapping.materials.map(material => ({
-            material_name: material.material_name,
-            qty_per_carton: material.qty_per_carton,
-            total_qty: material.qty_per_carton * carton_qty
-        }));
+        // Aggregate materials by name and sum quantities (in case same material is used in multiple products)
+        const aggregatedMaterials = {};
+        for (const material of allMaterials) {
+            if (!aggregatedMaterials[material.material_name]) {
+                aggregatedMaterials[material.material_name] = {
+                    material_name: material.material_name,
+                    qty_per_carton: 0, // This will be recalculated
+                    total_qty: 0
+                };
+            }
+            aggregatedMaterials[material.material_name].total_qty += material.total_qty;
+        }
+
+        // Convert aggregated materials back to array
+        const finalMaterials = Object.values(aggregatedMaterials);
 
         // Check stock availability
         const lowStockMaterials = [];
-        for (const material of materials) {
+        for (const material of finalMaterials) {
             const packingMaterial = await PackingMaterial.findOne({ name: material.material_name });
             if (!packingMaterial) {
                 return res.status(404).json({ 
@@ -138,7 +194,7 @@ const createDeliveryChallan = async (req, res) => {
         }
 
         // Deduct stock from each material and create ledger entries
-        for (const material of materials) {
+        for (const material of finalMaterials) {
             // Prepare update object
             const updateObj = {
                 $inc: { 
@@ -196,14 +252,16 @@ const createDeliveryChallan = async (req, res) => {
         // Generate DC number
         const dc_no = await generateDCNumber();
 
-        // Create delivery challan record
+        // Create delivery challan record with multiple products
         const deliveryChallan = new DeliveryChallan({
             dc_no,
             unit_type,
             supplier_id: unit_type === 'Jobber' ? supplier_id : null,
-            product_name,
-            carton_qty,
-            materials,
+            products: productsToProcess.map(product => ({
+                product_name: product.product_name,
+                carton_qty: product.carton_qty,
+                materials: productMaterialsMap[product.product_name]
+            })),
             status: 'Pending',
             reference_type: unit_type,
             date: date ? new Date(date) : new Date(),
@@ -291,23 +349,35 @@ const getDeliveryChallanById = async (req, res) => {
                 }
             }
             
-            // Update materials with actual received quantities
-            const updatedMaterials = challan.materials.map(material => {
-                const materialName = material.material_name;
-                const actualReceivedQty = materialReceivedTotals[materialName] || 0;
-                const balanceQty = material.total_qty - actualReceivedQty;
-                
-                return {
-                    ...material.toObject(),
-                    received_qty: actualReceivedQty,
-                    balance_qty: balanceQty
-                };
-            });
+            // Handle backward compatibility - if single product fields exist
+            let updatedProducts = [];
+            if (challan.products && challan.products.length > 0) {
+                // New format with multiple products
+                updatedProducts = challan.products.map(product => {
+                    // Update materials with actual received quantities
+                    const updatedMaterials = product.materials.map(material => {
+                        const materialName = material.material_name;
+                        const actualReceivedQty = materialReceivedTotals[materialName] || 0;
+                        const balanceQty = material.total_qty - actualReceivedQty;
+                        
+                        return {
+                            ...material.toObject ? material.toObject() : material,
+                            received_qty: actualReceivedQty,
+                            balance_qty: balanceQty
+                        };
+                    });
+                    
+                    return {
+                        ...product.toObject ? product.toObject() : product,
+                        materials: updatedMaterials
+                    };
+                });
+            }
             
-            // Create a new object with updated materials
+            // Create a new object with updated products
             const updatedChallan = {
                 ...challan.toObject(),
-                materials: updatedMaterials
+                products: updatedProducts
             };
             
             res.json(updatedChallan);
@@ -326,7 +396,7 @@ const getDeliveryChallanById = async (req, res) => {
  * @access  Private/Admin
  */
 const updateDeliveryChallan = async (req, res) => {
-    const { materials, status } = req.body;
+    const { materials, status, products } = req.body;
 
     try {
         const dc = await DeliveryChallan.findById(req.params.id);
@@ -365,12 +435,14 @@ const updateDeliveryChallan = async (req, res) => {
                     // Emit socket event for real-time updates
                     const io = req.app.get('io');
                     if (io) {
+                        // Emit event with all products
+                        const productNames = dc.products.map(p => p.product_name).join(', ');
                         io.emit('dcCompleted', { 
                             dcId: dc._id,
                             dcNo: dc.dc_no,
                             unitType: dc.unit_type,
-                            productName: dc.product_name,
-                            materials: dc.materials
+                            productNames: productNames,
+                            products: dc.products
                         });
                     }
                 } catch (stockError) {
@@ -391,58 +463,17 @@ const updateDeliveryChallan = async (req, res) => {
                 return res.status(400).json({ message: 'Materials must be an array.' });
             }
 
-            // Validate that received quantity doesn't exceed sent quantity
-            for (const material of materials) {
-                const expectedQty = material.qty_per_carton * dc.carton_qty;
-                if (material.total_qty > expectedQty) {
-                    return res.status(400).json({ 
-                        message: `Received quantity cannot exceed sent quantity for ${material.material_name}.` 
-                    });
-                }
+            // For backward compatibility, we'll update the first product's materials
+            if (dc.products && dc.products.length > 0) {
+                // Update materials for the first product
+                dc.products[0].materials = materials;
             }
+        }
 
-            // Update materials
-            dc.materials = materials;
-
-            // Check if all quantities match to determine status
-            let allItemsMatch = true;
-            for (const material of dc.materials) {
-                // For delivery challans, we compare with the original qty_per_carton * carton_qty
-                const expectedQty = material.qty_per_carton * dc.carton_qty;
-                if (material.total_qty !== expectedQty) {
-                    allItemsMatch = false;
-                    break;
-                }
-            }
-
-            // Update status based on quantity match if not explicitly set
-            if (!status) {
-                dc.status = allItemsMatch ? 'Completed' : 'Partial';
-                
-                // If status changed to Completed, update product stock
-                if (dc.status === 'Completed') {
-                    try {
-                        await updateProductStockOnDCCompletion(dc, req.user ? req.user.name : 'System');
-                        
-                        // Emit socket event for real-time updates
-                        const io = req.app.get('io');
-                        if (io) {
-                            io.emit('dcCompleted', { 
-                                dcId: dc._id,
-                                dcNo: dc.dc_no,
-                                unitType: dc.unit_type,
-                                productName: dc.product_name,
-                                materials: dc.materials
-                            });
-                        }
-                    } catch (stockError) {
-                        console.error(`Error updating product stock: ${stockError.message}`);
-                        return res.status(500).json({ 
-                            message: 'Error updating product stock. Please try again.' 
-                        });
-                    }
-                }
-            }
+        // Handle products update
+        if (products && Array.isArray(products)) {
+            // Update products array
+            dc.products = products;
         }
 
         const updatedDC = await dc.save();

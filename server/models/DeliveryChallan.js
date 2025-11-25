@@ -1,30 +1,14 @@
 const mongoose = require('mongoose');
 
-const deliveryChallanSchema = new mongoose.Schema({
-    dc_no: {
-        type: String,
-        required: [true, 'Delivery challan number is required'],
-        unique: true,
-        trim: true,
-    },
-    unit_type: {
-        type: String,
-        required: [true, 'Unit type is required'],
-        enum: ['Own Unit', 'Jobber'],
-    },
-    supplier_id: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'Supplier',
-        default: null,
-    },
+const deliveryChallanProductSchema = new mongoose.Schema({
     product_name: {
         type: String,
-        required: [true, 'Product name is required'],
+        required: true,
         trim: true,
     },
     carton_qty: {
         type: Number,
-        required: [true, 'Carton quantity is required'],
+        required: true,
         min: [1, 'Carton quantity must be at least 1'],
     },
     materials: [{
@@ -51,7 +35,29 @@ const deliveryChallanSchema = new mongoose.Schema({
             type: Number,
             default: function() { return this.total_qty; },
         }
-    }],
+    }]
+});
+
+const deliveryChallanSchema = new mongoose.Schema({
+    dc_no: {
+        type: String,
+        required: [true, 'Delivery challan number is required'],
+        unique: true,
+        trim: true,
+    },
+    unit_type: {
+        type: String,
+        required: [true, 'Unit type is required'],
+        enum: ['Own Unit', 'Jobber'],
+    },
+    supplier_id: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Supplier',
+        default: null,
+    },
+    // Remove single product_name and carton_qty fields
+    // Add products array to support multiple products
+    products: [deliveryChallanProductSchema],
     status: {
         type: String,
         required: true,
