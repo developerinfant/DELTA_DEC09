@@ -37,6 +37,7 @@ import CreateGRN from './pages/purchase/CreateGRN';
 import ViewPackingPurchaseOrders from './pages/packing/ViewPackingPurchaseOrders';
 import ManagePackingSuppliers from './pages/packing/ManagePackingSuppliers';
 import ViewPackingGRNs from './pages/packing/ViewPackingGRNs';
+import PackingGRNPrintPage from './pages/packing/PackingGRNPrintPage'; // Import the new print page component
 import ViewFGGRNs from './pages/fg/ViewFGGRNs';
 import CreateFGGRN from './pages/fg/CreateFGGRN';
 import StockReport from './pages/packing/StockReport';
@@ -200,6 +201,13 @@ function App() {
           <Route path="packing/grn/:id" element={
             <ConditionalRoute moduleId="view-packing-grns" action="view">
               <GRNDetail />
+            </ConditionalRoute>
+          } />
+          
+          {/* Print route for Packing GRNs */}
+          <Route path="packing/grn/:id/print" element={
+            <ConditionalRoute moduleId="view-packing-grns" action="view">
+              <PackingGRNPrintPage />
             </ConditionalRoute>
           } />
           

@@ -4,7 +4,7 @@ import api from '../../api';
 import { useAuth } from '../../context/AuthContext';
 import Card from '../../components/common/Card';
 import Modal from '../../components/common/Modal';
-import { FaSpinner, FaArrowLeft, FaCheck, FaTimes, FaEdit, FaBan } from 'react-icons/fa';
+import { FaSpinner, FaArrowLeft, FaCheck, FaTimes, FaEdit, FaBan, FaPrint } from 'react-icons/fa';
 
 // Add a helper function to validate ObjectId
 const isValidObjectId = (id) => {
@@ -144,6 +144,11 @@ const GRNDetail = () => {
 
     const backPath = getBackPath();
 
+    // Handle print functionality
+    const handlePrint = () => {
+        window.print();
+    };
+
     if (isLoading) return (
         <div className="flex justify-center items-center h-96">
             <div className="text-center">
@@ -207,10 +212,21 @@ const GRNDetail = () => {
                     <h1 className="text-3xl font-bold text-gray-900">GRN Details</h1>
                     <p className="text-gray-600 mt-1">View detailed information about this goods receipt note</p>
                 </div>
-                <Link to={backPath} className="flex items-center text-primary-600 hover:text-primary-800 font-medium">
-                    <FaArrowLeft className="mr-2" />
-                    Back to GRN List
-                </Link>
+                <div className="flex space-x-2">
+                    {location?.pathname?.includes('/packing/') && (
+                        <button 
+                            onClick={handlePrint}
+                            className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                        >
+                            <FaPrint className="mr-2" />
+                            Print
+                        </button>
+                    )}
+                    <Link to={backPath} className="flex items-center px-4 py-2 text-primary-600 hover:text-primary-800 font-medium bg-gray-100 rounded-md hover:bg-gray-200">
+                        <FaArrowLeft className="mr-2" />
+                        Back to GRN List
+                    </Link>
+                </div>
             </div>
 
             {/* Status Banner */}

@@ -4,7 +4,7 @@ const router = express.Router();
 const { createGRN: createPackingGRN, updateGRN: updatePackingGRN, approveOrRejectGRN, checkPOForGRN } = require('../controllers/packingGRNController');
 
 // DC-based GRN functions
-const { createGRN: createFGGRN, updateGRN: updateFGGRN } = require('../controllers/fgGRNController');
+const { createGRN: createFGGRN, updateGRN: updateFGGRN, getPendingQuantities } = require('../controllers/fgGRNController');
 
 // Shared functions (keeping these in the original controller for now)
 const { 
@@ -98,6 +98,12 @@ router.route('/:id')
                 require('../controllers/grnController').updateGRN(req, res, next);
             });
     });
+
+// @desc    Get pending quantities per product for a delivery challan
+// @route   GET /api/grn/pending-quantities/:dcId
+// @access  Private
+router.route('/pending-quantities/:dcId')
+    .get(protect, getPendingQuantities);
 
 // @desc    Get GRN items for damaged stock recording
 // @route   GET /api/grn/:id/damaged-items

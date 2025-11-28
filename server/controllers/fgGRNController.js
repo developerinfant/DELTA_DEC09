@@ -1,10 +1,10 @@
 const GRN = require('../models/GRN');
 const DeliveryChallan = require('../models/DeliveryChallan');
-const ProductStock = require('../models/ProductStock'); // Add this line
+const ProductStock = require('../models/ProductStock');
 const PackingMaterial = require('../models/PackingMaterial');
 const mongoose = require('mongoose');
 const { getNextGRNNumber } = require('../utils/grnUtils');
-const { updateProductStockOnGRNCompletion, updateProductStockWithNewQuantity } = require('../utils/stockUpdate'); // Import the new utility
+const { updateProductStockOnGRNCompletion, updateProductStockWithNewQuantity } = require('../utils/stockUpdate');
 
 // Helper function to generate item code
 const generateItemCode = async () => {
@@ -125,6 +125,70 @@ const fetchPriceFromDeliveryChallan = async (deliveryChallanId, materialName) =>
     } catch (error) {
         console.error('Error fetching price from Delivery Challan:', error);
         return { unitPrice: 0, totalPrice: 0 };
+    }
+};
+
+// Helper function to calculate pending quantities per product for a delivery challan
+const calculateProductPendingQuantities = async (deliveryChallanId) => {
+    try {
+        const dc = await DeliveryChallan.findById(deliveryChallanId);
+        if (!dc) return null;
+        
+        // Find all GRNs for this delivery challan
+        const existingGRNs = await GRN.find({ deliveryChallan: deliveryChallanId });
+        
+        // For multiple products DC
+        if (dc.products && dc.products.length > 0) {
+            const productPendingQuantities = [];
+            
+            for (const product of dc.products) {
+                // Calculate total received cartons for this specific product across all GRNs
+                let totalProductReceived = 0;
+                
+                for (const grn of existingGRNs) {
+                    // If GRN has product-specific carton data
+                    if (grn.productCartonsReceived && Array.isArray(grn.productCartonsReceived)) {
+                        // Find the index of this product in the DC
+                        const productIndex = dc.products.findIndex(p => p.product_name === product.product_name);
+                        if (productIndex !== -1 && grn.productCartonsReceived[productIndex] !== undefined) {
+                            totalProductReceived += parseFloat(grn.productCartonsReceived[productIndex]) || 0;
+                        }
+                    } else {
+                        // Fallback: distribute cartonsReturned evenly among products
+                        const totalCartonsInDC = dc.products.reduce((sum, p) => sum + (p.carton_qty || 0), 0);
+                        if (totalCartonsInDC > 0) {
+                            totalProductReceived += (grn.cartonsReturned || 0) * (product.carton_qty / totalCartonsInDC);
+                        }
+                    }
+                }
+                
+                const pendingQty = (product.carton_qty || 0) - totalProductReceived;
+                
+                productPendingQuantities.push({
+                    productName: product.product_name,
+                    cartonsSent: product.carton_qty || 0,
+                    totalReceived: totalProductReceived,
+                    pendingQty: pendingQty
+                });
+            }
+            
+            return productPendingQuantities;
+        }
+        
+        // For single product DC (backward compatibility)
+        const cartonsSent = dc.carton_qty || 0;
+        const totalReceived = existingGRNs.reduce((sum, grn) => sum + (grn.cartonsReturned || 0), 0);
+        const pendingQty = cartonsSent - totalReceived;
+        
+        return [{
+            productName: dc.product_name,
+            cartonsSent: cartonsSent,
+            totalReceived: totalReceived,
+            pendingQty: pendingQty
+        }];
+    } catch (error) {
+        console.error('Error calculating product pending quantities:', error);
+        throw error;
     }
 };
 
@@ -320,6 +384,17 @@ const createGRN = async (req, res) => {
                     return res.status(400).json({ 
                         message: `Returned cartons cannot exceed pending cartons. Pending: ${pendingCartons}` 
                     });
+                }
+                
+                // For multiple products, validate per-product quantities
+                if (dc.products && dc.products.length > 0 && productCartonsReceived && Array.isArray(productCartonsReceived)) {
+                    try {
+                        await validateProductQuantities(deliveryChallanId, productCartonsReceived);
+                    } catch (validationError) {
+                        return res.status(400).json({ 
+                            message: validationError.message 
+                        });
+                    }
                 }
                 
                 // Validate that newReceivedQty > 0
@@ -724,6 +799,17 @@ const updateGRN = async (req, res) => {
                 });
             }
             
+            // For multiple products, validate per-product quantities
+            if (grn.deliveryChallan.products && grn.deliveryChallan.products.length > 0 && req.body.productCartonsReceived && Array.isArray(req.body.productCartonsReceived)) {
+                try {
+                    await validateProductQuantities(grn.deliveryChallan._id, req.body.productCartonsReceived);
+                } catch (validationError) {
+                    return res.status(400).json({ 
+                        message: validationError.message 
+                    });
+                }
+            }
+            
             // Validate that newReceivedQty > 0
             console.log(`Validating cartonsReturned > 0: isNaN = ${isNaN(cartonsReturned)}, value = ${cartonsReturned}`);
             if (isNaN(cartonsReturned) || cartonsReturned <= 0) {
@@ -964,7 +1050,71 @@ const updateGRN = async (req, res) => {
     }
 };
 
+// Helper function to validate that received quantity doesn't exceed pending quantity per product
+const validateProductQuantities = async (deliveryChallanId, productCartonsReceived) => {
+    try {
+        const pendingQuantities = await calculateProductPendingQuantities(deliveryChallanId);
+        
+        if (!pendingQuantities) {
+            throw new Error('Delivery Challan not found');
+        }
+        
+        const dc = await DeliveryChallan.findById(deliveryChallanId);
+        
+        if (dc.products && dc.products.length > 0) {
+            for (let i = 0; i < dc.products.length; i++) {
+                const product = dc.products[i];
+                const pendingQty = pendingQuantities.find(p => p.productName === product.product_name)?.pendingQty || 0;
+                const receivedQty = parseFloat(productCartonsReceived[i]) || 0;
+                
+                if (receivedQty > pendingQty) {
+                    throw new Error(`You can receive only ${pendingQty} cartons for ${product.product_name}. Pending only ${pendingQty}`);
+                }
+                
+                if (receivedQty < 0) {
+                    throw new Error(`Received quantity for ${product.product_name} must be greater than or equal to 0`);
+                }
+            }
+        }
+        
+        return true;
+    } catch (error) {
+        console.error('Error validating product quantities:', error);
+        throw error;
+    }
+};
+
+/**
+ * @desc    Get pending quantities per product for a delivery challan
+ * @route   GET /api/grn/pending-quantities/:dcId
+ * @access  Private
+ */
+const getPendingQuantities = async (req, res) => {
+    try {
+        const { dcId } = req.params;
+        
+        // Validate that the ID is a valid ObjectId
+        if (!mongoose.Types.ObjectId.isValid(dcId)) {
+            return res.status(400).json({ message: 'Invalid Delivery Challan ID format.' });
+        }
+        
+        const pendingQuantities = await calculateProductPendingQuantities(dcId);
+        
+        if (!pendingQuantities) {
+            return res.status(404).json({ message: 'Delivery Challan not found.' });
+        }
+        
+        res.json(pendingQuantities);
+    } catch (error) {
+        console.error(`Error fetching pending quantities: ${error.message}`);
+        res.status(500).json({ message: 'Server error while fetching pending quantities.' });
+    }
+};
+
 module.exports = {
     createGRN,
-    updateGRN
+    updateGRN,
+    getPendingQuantities,
+    calculateProductPendingQuantities,
+    validateProductQuantities
 };
