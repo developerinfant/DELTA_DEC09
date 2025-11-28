@@ -598,7 +598,7 @@ const CreateGRNFromDC = () => {
                                         <tr>
                                             <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Product</th>
                                             <th className="px-6 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider">Cartons Sent</th>
-                                            <th className="px-6 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider">Cartons Returned</th>
+                                            <th className="px-6 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider">Cartons Received</th>
                                             <th className="px-6 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider">Balance</th>
                                             <th className="px-6 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider">Status</th>
                                         </tr>

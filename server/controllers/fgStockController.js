@@ -2,6 +2,7 @@ const ProductStock = require('../models/ProductStock');
 const GRN = require('../models/GRN');
 const FinishedGoodsDC = require('../models/FinishedGoodsDC');
 const ProductMaterialMapping = require('../models/ProductMaterialMapping');
+const mongoose = require('mongoose');
 
 /**
  * @desc    Get FG products that are below their stock alert threshold
@@ -204,8 +205,206 @@ const updateFGStock = async (req, res) => {
     }
 };
 
+/**
+ * @desc    Get FG stock record with carton and piece breakdown
+ * @route   GET /api/fg/stock-record
+ * @access  Private
+ */
+const getFGStockRecord = async (req, res) => {
+    try {
+        const { from, to } = req.query;
+        
+        // Validate date parameters
+        if (!from || !to) {
+            return res.status(400).json({ message: 'Both from and to date parameters are required' });
+        }
+        
+        // Parse dates - expecting DD-MM-YYYY format
+        const fromDate = new Date(from.split('-').reverse().join('-')); // DD-MM-YYYY to YYYY-MM-DD
+        const toDate = new Date(to.split('-').reverse().join('-'));     // DD-MM-YYYY to YYYY-MM-DD
+        
+        if (isNaN(fromDate.getTime()) || isNaN(toDate.getTime())) {
+            return res.status(400).json({ message: 'Invalid date format. Use DD-MM-YYYY' });
+        }
+        
+        // Set proper date ranges
+        // From date: start of day (00:00:00)
+        fromDate.setHours(0, 0, 0, 0);
+        // To date: end of day (23:59:59)
+        toDate.setHours(23, 59, 59, 999);
+        
+        // Calculate opening date (day before from date) - end of that day
+        const openingDate = new Date(fromDate);
+        openingDate.setDate(openingDate.getDate() - 1);
+        openingDate.setHours(23, 59, 59, 999);
+        
+        // Get all product stocks (item master)
+        const productStocks = await ProductStock.find({});
+        
+        const records = [];
+        let totals = {
+            openingCartons: 0,
+            openingPieces: 0,
+            inwardCartons: 0,
+            inwardPieces: 0,
+            outwardCartons: 0,
+            outwardPieces: 0,
+            closingCartons: 0,
+            closingPieces: 0
+        };
+        
+        // Process each product
+        for (const product of productStocks) {
+            // Initialize all quantities
+            let openingCartons = 0;
+            let openingPieces = 0;
+            let inwardCartons = 0;
+            let inwardPieces = 0;
+            let outwardCartons = 0;
+            let outwardPieces = 0;
+            
+            // 1. Calculate opening stock (before from date)
+            // GRN inward before from date - cartons and pieces
+            const openingGRNs = await GRN.find({
+                sourceType: 'jobber',
+                status: 'Completed',
+                productName: product.productName,
+                createdAt: { $lte: openingDate }
+            });
+            
+            let openingInwardCartons = 0;
+            let openingInwardPieces = 0;
+            
+            openingGRNs.forEach(grn => {
+                openingInwardCartons += (grn.cartonsReturned || 0);
+                openingInwardPieces += (grn.broken_carton_pieces || 0);
+            });
+            
+            // DC outward before from date - cartons and pieces
+            const openingDCs = await FinishedGoodsDC.find({
+                product_name: product.productName,
+                status: 'Dispatched',
+                createdAt: { $lte: openingDate }
+            });
+            
+            let openingOutwardCartons = 0;
+            let openingOutwardPieces = 0;
+            
+            openingDCs.forEach(dc => {
+                openingOutwardCartons += (dc.carton_quantity || 0);
+                openingOutwardPieces += (dc.piece_quantity || 0);
+            });
+            
+            // Invoice outward before from date - cartons and pieces
+            const openingInvoices = await mongoose.model('FGInvoice').find({
+                'items.product': product.productName,
+                status: 'Generated',
+                invoiceDate: { $lte: openingDate }
+            });
+            
+            openingInvoices.forEach(invoice => {
+                const productItems = invoice.items.filter(item => item.product === product.productName);
+                productItems.forEach(item => {
+                    if (item.uom === 'Cartons') {
+                        openingOutwardCartons += (item.qty || 0);
+                    } else if (item.uom === 'Pieces') {
+                        openingOutwardPieces += (item.qty || 0);
+                    }
+                });
+            });
+            
+            openingCartons = openingInwardCartons - openingOutwardCartons;
+            openingPieces = openingInwardPieces - openingOutwardPieces;
+            
+            if (openingCartons < 0) openingCartons = 0;
+            if (openingPieces < 0) openingPieces = 0;
+            
+            // 2. Calculate inward quantity (GRN within date range) - cartons and pieces
+            const inwardGRNs = await GRN.find({
+                sourceType: 'jobber',
+                status: 'Completed',
+                productName: product.productName,
+                createdAt: { $gte: fromDate, $lte: toDate }
+            });
+            
+            inwardGRNs.forEach(grn => {
+                inwardCartons += (grn.cartonsReturned || 0);
+                inwardPieces += (grn.broken_carton_pieces || 0);
+            });
+            
+            // 3. Calculate outward quantity (DC + Invoice within date range) - cartons and pieces
+            // DC outward within date range - cartons and pieces
+            const outwardDCs = await FinishedGoodsDC.find({
+                product_name: product.productName,
+                status: 'Dispatched',
+                createdAt: { $gte: fromDate, $lte: toDate }
+            });
+            
+            outwardDCs.forEach(dc => {
+                outwardCartons += (dc.carton_quantity || 0);
+                outwardPieces += (dc.piece_quantity || 0);
+            });
+            
+            // Invoice outward within date range - cartons and pieces
+            const outwardInvoices = await mongoose.model('FGInvoice').find({
+                'items.product': product.productName,
+                status: 'Generated',
+                invoiceDate: { $gte: fromDate, $lte: toDate }
+            });
+            
+            outwardInvoices.forEach(invoice => {
+                const productItems = invoice.items.filter(item => item.product === product.productName);
+                productItems.forEach(item => {
+                    if (item.uom === 'Cartons') {
+                        outwardCartons += (item.qty || 0);
+                    } else if (item.uom === 'Pieces') {
+                        outwardPieces += (item.qty || 0);
+                    }
+                });
+            });
+            
+            // Calculate closing stock
+            const closingCartons = openingCartons + inwardCartons - outwardCartons;
+            const closingPieces = openingPieces + inwardPieces - outwardPieces;
+            
+            // Add to records
+            records.push({
+                itemCode: product.itemCode || 'N/A',
+                productName: product.productName,
+                openingCartons: openingCartons,
+                openingPieces: openingPieces,
+                inwardCartons: inwardCartons,
+                inwardPieces: inwardPieces,
+                outwardCartons: outwardCartons,
+                outwardPieces: outwardPieces,
+                closingCartons: closingCartons,
+                closingPieces: closingPieces
+            });
+            
+            // Update totals
+            totals.openingCartons += openingCartons;
+            totals.openingPieces += openingPieces;
+            totals.inwardCartons += inwardCartons;
+            totals.inwardPieces += inwardPieces;
+            totals.outwardCartons += outwardCartons;
+            totals.outwardPieces += outwardPieces;
+            totals.closingCartons += closingCartons;
+            totals.closingPieces += closingPieces;
+        }
+        
+        res.json({
+            records,
+            totals
+        });
+    } catch (error) {
+        console.error(`Error fetching FG stock record: ${error.message}`);
+        res.status(500).json({ message: 'Server error while fetching FG stock record' });
+    }
+};
+
 module.exports = {
     getFGStockAlerts,
     getFGStockReport,
-    updateFGStock
+    updateFGStock,
+    getFGStockRecord
 };

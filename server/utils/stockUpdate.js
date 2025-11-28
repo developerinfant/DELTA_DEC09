@@ -20,6 +20,43 @@ const updateProductStockOnDCCompletion = async (dc, updatedBy) => {
             throw new Error(`Product stock not found for ${dc.product_name}`);
         }
         
+        // Ensure the product has an item code (should already exist for existing products)
+        if (!productStock.itemCode) {
+            // Generate item code for the product if missing
+            const generateItemCode = async () => {
+                try {
+                    const currentYear = new Date().getFullYear();
+                    const yearPrefix = `FG-${currentYear}-`;
+                    
+                    // Find the latest item code for the current year
+                    const latestProductStock = await ProductStock
+                        .findOne({ itemCode: new RegExp(`^${yearPrefix}`) })
+                        .sort({ itemCode: -1 });
+                    
+                    let nextSequence = 1;
+                    
+                    if (latestProductStock && latestProductStock.itemCode) {
+                        // Extract the sequence number from the last code
+                        const lastSequence = parseInt(latestProductStock.itemCode.split('-')[2]);
+                        if (!isNaN(lastSequence)) {
+                            nextSequence = lastSequence + 1;
+                        }
+                    }
+                    
+                    // Format the sequence with leading zeros (4 digits)
+                    const sequence = nextSequence.toString().padStart(4, '0');
+                    return `${yearPrefix}${sequence}`;
+                } catch (error) {
+                    console.error('Error generating item code:', error);
+                    throw error;
+                }
+            };
+            
+            const itemCode = await generateItemCode();
+            productStock.itemCode = itemCode;
+            await productStock.save();
+        }
+        
         // Deduct stock based on issue type (Carton or Pieces)
         if (dc.issue_type === 'Carton') {
             // Deduct cartons
@@ -86,8 +123,41 @@ const updateProductStockOnGRNCompletion = async (dc, updatedBy) => {
             const productMapping = await ProductMaterialMapping.findOne({ product_name: dc.product_name });
             const unitsPerCarton = productMapping ? productMapping.units_per_carton : 1;
             
+            // Generate item code for the product
+            const generateItemCode = async () => {
+                try {
+                    const currentYear = new Date().getFullYear();
+                    const yearPrefix = `FG-${currentYear}-`;
+                    
+                    // Find the latest item code for the current year
+                    const latestProductStock = await ProductStock
+                        .findOne({ itemCode: new RegExp(`^${yearPrefix}`) })
+                        .sort({ itemCode: -1 });
+                    
+                    let nextSequence = 1;
+                    
+                    if (latestProductStock && latestProductStock.itemCode) {
+                        // Extract the sequence number from the last code
+                        const lastSequence = parseInt(latestProductStock.itemCode.split('-')[2]);
+                        if (!isNaN(lastSequence)) {
+                            nextSequence = lastSequence + 1;
+                        }
+                    }
+                    
+                    // Format the sequence with leading zeros (4 digits)
+                    const sequence = nextSequence.toString().padStart(4, '0');
+                    return `${yearPrefix}${sequence}`;
+                } catch (error) {
+                    console.error('Error generating item code:', error);
+                    throw error;
+                }
+            };
+            
+            const itemCode = await generateItemCode();
+            
             productStock = new ProductStock({
                 productName: dc.product_name,
+                itemCode: itemCode,
                 ownUnitStock: 0,
                 jobberStock: 0,
                 available_cartons: 0,
@@ -160,9 +230,42 @@ const updateProductStockWithNewQuantity = async (dc, newQuantity, updatedBy) => 
             const productMapping = await ProductMaterialMapping.findOne({ product_name: dc.product_name });
             const unitsPerCarton = productMapping ? productMapping.units_per_carton : 1;
             
+            // Generate item code for the product
+            const generateItemCode = async () => {
+                try {
+                    const currentYear = new Date().getFullYear();
+                    const yearPrefix = `FG-${currentYear}-`;
+                    
+                    // Find the latest item code for the current year
+                    const latestProductStock = await ProductStock
+                        .findOne({ itemCode: new RegExp(`^${yearPrefix}`) })
+                        .sort({ itemCode: -1 });
+                    
+                    let nextSequence = 1;
+                    
+                    if (latestProductStock && latestProductStock.itemCode) {
+                        // Extract the sequence number from the last code
+                        const lastSequence = parseInt(latestProductStock.itemCode.split('-')[2]);
+                        if (!isNaN(lastSequence)) {
+                            nextSequence = lastSequence + 1;
+                        }
+                    }
+                    
+                    // Format the sequence with leading zeros (4 digits)
+                    const sequence = nextSequence.toString().padStart(4, '0');
+                    return `${yearPrefix}${sequence}`;
+                } catch (error) {
+                    console.error('Error generating item code:', error);
+                    throw error;
+                }
+            };
+            
+            const itemCode = await generateItemCode();
+            
             // Create new product stock with initial quantity
             productStock = new ProductStock({
                 productName: dc.product_name,
+                itemCode: itemCode,
                 ownUnitStock: dc.unit_type === 'Own Unit' ? newQuantity : 0,
                 jobberStock: dc.unit_type === 'Jobber' ? newQuantity : 0,
                 available_cartons: newQuantity, // Set initial stock to new quantity

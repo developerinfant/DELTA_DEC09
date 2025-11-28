@@ -1088,7 +1088,7 @@ const getGRNById = async (req, res) => {
         const grn = await GRN.findById(req.params.id)
             .populate('supplier')
             .populate('purchaseOrder')
-            .populate('deliveryChallan', 'dc_no supplier_id person_name unit_type status') // Populate delivery challan for jobber GRNs
+            .populate('deliveryChallan', 'dc_no supplier_id person_name unit_type status products') // Populate delivery challan with products for jobber GRNs
             .populate('createdBy', 'name')
             .populate('approvedBy', 'name');
         
@@ -1110,6 +1110,41 @@ const getGRNById = async (req, res) => {
 
         if (grn) {
             console.log(`Found GRN: ${grn.grnNumber}`); // Add logging for debugging
+            
+            // For jobber GRNs, recalculate carton details based on all GRNs linked to the same DC
+            if (grn.sourceType === 'jobber' && grn.deliveryChallan) {
+                // Find all GRNs linked to the same delivery challan
+                const allGRNsForDC = await GRN.find({ 
+                    deliveryChallan: grn.deliveryChallan._id,
+                    sourceType: 'jobber'
+                });
+                
+                // Calculate cumulative values
+                let totalCartonsSent = 0;
+                let totalCartonsReturned = 0;
+                
+                // Get cartons sent from the DC (handle both single and multiple products)
+                if (grn.deliveryChallan.products && grn.deliveryChallan.products.length > 0) {
+                    // Multiple products - sum all carton quantities
+                    totalCartonsSent = grn.deliveryChallan.products.reduce((sum, product) => sum + (product.carton_qty || 0), 0);
+                } else {
+                    // Single product (backward compatibility)
+                    totalCartonsSent = grn.deliveryChallan.carton_qty || 0;
+                }
+                
+                // Sum cartons returned from all GRNs for this DC
+                totalCartonsReturned = allGRNsForDC.reduce((sum, g) => sum + (g.cartonsReturned || 0), 0);
+                
+                // Recalculate balance and status
+                const cartonBalance = totalCartonsSent - totalCartonsReturned;
+                const status = totalCartonsReturned >= totalCartonsSent ? 'Completed' : (totalCartonsReturned > 0 ? 'Partial' : 'Pending');
+                
+                // Update the GRN object with recalculated values
+                grn.cartonsSent = totalCartonsSent;
+                grn.cartonsReturned = totalCartonsReturned;
+                grn.cartonBalance = cartonBalance;
+                grn.status = status;
+            }
             
             // For jobber GRNs, also fetch the itemCode from ProductStock
             if (grn.sourceType === 'jobber' && grn.productName) {

@@ -3,7 +3,8 @@ const router = express.Router();
 const {
     getFGStockAlerts,
     getFGStockReport,
-    updateFGStock
+    updateFGStock,
+    getFGStockRecord
 } = require('../controllers/fgStockController');
 const { protect } = require('../middleware/authMiddleware');
 
@@ -18,6 +19,12 @@ router.route('/stock-alerts')
 // @access  Private
 router.route('/stock-report')
     .get(protect, getFGStockReport);
+
+// @desc    Get FG stock record with date range
+// @route   GET /api/fg/stock-record
+// @access  Private
+router.route('/stock-record')
+    .get(protect, getFGStockRecord);
 
 // @desc    Update FG product HSN code and alert threshold
 // @route   PUT /api/fg/stock/:id

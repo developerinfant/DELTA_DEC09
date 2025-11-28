@@ -468,8 +468,9 @@ const JobStockReport = ({ deliveryChallans, onBack }) => {
     acc[jobberName].totalDCs += 1;
     acc[jobberName].totalCartonQty += dc.carton_qty || 0;
     
-    // Calculate total material quantity
-    const totalMaterialQty = dc.materials.reduce((sum, material) => sum + (material.total_qty || 0), 0);
+    // Calculate total material quantity with defensive check
+    const materials = dc.materials || []; // Ensure materials is an array
+    const totalMaterialQty = materials.reduce((sum, material) => sum + (material.total_qty || 0), 0);
     acc[jobberName].totalMaterialQty += totalMaterialQty;
     
     // Add DC to list

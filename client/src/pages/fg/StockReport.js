@@ -18,6 +18,12 @@ const FGStockReport = () => {
   const [editingProduct, setEditingProduct] = useState(null);
   const [editForm, setEditForm] = useState({ alertThreshold: '', hsnCode: '' });
   const [isSaving, setIsSaving] = useState(false);
+  // New states for stock record functionality
+  const [showStockRecord, setShowStockRecord] = useState(false);
+  const [stockRecordData, setStockRecordData] = useState([]);
+  const [stockRecordLoading, setStockRecordLoading] = useState(false);
+  const [stockRecordError, setStockRecordError] = useState('');
+  const [stockRecordDateRange, setStockRecordDateRange] = useState({ from: '', to: '' });
   const updatedProductTimers = useRef({});
 
   // Fetch data
@@ -33,6 +39,37 @@ const FGStockReport = () => {
       console.error('Error fetching stock report data:', err);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  // Fetch stock record data
+  const fetchStockRecordData = async () => {
+    if (!stockRecordDateRange.from || !stockRecordDateRange.to) {
+      setStockRecordError('Please select both from and to dates');
+      return;
+    }
+
+    // Convert date format from YYYY-MM-DD to DD-MM-YYYY
+    const formatDate = (dateString) => {
+      const parts = dateString.split('-');
+      return `${parts[2]}-${parts[1]}-${parts[0]}`;
+    };
+
+    setStockRecordLoading(true);
+    setStockRecordError('');
+    try {
+      const response = await api.get('/fg/stock-record', {
+        params: {
+          from: formatDate(stockRecordDateRange.from),
+          to: formatDate(stockRecordDateRange.to)
+        }
+      });
+      setStockRecordData(response.data.records || []);
+    } catch (err) {
+      setStockRecordError('Failed to load stock record data. Please try again.');
+      console.error('Error fetching stock record data:', err);
+    } finally {
+      setStockRecordLoading(false);
     }
   };
 
@@ -118,6 +155,30 @@ const FGStockReport = () => {
     });
   }, [filteredProducts]);
 
+  // Calculate stock record totals
+  const stockRecordTotals = useMemo(() => {
+    return stockRecordData.reduce((totals, record) => {
+      totals.openingCartons += record.openingCartons || 0;
+      totals.openingPieces += record.openingPieces || 0;
+      totals.inwardCartons += record.inwardCartons || 0;
+      totals.inwardPieces += record.inwardPieces || 0;
+      totals.outwardCartons += record.outwardCartons || 0;
+      totals.outwardPieces += record.outwardPieces || 0;
+      totals.closingCartons += record.closingCartons || 0;
+      totals.closingPieces += record.closingPieces || 0;
+      return totals;
+    }, {
+      openingCartons: 0,
+      openingPieces: 0,
+      inwardCartons: 0,
+      inwardPieces: 0,
+      outwardCartons: 0,
+      outwardPieces: 0,
+      closingCartons: 0,
+      closingPieces: 0
+    });
+  }, [stockRecordData]);
+
   // Handle edit button click
   const handleEditClick = (product) => {
     setEditingProduct(product);
@@ -171,6 +232,80 @@ const FGStockReport = () => {
     setShowEditModal(false);
     setEditingProduct(null);
     setEditForm({ alertThreshold: '', hsnCode: '' });
+  };
+
+  // Export stock record to Excel
+  const exportStockRecordToExcel = () => {
+    if (stockRecordData.length === 0) return;
+
+    // Format date for filename - convert from DD-MM-YYYY to YYYY-MM-DD for filename
+    const formatDateForFilename = (dateString) => {
+      const parts = dateString.split('-');
+      return `${parts[2]}-${parts[1]}-${parts[0]}`;
+    };
+
+    const fromDate = formatDateForFilename(stockRecordDateRange.from);
+    const toDate = formatDateForFilename(stockRecordDateRange.to);
+    
+    const worksheet = XLSX.utils.json_to_sheet(stockRecordData.map(record => ({
+      'Item Code': record.itemCode,
+      'Product Name': record.productName,
+      'Opening Cartons': record.openingCartons,
+      'Opening Pieces': record.openingPieces,
+      'Inward Cartons': record.inwardCartons,
+      'Inward Pieces': record.inwardPieces,
+      'Outward Cartons': record.outwardCartons,
+      'Outward Pieces': record.outwardPieces,
+      'Closing Cartons': record.closingCartons,
+      'Closing Pieces': record.closingPieces
+    })));
+    
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'FG Stock Record Summary');
+    XLSX.writeFile(workbook, `FG_Stock_Record_Summary_${fromDate}_to_${toDate}.xlsx`);
+  };
+
+  // Export stock record to PDF
+  const exportStockRecordToPDF = () => {
+    if (stockRecordData.length === 0) return;
+
+    // Format date for filename - convert from DD-MM-YYYY to YYYY-MM-DD for filename
+    const formatDateForFilename = (dateString) => {
+      const parts = dateString.split('-');
+      return `${parts[2]}-${parts[1]}-${parts[0]}`;
+    };
+
+    const fromDate = formatDateForFilename(stockRecordDateRange.from);
+    const toDate = formatDateForFilename(stockRecordDateRange.to);
+
+    const doc = new jsPDF('landscape');
+    
+    doc.setFontSize(18);
+    doc.text('FG Stock Record Summary', 14, 22);
+    
+    // Add date range
+    doc.setFontSize(12);
+    doc.text(`Period: ${stockRecordDateRange.from} to ${stockRecordDateRange.to}`, 14, 32);
+    
+    // Add table
+    doc.autoTable({
+      startY: 40,
+      head: [['Item Code', 'Product Name', 'Opening Cartons', 'Opening Pieces', 'Inward Cartons', 'Inward Pieces', 'Outward Cartons', 'Outward Pieces', 'Closing Cartons', 'Closing Pieces']],
+      body: stockRecordData.map(record => [
+        record.itemCode,
+        record.productName,
+        record.openingCartons,
+        record.openingPieces,
+        record.inwardCartons,
+        record.inwardPieces,
+        record.outwardCartons,
+        record.outwardPieces,
+        record.closingCartons,
+        record.closingPieces
+      ]),
+    });
+    
+    doc.save(`FG_Stock_Record_Summary_${fromDate}_to_${toDate}.pdf`);
   };
 
   if (isLoading) {
@@ -271,6 +406,12 @@ const FGStockReport = () => {
         <h1 className="text-3xl font-bold text-gray-800">Finished Goods Stock Report</h1>
         <div className="flex space-x-2">
           <button 
+            onClick={() => setShowStockRecord(!showStockRecord)}
+            className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+          >
+            Stock Record
+          </button>
+          <button 
             onClick={exportToExcel}
             className="flex items-center px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors"
           >
@@ -291,6 +432,132 @@ const FGStockReport = () => {
           </button>
         </div>
       </div>
+      
+      {/* Stock Record Section */}
+      {showStockRecord && (
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+          <div className="p-4 border-b border-gray-200">
+            <h2 className="text-xl font-semibold text-gray-800">Stock Record Summary</h2>
+          </div>
+          
+          {/* Date Range Filter for Stock Record */}
+          <div className="p-4 bg-gray-50 border-b border-gray-200">
+            <div className="flex flex-col md:flex-row md:items-center gap-4">
+              <div className="flex flex-col">
+                <label className="text-sm font-medium text-gray-700 mb-1">From Date</label>
+                <input
+                  type="date"
+                  className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  value={stockRecordDateRange.from}
+                  onChange={(e) => setStockRecordDateRange({...stockRecordDateRange, from: e.target.value})}
+                />
+              </div>
+              <div className="flex flex-col">
+                <label className="text-sm font-medium text-gray-700 mb-1">To Date</label>
+                <input
+                  type="date"
+                  className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  value={stockRecordDateRange.to}
+                  onChange={(e) => setStockRecordDateRange({...stockRecordDateRange, to: e.target.value})}
+                />
+              </div>
+              <div className="flex items-end">
+                <button
+                  onClick={fetchStockRecordData}
+                  disabled={stockRecordLoading}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 transition-colors"
+                >
+                  {stockRecordLoading ? 'Loading...' : 'Apply'}
+                </button>
+              </div>
+              <div className="flex items-end space-x-2">
+                <button
+                  onClick={exportStockRecordToExcel}
+                  disabled={stockRecordData.length === 0}
+                  className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:opacity-50 transition-colors"
+                >
+                  Export Excel
+                </button>
+                <button
+                  onClick={exportStockRecordToPDF}
+                  disabled={stockRecordData.length === 0}
+                  className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 disabled:opacity-50 transition-colors"
+                >
+                  Export PDF
+                </button>
+              </div>
+            </div>
+            {stockRecordError && (
+              <div className="mt-2 text-red-600 text-sm">{stockRecordError}</div>
+            )}
+          </div>
+          
+          {/* Stock Record Table */}
+          <div className="overflow-x-auto">
+            {stockRecordLoading ? (
+              <div className="flex justify-center items-center h-32">
+                <FaSpinner className="animate-spin text-blue-600" size={32} />
+              </div>
+            ) : stockRecordData.length > 0 ? (
+              <>
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-100">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-blue-600 uppercase tracking-wider">Item Code</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-blue-600 uppercase tracking-wider">Product Name</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-blue-600 uppercase tracking-wider">Opening Cartons</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-blue-600 uppercase tracking-wider">Opening Pieces</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-blue-600 uppercase tracking-wider">Inward Cartons</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-blue-600 uppercase tracking-wider">Inward Pieces</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-blue-600 uppercase tracking-wider">Outward Cartons</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-blue-600 uppercase tracking-wider">Outward Pieces</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-blue-600 uppercase tracking-wider">Closing Cartons</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-blue-600 uppercase tracking-wider">Closing Pieces</th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {stockRecordData.map((record, index) => (
+                      <tr key={index} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{record.itemCode}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{record.productName}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{record.openingCartons}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{record.openingPieces}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{record.inwardCartons}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{record.inwardPieces}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{record.outwardCartons}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{record.outwardPieces}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{record.closingCartons}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{record.closingPieces}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  <tfoot className="bg-gray-50 font-bold">
+                    <tr>
+                      <td className="px-6 py-3 text-sm text-gray-700"></td>
+                      <td className="px-6 py-3 text-sm text-gray-700">TOTAL</td>
+                      <td className="px-6 py-3 text-sm text-gray-700">{stockRecordTotals.openingCartons}</td>
+                      <td className="px-6 py-3 text-sm text-gray-700">{stockRecordTotals.openingPieces}</td>
+                      <td className="px-6 py-3 text-sm text-gray-700">{stockRecordTotals.inwardCartons}</td>
+                      <td className="px-6 py-3 text-sm text-gray-700">{stockRecordTotals.inwardPieces}</td>
+                      <td className="px-6 py-3 text-sm text-gray-700">{stockRecordTotals.outwardCartons}</td>
+                      <td className="px-6 py-3 text-sm text-gray-700">{stockRecordTotals.outwardPieces}</td>
+                      <td className="px-6 py-3 text-sm text-gray-700">{stockRecordTotals.closingCartons}</td>
+                      <td className="px-6 py-3 text-sm text-gray-700">{stockRecordTotals.closingPieces}</td>
+                    </tr>
+                  </tfoot>
+                </table>
+                <div className="px-6 py-3 bg-gray-50 border-t border-gray-200 text-sm text-gray-500">
+                  Showing {stockRecordData.length} records
+                </div>
+              </>
+            ) : (
+              <div className="text-center py-8 text-gray-500">
+                No stock record data available. Select a date range and click Apply.
+              </div>
+            )}
+          </div>
+        </div>
+      )}
       
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">

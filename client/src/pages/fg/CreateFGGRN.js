@@ -36,6 +36,7 @@ const CreateFGGRN = () => {
     const [showDamagedStockSection, setShowDamagedStockSection] = useState(false); // New state to control visibility of damaged stock section
     // Add state for product-wise carton quantities
     const [productCartonsReceived, setProductCartonsReceived] = useState([]);
+    const [productPendingQuantities, setProductPendingQuantities] = useState([]); // New state for product pending quantities
     const navigate = useNavigate();
 
     const selectedDC = deliveryChallans.find(dc => dc._id === selectedDCOption?.value);
@@ -159,9 +160,19 @@ const CreateFGGRN = () => {
                         // Initialize with empty values for each product
                         const initialProductCartons = dcData.products.map(() => '');
                         setProductCartonsReceived(initialProductCartons);
+                        
+                        // Fetch pending quantities per product
+                        try {
+                            const pendingResponse = await api.get(`/grn/pending-quantities/${selectedDCOption.value}`);
+                            setProductPendingQuantities(pendingResponse.data);
+                        } catch (pendingError) {
+                            console.error('Error fetching product pending quantities:', pendingError);
+                            setProductPendingQuantities([]);
+                        }
                     } else {
                         // Reset for single product
                         setProductCartonsReceived([]);
+                        setProductPendingQuantities([]);
                     }
                     
                     // Fetch existing GRNs for this DC to check for partial receipts
@@ -372,6 +383,28 @@ const CreateFGGRN = () => {
     
     // Handler for product-wise carton quantities
     const handleProductCartonsReceivedChange = (index, value) => {
+        // Get the product and its pending quantity
+        if (dcDetails && dcDetails.products && dcDetails.products[index]) {
+            const product = dcDetails.products[index];
+            const productPending = productPendingQuantities.find(p => p.productName === product.product_name);
+            const pendingQty = productPending ? productPending.pendingQty : (product.carton_qty || 0);
+            
+            // Parse the input value
+            const inputValue = parseFloat(value) || 0;
+            
+            // Validate that the input doesn't exceed pending quantity
+            if (inputValue > pendingQty) {
+                toast.error(`You can only receive up to ${pendingQty} cartons for this product.`);
+                return;
+            }
+            
+            // Validate that the input is not negative
+            if (inputValue < 0) {
+                toast.error('Received quantity must be greater than or equal to 0.');
+                return;
+            }
+        }
+        
         const newProductCartonsReceived = [...productCartonsReceived];
         newProductCartonsReceived[index] = value;
         setProductCartonsReceived(newProductCartonsReceived);
@@ -438,10 +471,22 @@ const CreateFGGRN = () => {
             
             // Create damaged stock entries for each item
             const promises = itemsWithDamage.map(item => {
+                // For multiple products, we need to determine the correct product name
+                let productName = dcDetails.product_name;
+                if (dcDetails.products && dcDetails.products.length > 0) {
+                    // For multiple products, find the product that contains this material
+                    const product = dcDetails.products.find(p => 
+                        p.materials && p.materials.some(m => m.material_name === item.material_name)
+                    );
+                    if (product) {
+                        productName = product.product_name;
+                    }
+                }
+                
                 return api.post('/damaged-stock', {
                     grn_id: null, // Will be updated when GRN is created
                     dc_no: dcDetails.dc_no,
-                    product_name: dcDetails.product_name,
+                    product_name: productName,
                     material_name: item.material_name,
                     received_qty: item.received_qty,
                     damaged_qty: item.damaged_qty,
@@ -580,6 +625,16 @@ const CreateFGGRN = () => {
             // Handle multiple products
             // Calculate total cartons sent
             const totalCartonsSent = dcDetails.products.reduce((total, product) => total + (product.carton_qty || 0), 0);
+            
+            // Check if all products are fully received
+            const allProductsFullyReceived = productPendingQuantities.every(productPending => productPending.pendingQty <= 0);
+            
+            if (allProductsFullyReceived) {
+                const errorMessage = 'All quantities for this DC have been received.';
+                setError(errorMessage);
+                toast.error(errorMessage);
+                return;
+            }
             
             // Calculate total cartons received from product inputs
             cartonsReturnedNum = productCartonsReceived.reduce((total, cartons, index) => {
@@ -801,93 +856,426 @@ const CreateFGGRN = () => {
 
                     {/* DC Details */}
                     {dcDetails && (
-                        <div className="space-y-6">
-                            {/* Previous Data Section */}
-                            {hasExistingGRN && partialGRN && (
-                                <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
-                                    <h3 className="font-medium text-orange-800 mb-3">Previous GRN Data</h3>
-                                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4 text-sm">
-                                        <div>
-                                            <span className="font-medium">Total Sent:</span> {partialGRN.totalSent}
+                        <>
+                            {/* Check if all products are fully received - hide entire form */}
+                            {dcDetails.products && dcDetails.products.length > 0 && productPendingQuantities.length > 0 && productPendingQuantities.every(p => p.pendingQty <= 0) ? (
+                                <div className="bg-green-50 border border-green-200 rounded-lg p-6 text-center">
+                                    <div className="flex flex-col items-center justify-center py-8">
+                                        <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mb-4">
+                                            <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
+                                            </svg>
                                         </div>
-                                        <div>
-                                            <span className="font-medium">Total Received:</span> {partialGRN.totalReceived}
+                                        <h3 className="text-xl font-bold text-green-800 mb-2">All Quantities Received</h3>
+                                        <p className="text-green-700 mb-4">All quantities for this Delivery Challan have been successfully received.</p>
+                                        <div className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800">
+                                            Status: Completed
                                         </div>
-                                        <div>
-                                            <span className="font-medium">Pending:</span> {partialGRN.pending}
-                                        </div>
-                                        {isEditingPartialGRN && partialGRN.currentGRNReceived !== undefined && (
-                                            <div>
-                                                <span className="font-medium">Current GRN Received:</span> {partialGRN.currentGRNReceived}
-                                            </div>
-                                        )}
                                     </div>
                                 </div>
-                            )}
-                            
-                            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                                <h3 className="font-medium text-blue-800 mb-3">Delivery Challan Details</h3>
+                            ) : (
+                                <div className="space-y-6">
+
+                                    {/* Check if all products are fully received */}
+                                    {(dcDetails.products && dcDetails.products.length > 0 && productPendingQuantities.length > 0 && productPendingQuantities.every(p => p.pendingQty <= 0)) ? (
+                                        <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-center">
+                                            <h3 className="font-medium text-green-800 mb-2">All quantities for this DC have been received.</h3>
+                                            <p className="text-green-700">This Delivery Challan is fully completed.</p>
+                                        </div>
+                                    ) : (
+                                        <>
+                                            {/* Previous Data Section */}
+                                            {hasExistingGRN && partialGRN && (
+                                                <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
+                                                    <h3 className="font-medium text-orange-800 mb-3">Previous GRN Data</h3>
+                                                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4 text-sm">
+                                                        <div>
+                                                            <span className="font-medium">Total Sent:</span> {partialGRN.totalSent}
+                                                        </div>
+                                                        <div>
+                                                            <span className="font-medium">Total Received:</span> {partialGRN.totalReceived}
+                                                        </div>
+                                                        <div>
+                                                            <span className="font-medium">Pending:</span> {partialGRN.pending}
+                                                        </div>
+                                                        {isEditingPartialGRN && partialGRN.currentGRNReceived !== undefined && (
+                                                            <div>
+                                                                <span className="font-medium">Current GRN Received:</span> {partialGRN.currentGRNReceived}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            )}
+                                            
+                                            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                                                <h3 className="font-medium text-blue-800 mb-3">Delivery Challan Details</h3>
                                 
-                                {/* Check if DC has multiple products */}
-                                {dcDetails.products && dcDetails.products.length > 0 ? (
-                                    // Display multiple products
-                                    <div className="space-y-4">
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                                            <div>
-                                                <span className="font-medium">DC Number:</span> {dcDetails.dc_no}
+                                                {/* Check if DC has multiple products */}
+                                                {dcDetails.products && dcDetails.products.length > 0 ? (
+                                                    // Display multiple products
+                                                    <div className="space-y-4">
+                                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                                                            <div>
+                                                                <span className="font-medium">DC Number:</span> {dcDetails.dc_no}
+                                                            </div>
+                                                            <div>
+                                                                <span className="font-medium">Issued To:</span> {dcDetails.unit_type === 'Own Unit' ? (dcDetails.person_name || 'N/A') : (dcDetails.supplier_id?.name || 'N/A')} / {dcDetails.unit_type === 'Own Unit' ? 'Own Unit' : 'Jobber'}
+                                                            </div>
+                                                            <div>
+                                                                <span className="font-medium">Date:</span> {new Date(dcDetails.date).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' }).replace(/\//g, '-')}
+                                                            </div>
+                                                            <div>
+                                                                <span className="font-medium">Unit Type:</span> {dcDetails.unit_type === 'Own Unit' ? 'Own Unit' : 'Jobber'}
+                                                            </div>
+                                                            <div>
+                                                                <span className="font-medium">Status:</span> 
+                                                                <span className={`ml-2 px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                                                                    dcDetails.status === 'Completed' ? 'bg-green-100 text-green-800' :
+                                                                    dcDetails.status === 'Partial' ? 'bg-orange-100 text-orange-800' :
+                                                                    dcDetails.status === 'Pending' ? 'bg-yellow-100 text-yellow-800' :
+                                                                    'bg-gray-100 text-gray-800'
+                                                                }`}>
+                                                                    {dcDetails.status}
+                                                                </span>
+                                                            </div>
+                                                        </div>
+                                                
+                                                        {/* Products Table */}
+                                                        <div className="mt-4">
+                                                            <h4 className="font-medium text-blue-700 mb-2">Products</h4>
+                                                            <div className="overflow-x-auto">
+                                                                <table className="min-w-full divide-y divide-gray-200">
+                                                                    <thead className="bg-gray-50">
+                                                                        <tr>
+                                                                            <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Product Name</th>
+                                                                            <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Sent</th>
+                                                                            <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Received (till now)</th>
+                                                                            <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Pending</th>
+                                                                            <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Receive Now*</th>
+                                                                        </tr>
+                                                                    </thead>
+                                                                    <tbody className="bg-white divide-y divide-gray-200">
+                                                                        {dcDetails.products.map((product, index) => {
+                                                                            // Get pending quantity for this product
+                                                                            const productPending = productPendingQuantities.find(p => p.productName === product.product_name);
+                                                                            const cartonsSent = product.carton_qty || 0;
+                                                                            const totalReceived = productPending ? productPending.totalReceived : 0;
+                                                                            const pendingQty = productPending ? productPending.pendingQty : cartonsSent;
+                                                                    
+                                                                            // Check if this product is fully received
+                                                                            const isFullyReceived = pendingQty <= 0;
+                                                                    
+                                                                            return (
+                                                                                <tr key={index} className={isFullyReceived ? 'bg-gray-50' : ''}>
+                                                                                    <td className="px-4 py-2 whitespace-nowrap text-sm font-medium text-gray-900">
+                                                                                        {product.product_name}
+                                                                                        {isFullyReceived && (
+                                                                                            <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                                                                                Completed
+                                                                                            </span>
+                                                                                        )}
+                                                                                    </td>
+                                                                                    <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">
+                                                                                        {cartonsSent}
+                                                                                    </td>
+                                                                                    <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">
+                                                                                        {totalReceived}
+                                                                                    </td>
+                                                                                    <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">
+                                                                                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                                                                                            isFullyReceived 
+                                                                                                ? 'bg-green-100 text-green-800' 
+                                                                                                : 'bg-orange-100 text-orange-800'
+                                                                                        }`}>
+                                                                                        {isFullyReceived ? 'Completed' : `${pendingQty} Pending`}
+                                                                                        </span>
+                                                                                    </td>
+                                                                                    <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">
+                                                                                        {isFullyReceived ? (
+                                                                                            <span className="text-green-600 font-medium">Completed</span>
+                                                                                        ) : (
+                                                                                            <input
+                                                                                                type="number"
+                                                                                                min="0"
+                                                                                                max={pendingQty}
+                                                                                                value={productCartonsReceived[index] || ''}
+                                                                                                onChange={(e) => handleProductCartonsReceivedChange(index, e.target.value)}
+                                                                                                className={`w-24 px-2 py-1 border rounded ${isFullyReceived ? 'bg-gray-100 cursor-not-allowed' : 'border-gray-300'}`}
+                                                                                                disabled={isLoading || isGRNLocked || isFullyReceived}
+                                                                                                placeholder={`Max: ${pendingQty}`}
+                                                                                            />
+                                                                                        )}
+                                                                                    </td>
+                                                                                </tr>
+                                                                            );
+                                                                        })}
+                                                                    </tbody>
+                                                                </table>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                ) : (
+                                                    // Display single product (backward compatibility)
+                                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                                                        <div>
+                                                            <span className="font-medium">DC Number:</span> {dcDetails.dc_no}
+                                                        </div>
+                                                        <div>
+                                                            <span className="font-medium">Issued To:</span> {dcDetails.unit_type === 'Own Unit' ? (dcDetails.person_name || 'N/A') : (dcDetails.supplier_id?.name || 'N/A')} / {dcDetails.unit_type === 'Own Unit' ? 'Own Unit' : 'Jobber'}
+                                                        </div>
+                                                        <div>
+                                                            <span className="font-medium">Date:</span> {new Date(dcDetails.date).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' }).replace(/\//g, '-')}
+                                                        </div>
+                                                        <div>
+                                                            <span className="font-medium">Cartons Sent:</span> {dcDetails.carton_qty || 0}
+                                                        </div>
+                                                        <div>
+                                                            <span className="font-medium">Unit Type:</span> {dcDetails.unit_type === 'Own Unit' ? 'Own Unit' : 'Jobber'}
+                                                        </div>
+                                                        <div>
+                                                            <span className="font-medium">Status:</span> 
+                                                            <span className={`ml-2 px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                                                                dcDetails.status === 'Completed' ? 'bg-green-100 text-green-800' :
+                                                                dcDetails.status === 'Partial' ? 'bg-orange-100 text-orange-800' :
+                                                                dcDetails.status === 'Pending' ? 'bg-yellow-100 text-yellow-800' :
+                                                                'bg-gray-100 text-gray-800'
+                                                            }`}>
+                                                                {dcDetails.status}
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                )}
                                             </div>
-                                            <div>
-                                                <span className="font-medium">Issued To:</span> {dcDetails.unit_type === 'Own Unit' ? (dcDetails.person_name || 'N/A') : (dcDetails.supplier_id?.name || 'N/A')} / {dcDetails.unit_type === 'Own Unit' ? 'Own Unit' : 'Jobber'}
-                                            </div>
-                                            <div>
-                                                <span className="font-medium">Date:</span> {new Date(dcDetails.date).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' }).replace(/\//g, '-')}
-                                            </div>
-                                            <div>
-                                                <span className="font-medium">Unit Type:</span> {dcDetails.unit_type === 'Own Unit' ? 'Own Unit' : 'Jobber'}
-                                            </div>
-                                            <div>
-                                                <span className="font-medium">Status:</span> 
-                                                <span className={`ml-2 px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                                                    dcDetails.status === 'Completed' ? 'bg-green-100 text-green-800' :
-                                                    dcDetails.status === 'Partial' ? 'bg-orange-100 text-orange-800' :
-                                                    dcDetails.status === 'Pending' ? 'bg-yellow-100 text-yellow-800' :
-                                                    'bg-gray-100 text-gray-800'
-                                                }`}>
-                                                    {dcDetails.status}
-                                                </span>
+                                        </>
+                                    )}
+
+                                    {/* Carton Information */}
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                        
+                                        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+                                            <div className="bg-blue-100 text-blue-800 px-3 py-3 rounded-lg font-medium whitespace-nowrap">
+                                                Cartons Sent: {
+                                                    dcDetails.products && dcDetails.products.length > 0 
+                                                        ? dcDetails.products.reduce((total, product) => total + (product.carton_qty || 0), 0)
+                                                        : (dcDetails.carton_qty || 0)
+                                                }
                                             </div>
                                         </div>
                                         
-                                        {/* Products Table */}
-                                        <div className="mt-4">
-                                            <h4 className="font-medium text-blue-700 mb-2">Products</h4>
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                                                Receiver Name *
+                                            </label>
+                                            <input
+                                                type="text"
+                                                value={receivedBy}
+                                                onChange={(e) => setReceivedBy(e.target.value)}
+                                                className="w-full px-4 py-3 text-gray-700 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                                                disabled={isLoading || isGRNLocked || !!user} // Read-only if user is logged in
+                                                readOnly={!!user} // Read-only if user is logged in
+                                            />
+                                        </div>
+                                        
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                                                Date Received *
+                                            </label>
+                                            <input
+                                                type="date"
+                                                value={dateReceived}
+                                                onChange={(e) => setDateReceived(e.target.value)}
+                                                className="w-full px-4 py-3 text-gray-700 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                                                disabled={isLoading || isGRNLocked}
+                                            />
+                                        </div>
+                                    </div>
+
+                                    {/* Material Usage Calculation */}
+                                    {/* {materialUsage.length > 0 && (
+                                        <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                                            <h3 className="font-medium text-gray-800 mb-3">Material Usage Calculation</h3>
+                                            <div className="overflow-x-auto">
+                                                <table className="min-w-full divide-y divide-gray-200">
+                                                    <thead className="bg-gray-100">
+                                                        <tr>
+                                                            <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Material</th>
+                                                            <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Sent Qty</th>
+                                                            <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Used Qty</th>
+                                                            <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Remaining Qty</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody className="bg-white divide-y divide-gray-200">
+                                                        {materialUsage.map((usage, index) => (
+                                                            <tr key={index}>
+                                                                <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">{usage.materialName}</td>
+                                                                <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">{usage.sentQty}</td>
+                                                                <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">{usage.usedQty}</td>
+                                                                <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">{usage.remainingQty}</td>
+                                                            </tr>
+                                                        ))}
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        </div>
+                                    )} */}
+                                    
+                                    {/* Record Damaged Stock Button */}
+                                    <div className="bg-white border border-gray-200 rounded-lg p-4">
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowDamagedStockSection(!showDamagedStockSection)}
+                                            className="px-4 py-2 text-white bg-amber-600 rounded-md hover:bg-amber-700 focus:outline-none focus:ring-2 focus:ring-amber-500 flex items-center"
+                                        >
+                                            <FaPlus className="mr-2" />
+                                            Record Damaged Stock
+                                        </button>
+                                        
+                                        {/* Damaged Stock Section - Only shown when button is clicked */}
+                                        {showDamagedStockSection && (
+                                            <div className="mt-4 border-t border-gray-200 pt-4">
+                                                <h3 className="font-medium text-gray-900 mb-3">Record Damaged Stock</h3>
+                                                {error && (
+                                                    <div className="p-3 bg-red-50 text-red-700 rounded-md mb-4">
+                                                        {error}
+                                                    </div>
+                                                )}
+                                                <div className="overflow-x-auto">
+                                                    <table className="min-w-full divide-y divide-gray-200">
+                                                        <thead className="bg-gray-50">
+                                                            <tr>
+                                                                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Material</th>
+                                                                <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Sent Qty</th>
+                                                                <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Remaining Qty</th>
+                                                                <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Damaged Qty</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody className="bg-white divide-y divide-gray-200">
+                                                            {damagedStock.map((item, index) => {
+                                                                const remainingQty = calculateRemainingQty(item.material_name, item.received_qty);
+                                                                const isDisabled = remainingQty === 0;
+                                                                
+                                                                return (
+                                                                    <tr key={index}>
+                                                                        <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">
+                                                                            {item.material_name}
+                                                                        </td>
+                                                                        <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900 text-right">
+                                                                            {item.received_qty}
+                                                                        </td>
+                                                                        <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900 text-right">
+                                                                            {remainingQty}
+                                                                        </td>
+                                                                        <td className="px-4 py-2 whitespace-nowrap text-sm">
+                                                                            <input
+                                                                                type="number"
+                                                                                min="0"
+                                                                                max={remainingQty}
+                                                                                value={item.damaged_qty}
+                                                                                onChange={(e) => handleDamagedQtyChange(index, e.target.value)}
+                                                                                className="w-20 px-2 py-1 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 text-right"
+                                                                                disabled={isDisabled}
+                                                                            />
+                                                                            {isDisabled && (
+                                                                                <div className="text-xs text-gray-500 mt-1">No remaining qty</div>
+                                                                            )}
+                                                                        </td>
+                                                                    </tr>
+                                                                );
+                                                            })}
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+                                                
+                                                <div className="flex justify-end space-x-3 mt-4">
+                                                    <button
+                                                        type="button"
+                                                        onClick={handleResetDamagedStock}
+                                                        className="px-4 py-2 text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-500"
+                                                        disabled={isLoading}
+                                                    >
+                                                        Reset
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        onClick={handleSaveDamagedStock}
+                                                        className="px-4 py-2 text-white bg-amber-600 rounded-md hover:bg-amber-700 focus:outline-none focus:ring-2 focus:ring-amber-500 flex items-center"
+                                                        disabled={isLoading}
+                                                    >
+                                                        {isLoading ? (
+                                                            <>
+                                                                <FaSpinner className="animate-spin mr-2" />
+                                                                Saving...
+                                                            </>
+                                                        ) : (
+                                                            'Save Damaged Stock'
+                                                        )}
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                    
+                                    {/* Saved Damaged Stock Entries */}
+                                    {savedDamagedStock.length > 0 && (
+                                        <div className="bg-white border border-gray-200 rounded-lg p-4">
+                                            <h3 className="font-medium text-gray-900 mb-3">Saved Damaged Stock Entries</h3>
                                             <div className="overflow-x-auto">
                                                 <table className="min-w-full divide-y divide-gray-200">
                                                     <thead className="bg-gray-50">
                                                         <tr>
-                                                            <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Product Name</th>
-                                                            <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Cartons Sent</th>
-                                                            <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Cartons Received*</th>
+                                                            <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Material</th>
+                                                            <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Sent Qty</th>
+                                                            <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Damaged Qty</th>
+                                                            <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                                                            <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Entered By</th>
+                                                            <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                                                            <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                                                         </tr>
                                                     </thead>
                                                     <tbody className="bg-white divide-y divide-gray-200">
-                                                        {dcDetails.products.map((product, index) => (
-                                                            <tr key={index}>
+                                                        {savedDamagedStock.map((entry) => (
+                                                            <tr key={entry._id}>
                                                                 <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">
-                                                                    {product.product_name}
+                                                                    {entry.material_name}
+                                                                </td>
+                                                                <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900 text-right">
+                                                                    {entry.received_qty}
+                                                                </td>
+                                                                <td className="px-4 py-2 whitespace-nowrap text-sm font-medium text-red-600 text-right">
+                                                                    {entry.damaged_qty}
+                                                                </td>
+                                                                <td className="px-4 py-2 whitespace-nowrap text-sm">
+                                                                    <span className={`px-2 py-1 text-xs rounded-full ${
+                                                                        entry.status === 'Pending' ? 'bg-yellow-100 text-yellow-800' :
+                                                                        entry.status === 'Approved' ? 'bg-green-100 text-green-800' :
+                                                                        entry.status === 'Rejected' ? 'bg-red-100 text-red-800' :
+                                                                        'bg-gray-100 text-gray-800'
+                                                                    }`}>
+                                                                        {entry.status}
+                                                                    </span>
                                                                 </td>
                                                                 <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">
-                                                                    {product.carton_qty || 0}
+                                                                    {entry.entered_by}
                                                                 </td>
                                                                 <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">
-                                                                    <input
-                                                                        type="number"
-                                                                        min="0"
-                                                                        value={productCartonsReceived[index] || ''}
-                                                                        onChange={(e) => handleProductCartonsReceivedChange(index, e.target.value)}
-                                                                        className="w-24 px-2 py-1 border border-gray-300 rounded"
-                                                                        disabled={isLoading || isGRNLocked}
-                                                                    />
+                                                                    {new Date(entry.entered_on).toLocaleDateString()}
+                                                                </td>
+                                                                <td className="px-4 py-2 whitespace-nowrap text-sm text-center">
+                                                                    {entry.status === 'Pending' && (
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() => handleDeleteSavedDamagedStock(entry._id)}
+                                                                            className="text-red-600 hover:text-red-900"
+                                                                            title="Delete Entry"
+                                                                        >
+                                                                            <FaTrash />
+                                                                        </button>
+                                                                    )}
+                                                                    {entry.status !== 'Pending' && (
+                                                                        <span className="text-gray-400">
+                                                                            <FaCheck />
+                                                                        </span>
+                                                                    )}
                                                                 </td>
                                                             </tr>
                                                         ))}
@@ -895,310 +1283,52 @@ const CreateFGGRN = () => {
                                                 </table>
                                             </div>
                                         </div>
-                                    </div>
-                                ) : (
-                                    // Display single product (backward compatibility)
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                                        <div>
-                                            <span className="font-medium">DC Number:</span> {dcDetails.dc_no}
-                                        </div>
-                                        <div>
-                                            <span className="font-medium">Issued To:</span> {dcDetails.unit_type === 'Own Unit' ? (dcDetails.person_name || 'N/A') : (dcDetails.supplier_id?.name || 'N/A')} / {dcDetails.unit_type === 'Own Unit' ? 'Own Unit' : 'Jobber'}
-                                        </div>
-                                        <div>
-                                            <span className="font-medium">Date:</span> {new Date(dcDetails.date).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' }).replace(/\//g, '-')}
-                                        </div>
-                                        <div>
-                                            <span className="font-medium">Cartons Sent:</span> {dcDetails.carton_qty || 0}
-                                        </div>
-                                        <div>
-                                            <span className="font-medium">Unit Type:</span> {dcDetails.unit_type === 'Own Unit' ? 'Own Unit' : 'Jobber'}
-                                        </div>
-                                        <div>
-                                            <span className="font-medium">Status:</span> 
-                                            <span className={`ml-2 px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                                                dcDetails.status === 'Completed' ? 'bg-green-100 text-green-800' :
-                                                dcDetails.status === 'Partial' ? 'bg-orange-100 text-orange-800' :
-                                                dcDetails.status === 'Pending' ? 'bg-yellow-100 text-yellow-800' :
-                                                'bg-gray-100 text-gray-800'
-                                            }`}>
-                                                {dcDetails.status}
-                                            </span>
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
+                                    )}
 
-                            {/* Carton Information */}
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                                
-                                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
-                                    <div className="bg-blue-100 text-blue-800 px-3 py-3 rounded-lg font-medium whitespace-nowrap">
-                                        Cartons Sent: {
-                                            dcDetails.products && dcDetails.products.length > 0 
-                                                ? dcDetails.products.reduce((total, product) => total + (product.carton_qty || 0), 0)
-                                                : (dcDetails.carton_qty || 0)
-                                        }
-                                    </div>
-                                </div>
-                                
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                                        Receiver Name *
-                                    </label>
-                                    <input
-                                        type="text"
-                                        value={receivedBy}
-                                        onChange={(e) => setReceivedBy(e.target.value)}
-                                        className="w-full px-4 py-3 text-gray-700 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                                        disabled={isLoading || isGRNLocked || !!user} // Read-only if user is logged in
-                                        readOnly={!!user} // Read-only if user is logged in
-                                    />
-                                </div>
-                                
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                                        Date Received *
-                                    </label>
-                                    <input
-                                        type="date"
-                                        value={dateReceived}
-                                        onChange={(e) => setDateReceived(e.target.value)}
-                                        className="w-full px-4 py-3 text-gray-700 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                                        disabled={isLoading || isGRNLocked}
-                                    />
-                                </div>
-                            </div>
-
-                            {/* Material Usage Calculation */}
-                            {/* {materialUsage.length > 0 && (
-                                <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-                                    <h3 className="font-medium text-gray-800 mb-3">Material Usage Calculation</h3>
-                                    <div className="overflow-x-auto">
-                                        <table className="min-w-full divide-y divide-gray-200">
-                                            <thead className="bg-gray-100">
-                                                <tr>
-                                                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Material</th>
-                                                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Sent Qty</th>
-                                                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Used Qty</th>
-                                                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Remaining Qty</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody className="bg-white divide-y divide-gray-200">
-                                                {materialUsage.map((usage, index) => (
-                                                    <tr key={index}>
-                                                        <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">{usage.materialName}</td>
-                                                        <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">{usage.sentQty}</td>
-                                                        <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">{usage.usedQty}</td>
-                                                        <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">{usage.remainingQty}</td>
-                                                    </tr>
-                                                ))}
-                                            </tbody>
-                                        </table>
-                                    </div>
-                                </div>
-                            )} */}
-                            
-                            {/* Record Damaged Stock Button */}
-                            <div className="bg-white border border-gray-200 rounded-lg p-4">
-                                <button
-                                    type="button"
-                                    onClick={() => setShowDamagedStockSection(!showDamagedStockSection)}
-                                    className="px-4 py-2 text-white bg-amber-600 rounded-md hover:bg-amber-700 focus:outline-none focus:ring-2 focus:ring-amber-500 flex items-center"
-                                >
-                                    <FaPlus className="mr-2" />
-                                    Record Damaged Stock
-                                </button>
-                                
-                                {/* Damaged Stock Section - Only shown when button is clicked */}
-                                {showDamagedStockSection && (
-                                    <div className="mt-4 border-t border-gray-200 pt-4">
-                                        <h3 className="font-medium text-gray-900 mb-3">Record Damaged Stock</h3>
-                                        {error && (
-                                            <div className="p-3 bg-red-50 text-red-700 rounded-md mb-4">
-                                                {error}
-                                            </div>
-                                        )}
-                                        <div className="overflow-x-auto">
-                                            <table className="min-w-full divide-y divide-gray-200">
-                                                <thead className="bg-gray-50">
-                                                    <tr>
-                                                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Material</th>
-                                                        <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Sent Qty</th>
-                                                        <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Remaining Qty</th>
-                                                        <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Damaged Qty</th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody className="bg-white divide-y divide-gray-200">
-                                                    {damagedStock.map((item, index) => {
-                                                        const remainingQty = calculateRemainingQty(item.material_name, item.received_qty);
-                                                        const isDisabled = remainingQty === 0;
-                                                        
-                                                        return (
-                                                            <tr key={index}>
-                                                                <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">
-                                                                    {item.material_name}
-                                                                </td>
-                                                                <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900 text-right">
-                                                                    {item.received_qty}
-                                                                </td>
-                                                                <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900 text-right">
-                                                                    {remainingQty}
-                                                                </td>
-                                                                <td className="px-4 py-2 whitespace-nowrap text-sm">
-                                                                    <input
-                                                                        type="number"
-                                                                        min="0"
-                                                                        max={remainingQty}
-                                                                        value={item.damaged_qty}
-                                                                        onChange={(e) => handleDamagedQtyChange(index, e.target.value)}
-                                                                        className="w-20 px-2 py-1 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 text-right"
-                                                                        disabled={isDisabled}
-                                                                    />
-                                                                    {isDisabled && (
-                                                                        <div className="text-xs text-gray-500 mt-1">No remaining qty</div>
-                                                                    )}
-                                                                </td>
-                                                            </tr>
-                                                        );
-                                                    })}
-                                                </tbody>
-                                            </table>
-                                        </div>
-                                        
-                                        <div className="flex justify-end space-x-3 mt-4">
-                                            <button
-                                                type="button"
-                                                onClick={handleResetDamagedStock}
-                                                className="px-4 py-2 text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-500"
-                                                disabled={isLoading}
-                                            >
-                                                Reset
-                                            </button>
-                                            <button
-                                                type="button"
-                                                onClick={handleSaveDamagedStock}
-                                                className="px-4 py-2 text-white bg-amber-600 rounded-md hover:bg-amber-700 focus:outline-none focus:ring-2 focus:ring-amber-500 flex items-center"
-                                                disabled={isLoading}
-                                            >
-                                                {isLoading ? (
-                                                    <>
-                                                        <FaSpinner className="animate-spin mr-2" />
-                                                        Saving...
-                                                    </>
-                                                ) : (
-                                                    'Save Damaged Stock'
-                                                )}
-                                            </button>
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
-                            
-                            {/* Saved Damaged Stock Entries */}
-                            {savedDamagedStock.length > 0 && (
-                                <div className="bg-white border border-gray-200 rounded-lg p-4">
-                                    <h3 className="font-medium text-gray-900 mb-3">Saved Damaged Stock Entries</h3>
-                                    <div className="overflow-x-auto">
-                                        <table className="min-w-full divide-y divide-gray-200">
-                                            <thead className="bg-gray-50">
-                                                <tr>
-                                                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Material</th>
-                                                    <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Sent Qty</th>
-                                                    <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Damaged Qty</th>
-                                                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                                                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Entered By</th>
-                                                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
-                                                    <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody className="bg-white divide-y divide-gray-200">
-                                                {savedDamagedStock.map((entry) => (
-                                                    <tr key={entry._id}>
-                                                        <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">
-                                                            {entry.material_name}
-                                                        </td>
-                                                        <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900 text-right">
-                                                            {entry.received_qty}
-                                                        </td>
-                                                        <td className="px-4 py-2 whitespace-nowrap text-sm font-medium text-red-600 text-right">
-                                                            {entry.damaged_qty}
-                                                        </td>
-                                                        <td className="px-4 py-2 whitespace-nowrap text-sm">
-                                                            <span className={`px-2 py-1 text-xs rounded-full ${
-                                                                entry.status === 'Pending' ? 'bg-yellow-100 text-yellow-800' :
-                                                                entry.status === 'Approved' ? 'bg-green-100 text-green-800' :
-                                                                entry.status === 'Rejected' ? 'bg-red-100 text-red-800' :
-                                                                'bg-gray-100 text-gray-800'
-                                                            }`}>
-                                                                {entry.status}
-                                                            </span>
-                                                        </td>
-                                                        <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">
-                                                            {entry.entered_by}
-                                                        </td>
-                                                        <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">
-                                                            {new Date(entry.entered_on).toLocaleDateString()}
-                                                        </td>
-                                                        <td className="px-4 py-2 whitespace-nowrap text-sm text-center">
-                                                            {entry.status === 'Pending' && (
-                                                                <button
-                                                                    type="button"
-                                                                    onClick={() => handleDeleteSavedDamagedStock(entry._id)}
-                                                                    className="text-red-600 hover:text-red-900"
-                                                                    title="Delete Entry"
-                                                                >
-                                                                    <FaTrash />
-                                                                </button>
-                                                            )}
-                                                            {entry.status !== 'Pending' && (
-                                                                <span className="text-gray-400">
-                                                                    <FaCheck />
-                                                                </span>
-                                                            )}
-                                                        </td>
-                                                    </tr>
-                                                ))}
-                                            </tbody>
-                                        </table>
+                                    {/* Action Buttons */}
+                                    <div className="flex justify-end space-x-4 pt-4">
+                                        <button
+                                            type="button"
+                                            onClick={handleReset}
+                                            className="px-6 py-2.5 text-sm font-medium text-dark-700 bg-light-200 rounded-lg hover:bg-light-300 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-light-500"
+                                            disabled={isLoading}
+                                        >
+                                            Reset
+                                        </button>
+                                        <button
+                                            type="submit"
+                                            className={`px-6 py-2.5 text-sm font-medium text-white rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 flex items-center ${
+                                                (dcDetails && dcDetails.products && dcDetails.products.length > 0 && productPendingQuantities.length > 0 && productPendingQuantities.every(p => p.pendingQty <= 0)) || isGRNLocked
+                                                    ? 'bg-gray-400 cursor-not-allowed'
+                                                    : 'bg-primary-500 hover:bg-primary-600 focus:ring-primary-500'
+                                            }`}
+                                            disabled={
+                                                isLoading || 
+                                                isGRNLocked || 
+                                                (dcDetails && dcDetails.products && dcDetails.products.length > 0 && productPendingQuantities.length > 0 && productPendingQuantities.every(p => p.pendingQty <= 0))
+                                            }
+                                        >
+                                            {isLoading ? (
+                                                <>
+                                                    <FaSpinner className="animate-spin mr-2" />
+                                                    Processing...
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <FaRedo className="mr-2" />
+                                                    Create GRN
+                                                </>
+                                            )}
+                                        </button>
                                     </div>
                                 </div>
                             )}
-
-                            {/* Action Buttons */}
-                            <div className="flex justify-end space-x-4 pt-4">
-                                <button
-                                    type="button"
-                                    onClick={handleReset}
-                                    className="px-6 py-2.5 text-sm font-medium text-dark-700 bg-light-200 rounded-lg hover:bg-light-300 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-light-500"
-                                    disabled={isLoading}
-                                >
-                                    Reset
-                                </button>
-                                <button
-                                    type="submit"
-                                    className="px-6 py-2.5 text-sm font-medium text-white bg-primary-500 rounded-lg hover:bg-primary-600 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 flex items-center"
-                                    disabled={isLoading || isGRNLocked}
-                                >
-                                    {isLoading ? (
-                                        <>
-                                            <FaSpinner className="animate-spin mr-2" />
-                                            Processing...
-                                        </>
-                                    ) : (
-                                        <>
-                                            <FaRedo className="mr-2" />
-                                            Create GRN
-                                        </>
-                                    )}
-                                </button>
-                            </div>
-                        </div>
+                        </>
                     )}
-                </form>
-            </Card>
-        </div>
-    );
-};
+                    </form>
+                </Card>
+            </div>
+        );
+    };
 
 export default CreateFGGRN;

@@ -166,7 +166,7 @@ const ViewFGGRN = () => {
                                 <tr>
                                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">PRODUCT NAME</th>
                                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">CARTONS SENT</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">CARTONS RETURNED</th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">CARTONS RECEIVED</th>
                                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">BALANCE</th>
                                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">STATUS</th>
                                 </tr>
@@ -193,36 +193,8 @@ const ViewFGGRN = () => {
                     </div>
                 </div>
 
-                {/* Material Details */}
-                {grn.items && grn.items.length > 0 && (
-                    <div>
-                        <h3 className="text-lg font-medium text-gray-900 mb-4">Material Details</h3>
-                        <div className="overflow-x-auto">
-                            <table className="min-w-full divide-y divide-gray-200">
-                                <thead className="bg-gray-50">
-                                    <tr>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">MATERIAL NAME</th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">SENT QTY</th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">RECEIVED QTY</th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">DAMAGED QTY</th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">BALANCE</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="bg-white divide-y divide-gray-200">
-                                    {grn.items.map((item, index) => (
-                                        <tr key={index}>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{typeof item.material === 'string' ? item.material : (item.material?.name || 'N/A')}</td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{item.orderedQuantity || 0}</td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{item.receivedQuantity || 0}</td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{item.damagedQuantity || 0}</td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{item.balanceQuantity || 0}</td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                )}
+                {/* Material Details - REMOVED as per requirement */}
+
             </Card>
         </div>
     );
