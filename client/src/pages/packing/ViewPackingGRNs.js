@@ -5,10 +5,9 @@ import Card from '../../components/common/Card';
 import { FaSpinner, FaEye, FaDownload } from 'react-icons/fa';
 import ViewReportTools from '../../components/common/ViewReportTools';
 import Modal from '../../components/common/Modal';
+import PackingGRNPrintLayout from './PackingGRNPrintLayout'; // Import our new print layout
 
-// This component can be moved to its own file later if needed
-const GRNTable = ({ grns }) => {
-    const [dropdownOpen, setDropdownOpen] = useState(null);
+const GRNTable = ({ grns, onDownloadOptions }) => {
     const navigate = useNavigate();
 
     const formatDate = (dateString) => {
@@ -39,34 +38,9 @@ const GRNTable = ({ grns }) => {
         return grn.supplier?.name || 'N/A';
     };
 
-    // Toggle dropdown for a specific GRN
-    const toggleDropdown = (grnId) => {
-        setDropdownOpen(dropdownOpen === grnId ? null : grnId);
-    };
-
-    // Close dropdown
-    const closeDropdown = () => {
-        setDropdownOpen(null);
-    };
-
     // Handle View Report
     const handleViewReport = (grn) => {
         navigate(`/packing/grn/${grn._id}`);
-        closeDropdown();
-    };
-
-    // Handle Download PDF
-    const handleDownloadPDF = (grn) => {
-        // In a real implementation, this would trigger a PDF download
-        console.log('Download PDF for GRN:', grn._id);
-        closeDropdown();
-    };
-
-    // Handle Print PDF
-    const handlePrintPDF = (grn) => {
-        // In a real implementation, this would trigger a print dialog
-        console.log('Print PDF for GRN:', grn._id);
-        closeDropdown();
     };
 
     return (
@@ -101,47 +75,17 @@ const GRNTable = ({ grns }) => {
                                     </span>
                                 </td>
                                 <td className="td-style">{grn.receivedBy || 'N/A'}</td>
-                                <td className="td-style relative">
+                                <td className="td-style">
                                     <div className="flex items-center space-x-2">
                                         <Link to={`/packing/grn/${grn._id}`} className="text-blue-500 hover:text-blue-700">
                                             <FaEye />
                                         </Link>
-                                        <div className="relative">
-                                            <button 
-                                                onClick={() => toggleDropdown(grn._id)}
-                                                className="text-blue-500 hover:text-blue-700 focus:outline-none"
-                                            >
-                                                <FaDownload />
-                                            </button>
-                                            
-                                            {dropdownOpen === grn._id && (
-                                                <div className="origin-top-right absolute right-0 mt-2 w-48 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 z-10">
-                                                    <div className="py-1" role="menu">
-                                                        <button
-                                                            onClick={() => handleViewReport(grn)}
-                                                            className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-gray-900"
-                                                            role="menuitem"
-                                                        >
-                                                            View Report
-                                                        </button>
-                                                        <button
-                                                            onClick={() => handleDownloadPDF(grn)}
-                                                            className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-gray-900"
-                                                            role="menuitem"
-                                                        >
-                                                            Download PDF
-                                                        </button>
-                                                        <button
-                                                            onClick={() => handlePrintPDF(grn)}
-                                                            className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-gray-900"
-                                                            role="menuitem"
-                                                        >
-                                                            Print PDF
-                                                        </button>
-                                                    </div>
-                                                </div>
-                                            )}
-                                        </div>
+                                        <button 
+                                            onClick={() => onDownloadOptions(grn)}
+                                            className="text-blue-500 hover:text-blue-700 focus:outline-none"
+                                        >
+                                            <FaDownload />
+                                        </button>
                                     </div>
                                 </td>
                             </tr>
@@ -162,6 +106,7 @@ const ViewPackingGRNs = () => {
     const [statusFilter, setStatusFilter] = useState('');
     const [selectedGRN, setSelectedGRN] = useState(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
+    const [isDownloadModalOpen, setIsDownloadModalOpen] = useState(false); // State for download options modal
     const [lastUpdated, setLastUpdated] = useState(new Date());
     const sourceType = 'purchase_order'; // Permanently set to purchase_order for Packing Materials
     const navigate = useNavigate();
@@ -209,6 +154,60 @@ const ViewPackingGRNs = () => {
             return matchesSearch && matchesStatus;
         });
     }, [grns, searchTerm, statusFilter]);
+
+    // Function to handle View Report - opens modal
+    const handleViewReport = async (grn) => {
+        // Fetch the full GRN data if needed
+        let grnData = grn;
+        if (!grn.items || !grn.supplier) {
+            try {
+                // If the GRN data is not complete, fetch the full data
+                const response = await api.get(`/grn/${grn._id}`);
+                grnData = response.data;
+            } catch (error) {
+                console.error('Error fetching full GRN data:', error);
+                alert('Failed to load full GRN data. Please try again.');
+                return;
+            }
+        }
+        
+        setSelectedGRN(grnData);
+        setIsModalOpen(true);
+        setIsDownloadModalOpen(false); // Close download options modal
+    };
+
+    // Function to handle Download PDF - opens GRN detail page with print option
+    const handleDownloadPDF = async (grn) => {
+        // Open in a new tab with download parameter
+        const printUrl = `${window.location.origin}/#/packing/grn/${grn._id}/print?download=true`;
+        window.open(printUrl, '_blank');
+        setIsDownloadModalOpen(false); // Close download options modal
+    };
+
+    // Function to handle Print PDF - opens GRN detail page with print option
+    const handlePrintPDF = async (grn) => {
+        // Open in a new tab without download parameter
+        const printUrl = `${window.location.origin}/#/packing/grn/${grn._id}/print`;
+        window.open(printUrl, '_blank');
+        setIsDownloadModalOpen(false); // Close download options modal
+    };
+
+    // Function to open download options modal
+    const handleDownloadOptions = (grn) => {
+        setSelectedGRN(grn);
+        setIsDownloadModalOpen(true);
+    };
+
+    // Close modals
+    const closeModal = () => {
+        setIsModalOpen(false);
+        setSelectedGRN(null);
+    };
+
+    const closeDownloadModal = () => {
+        setIsDownloadModalOpen(false);
+        setSelectedGRN(null);
+    };
 
     if (isLoading) {
         return (
@@ -287,7 +286,7 @@ const ViewPackingGRNs = () => {
                     </div>
                 )}
                 
-                <GRNTable grns={filteredGRNs} />
+                <GRNTable grns={filteredGRNs} onDownloadOptions={handleDownloadOptions} />
                 
                 <div className="mt-6 text-sm text-gray-500 flex justify-between items-center">
                     <div>
@@ -298,6 +297,57 @@ const ViewPackingGRNs = () => {
                     </div>
                 </div>
             </Card>
+            
+            {/* Modal for View Report */}
+            <Modal isOpen={isModalOpen} onClose={closeModal} title="GRN Report" size="large">
+                <div className="p-4">
+                    {selectedGRN && (
+                        <div className="bg-white">
+                            <PackingGRNPrintLayout grnData={selectedGRN} />
+                        </div>
+                    )}
+                </div>
+            </Modal>
+            
+            {/* Modal for Download Options */}
+            <Modal isOpen={isDownloadModalOpen} onClose={closeDownloadModal} title="Download Options">
+                <div className="p-6">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <button
+                            onClick={() => handleViewReport(selectedGRN)}
+                            className="flex flex-col items-center justify-center p-6 bg-white rounded-xl shadow-sm hover:shadow-md transition-shadow border border-light-200"
+                        >
+                            <div className="bg-blue-100 p-3 rounded-full mb-3">
+                                <FaEye className="text-blue-600 text-xl" />
+                            </div>
+                            <span className="font-medium text-dark-700">View Report</span>
+                            <span className="text-sm text-light-500 mt-1">Preview in browser</span>
+                        </button>
+                        
+                        <button
+                            onClick={() => handleDownloadPDF(selectedGRN)}
+                            className="flex flex-col items-center justify-center p-6 bg-white rounded-xl shadow-sm hover:shadow-md transition-shadow border border-light-200"
+                        >
+                            <div className="bg-green-100 p-3 rounded-full mb-3">
+                                <FaDownload className="text-green-600 text-xl" />
+                            </div>
+                            <span className="font-medium text-dark-700">Download PDF</span>
+                            <span className="text-sm text-light-500 mt-1">Save to device</span>
+                        </button>
+                        
+                        <button
+                            onClick={() => handlePrintPDF(selectedGRN)}
+                            className="flex flex-col items-center justify-center p-6 bg-white rounded-xl shadow-sm hover:shadow-md transition-shadow border border-light-200"
+                        >
+                            <div className="bg-purple-100 p-3 rounded-full mb-3">
+                                <FaDownload className="text-purple-600 text-xl" />
+                            </div>
+                            <span className="font-medium text-dark-700">Print PDF</span>
+                            <span className="text-sm text-light-500 mt-1">Send to printer</span>
+                        </button>
+                    </div>
+                </div>
+            </Modal>
         </div>
     );
 };

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import ReactDOM from 'react-dom';
-import { useParams, useLocation } from 'react-router-dom';
+import { useParams, useLocation, UNSAFE_NavigationContext } from 'react-router-dom';
 import api from '../../api';
 import logoPO from '../../assets/logo-po.png';
 import { FaEye } from 'react-icons/fa';
@@ -8,9 +8,21 @@ import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';
 import { generateDeltaPOPDF } from '../../utils/pdfGenerator';
 
+// Helper function to safely get location when in router context
+const useLocationSafe = () => {
+  try {
+    return useLocation();
+  } catch (e) {
+    return null;
+  }
+};
+
 const DeltaPOPrintLayout = ({ poData, onDownloadComplete }) => {
     const { id } = useParams();
-    const location = useLocation();
+    // Safely use useLocation - handle cases where component is not in Router context
+    const location = useLocationSafe();
+    const isRouterContext = location !== null;
+    
     const [purchaseOrder, setPurchaseOrder] = useState(poData || null);
     const [supplier, setSupplier] = useState(poData?.supplier || null);
     const [settings, setSettings] = useState({
@@ -53,7 +65,7 @@ const DeltaPOPrintLayout = ({ poData, onDownloadComplete }) => {
             setLoading(false);
             
             // Check if we should automatically download (only in router context)
-            if (location && location.search) {
+            if (isRouterContext && location && location.search) {
                 const queryParams = new URLSearchParams(location.search);
                 if (queryParams.get('download') === 'true') {
                     setAutoDownloadTriggered(true);
@@ -78,7 +90,7 @@ const DeltaPOPrintLayout = ({ poData, onDownloadComplete }) => {
                 setLoading(false);
                 
                 // Check if we should automatically download (only in router context)
-                if (location && location.search) {
+                if (isRouterContext && location && location.search) {
                     const queryParams = new URLSearchParams(location.search);
                     if (queryParams.get('download') === 'true') {
                         setAutoDownloadTriggered(true);
@@ -98,7 +110,7 @@ const DeltaPOPrintLayout = ({ poData, onDownloadComplete }) => {
         if (id) {
             fetchPOData();
         }
-    }, [id, poData]);
+    }, [id, poData, location, isRouterContext]);
 
     const formatDate = (dateString) => {
         if (!dateString) return '';
@@ -165,7 +177,7 @@ const DeltaPOPrintLayout = ({ poData, onDownloadComplete }) => {
             pdf.save(filename);
             
             // Check if this was an auto-download and close the window (only in router context)
-            if (location && location.search) {
+            if (isRouterContext && location && location.search) {
                 const queryParams = new URLSearchParams(location.search);
                 if (queryParams.get('download') === 'true') {
                     // Close the window after a short delay to allow download to start
@@ -682,6 +694,7 @@ const DeltaPOPrintLayout = ({ poData, onDownloadComplete }) => {
 
 
 
+
                 {/* Items Table */}
                 {/* === PRODUCT TABLE === */}
                 <table
@@ -1103,6 +1116,7 @@ const DeltaPOPrintLayout = ({ poData, onDownloadComplete }) => {
 
 
 
+
                 {/* === AMOUNT CHARGEABLE BOX === */}
                 <table
   style={{
@@ -1238,12 +1252,70 @@ const DeltaPOPrintLayout = ({ poData, onDownloadComplete }) => {
 };
 
 // Export a function to generate PDF directly from PO data using the same layout as the view
-// We'll use a different approach to avoid router context issues
 export const generatePDFfromDeltaPOPrintLayout = async (poData) => {
-    // For now, fallback to the existing pdfGenerator utility to ensure functionality
-    // In a production environment, we would implement a proper solution that renders
-    // the DeltaPOPrintLayout component in a proper router context
-    return generateDeltaPOPDF(poData, 'download');
+    // Create a temporary DOM element to render the component
+    const tempDiv = document.createElement('div');
+    tempDiv.style.position = 'absolute';
+    tempDiv.style.left = '-9999px';
+    tempDiv.style.top = '-9999px';
+    document.body.appendChild(tempDiv);
+
+    return new Promise((resolve) => {
+        // Render the component into the temporary div
+        ReactDOM.render(<DeltaPOPrintLayout poData={poData} />, tempDiv, async () => {
+            try {
+                // Wait a bit for all images to load
+                await new Promise(resolve => setTimeout(resolve, 500));
+                
+                // Get the report element
+                const reportElement = tempDiv.querySelector('[ref]');
+                const reportRefElement = tempDiv.firstChild;
+                
+                if (!reportRefElement) {
+                    throw new Error('Could not find report element');
+                }
+
+                // Generate canvas from the element
+                const canvas = await html2canvas(reportRefElement, {
+                    scale: 2,
+                    useCORS: true,
+                    logging: false
+                });
+
+                // Convert to PDF
+                const imgData = canvas.toDataURL('image/png');
+                const pdf = new jsPDF('p', 'mm', 'a4');
+                const imgWidth = 210;
+                const pageHeight = 297;
+                const imgHeight = (canvas.height * imgWidth) / canvas.width;
+                let heightLeft = imgHeight;
+                let position = 0;
+
+                pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+                heightLeft -= pageHeight;
+
+                while (heightLeft >= 0) {
+                    position = heightLeft - imgHeight;
+                    pdf.addPage();
+                    pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+                    heightLeft -= pageHeight;
+                }
+
+                // Save the PDF
+                const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+                const filename = `PurchaseOrder_${poData.poNumber}_${timestamp}.pdf`;
+                pdf.save(filename);
+
+                // Clean up
+                document.body.removeChild(tempDiv);
+                resolve({ success: true });
+            } catch (error) {
+                console.error('Error generating PDF:', error);
+                document.body.removeChild(tempDiv);
+                resolve({ success: false, error: error.message });
+            }
+        });
+    });
 };
 
 export default DeltaPOPrintLayout;

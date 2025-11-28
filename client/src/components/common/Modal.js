@@ -10,11 +10,19 @@ import { FaTimes } from 'react-icons/fa';
  * @param {function} props.onClose Function to call when the modal should be closed.
  * @param {string} props.title The title to display in the modal header.
  * @param {React.ReactNode} props.children The content to display in the modal body.
+ * @param {string} props.size The size of the modal (default, small, large).
  * @returns {JSX.Element|null} The rendered Modal component or null.
  */
-const Modal = ({ isOpen, onClose, title, children }) => {
+const Modal = ({ isOpen, onClose, title, children, size = 'default' }) => {
     // If the modal is not open, render nothing.
     if (!isOpen) return null;
+
+    // Determine modal size classes
+    const sizeClasses = {
+        small: 'max-w-md',
+        default: 'max-w-2xl',
+        large: 'max-w-6xl'
+    };
 
     // Use ReactDOM.createPortal to render the modal into the 'modal-root' div
     return ReactDOM.createPortal(
@@ -26,7 +34,7 @@ const Modal = ({ isOpen, onClose, title, children }) => {
             >
                 {/* Modal Content Panel - Apple Style */}
                 <div
-                    className="bg-white rounded-[var(--radius-lg)] w-full max-w-6xl mx-auto z-50 transform transition-all duration-300 scale-95 animate-in fade-in zoom-in border border-light-200/50 modal-content"
+                    className={`bg-white rounded-[var(--radius-lg)] w-full ${sizeClasses[size]} mx-auto z-50 transform transition-all duration-300 scale-95 animate-in fade-in zoom-in border border-light-200/50 modal-content`}
                     onClick={(e) => e.stopPropagation()} // Prevent clicks inside the modal from closing it
                 >
                     {/* Modal Header */}
