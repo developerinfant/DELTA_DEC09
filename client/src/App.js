@@ -64,12 +64,15 @@ import Invoice from './pages/fg/Invoice';
 import CreateInvoice from './pages/fg/CreateInvoice';
 import InvoiceDetail from './pages/fg/InvoiceDetail';
 import BuyerMaster from './pages/fg/BuyerMaster';
+import DriverMaster from './pages/fg/DriverMaster';
 import FGInvoicePrintLayout from './pages/fg/FGInvoicePrintLayout';
 // Import FG GRN Details page
 import ViewFGGRN from './pages/fg/ViewFGGRN';
 
 // Import Delivery Challan Print Layout
 import DeltaDCPrintLayout from './pages/purchase/DeltaDCPrintLayout';
+import FGDCPrintLayout from './pages/fg/FGDCPrintLayout';
+import FGDCDetail from './pages/fg/FGDCDetail';
 
 // Import the ProtectedRoute component
 import ProtectedRoute from './components/common/ProtectedRoute';
@@ -251,6 +254,16 @@ function App() {
               <ViewFGDCs />
             </ConditionalRoute>
           } />
+          <Route path="fg/delivery-challan/:id/print" element={
+            <ConditionalRoute moduleId="view-fg-dcs" action="view">
+              <FGDCPrintLayout />
+            </ConditionalRoute>
+          } />
+          <Route path="fg/delivery-challan/:id/view" element={
+            <ConditionalRoute moduleId="view-fg-dcs" action="view">
+              <FGDCDetail />
+            </ConditionalRoute>
+          } />
           {/* Redirect /fg/invoice to a proper view route */}
           <Route path="fg/invoice" element={<Navigate to="/fg/invoice/view" replace />} />
           <Route path="fg/invoice/view" element={
@@ -278,6 +291,14 @@ function App() {
           <Route path="fg/buyer-master/view" element={
             <ConditionalRoute moduleId="view-fg-buyers" action="view">
               <BuyerMaster />
+            </ConditionalRoute>
+          } />
+          
+          {/* Driver Master Route */}
+          <Route path="fg/driver-master" element={<Navigate to="/fg/driver-master/view" replace />} />
+          <Route path="fg/driver-master/view" element={
+            <ConditionalRoute moduleId="view-fg-buyers" action="view">
+              <DriverMaster />
             </ConditionalRoute>
           } />
           

@@ -4,7 +4,8 @@ const {
     createFGDeliveryChallan,
     getFGDeliveryChallans,
     getFGDeliveryChallanById,
-    updateFGDeliveryChallan
+    updateFGDeliveryChallan,
+    downloadFGDeliveryChallan
 } = require('../controllers/fgDeliveryChallanController');
 const { protect, admin } = require('../middleware/authMiddleware');
 
@@ -31,5 +32,11 @@ router.route('/:id')
 // @access  Private
 router.route('/:id')
     .get(protect, getFGDeliveryChallanById);
+
+// @desc    Download FG delivery challan as PDF
+// @route   GET /api/fg/delivery-challan/:id/download
+// @access  Private
+router.route('/:id/download')
+    .get(protect, downloadFGDeliveryChallan);
 
 module.exports = router;

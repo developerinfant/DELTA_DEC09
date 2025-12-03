@@ -4,8 +4,8 @@ import api from '../../api';
 import Select from 'react-select';
 import { useAuth } from '../../context/AuthContext'; // Import the useAuth hook
 
-const GRNForm = ({ purchaseOrders, onCreate }) => {
-    const [selectedPOId, setSelectedPOId] = useState('');
+const GRNForm = ({ purchaseOrders, onCreate, existingGRN, navigate }) => {
+    const [selectedPOId, setSelectedPOId] = useState(existingGRN?.purchaseOrder?._id || '');
     const [poDetails, setPoDetails] = useState(null);
     const [items, setItems] = useState([]);
     const [poSummary, setPoSummary] = useState({});
@@ -18,13 +18,13 @@ const GRNForm = ({ purchaseOrders, onCreate }) => {
     const [success, setSuccess] = useState('');
     
     // New states for Invoice/DC selection
-    const [referenceType, setReferenceType] = useState(''); // 'invoice' or 'dc'
-    const [invoiceNo, setInvoiceNo] = useState('');
-    const [invoiceDate, setInvoiceDate] = useState(new Date().toISOString().split('T')[0]);
-    const [dcNo, setDcNo] = useState('');
-    const [dcDate, setDcDate] = useState(new Date().toISOString().split('T')[0]); // Add DC date state
+    const [referenceType, setReferenceType] = useState(existingGRN?.referenceType || ''); // 'invoice' or 'dc'
+    const [invoiceNo, setInvoiceNo] = useState(existingGRN?.invoiceNo || '');
+    const [invoiceDate, setInvoiceDate] = useState(existingGRN?.invoiceDate ? new Date(existingGRN.invoiceDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]);
+    const [dcNo, setDcNo] = useState(existingGRN?.dcNo || '');
+    const [dcDate, setDcDate] = useState(existingGRN?.dcDate ? new Date(existingGRN.dcDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]); // Add DC date state
     
-    const navigate = useNavigate();
+    const navigation = useNavigate();
     const { user } = useAuth(); // Get the logged-in user from context
 
     // Auto-fill the receivedBy field with the logged-in user's name
@@ -33,6 +33,24 @@ const GRNForm = ({ purchaseOrders, onCreate }) => {
             setReceivedBy(user.name);
         }
     }, [user]);
+
+    // Initialize form with existing GRN data
+    useEffect(() => {
+        if (existingGRN) {
+            // Set reference document fields
+            setReferenceType(existingGRN.referenceType || '');
+            setInvoiceNo(existingGRN.invoiceNo || '');
+            setInvoiceDate(existingGRN.invoiceDate ? new Date(existingGRN.invoiceDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]);
+            setDcNo(existingGRN.dcNo || '');
+            setDcDate(existingGRN.dcDate ? new Date(existingGRN.dcDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]);
+            
+            // Set date received
+            setDateReceived(existingGRN.dateReceived ? new Date(existingGRN.dateReceived).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]);
+            
+            // Set received by
+            setReceivedBy(existingGRN.receivedBy || (user?.name || ''));
+        }
+    }, [existingGRN, user]);
 
     const selectedPO = useMemo(() => {
         return purchaseOrders.find(po => po._id === selectedPOId);
@@ -198,34 +216,70 @@ useEffect(() => {
             return;
         }
 
+        // Prepare GRN data
         const grnData = {
             purchaseOrderId: selectedPOId,
-            items: items.filter(item => item.receivedQuantity > 0 || item.extraReceivedQty > 0), // Only send items with received quantity
-            receivedBy,
-            dateReceived,
-            // Add reference data based on selection
-            referenceType: referenceType,
-            invoiceNo: referenceType === 'invoice' ? invoiceNo : undefined,
-            invoiceDate: referenceType === 'invoice' ? invoiceDate : undefined,
-            dcNo: referenceType === 'dc' ? dcNo : undefined,
-            dcDate: referenceType === 'dc' ? dcDate : undefined, // Add DC date to the data
+            items: items.map(item => ({
+                material: item.material,
+                materialModel: item.materialModel,
+                orderedQuantity: item.orderedQuantity,
+                receivedQuantity: item.receivedQuantity,
+                extraReceivedQty: item.extraReceivedQty,
+                unitPrice: item.unitPrice,
+                totalPrice: item.totalPrice,
+                damagedQuantity: item.damagedQuantity,
+                remarks: item.remarks,
+                balanceQuantity: item.orderedQuantity - (item.previousReceived + item.receivedQuantity)
+            })),
+            receivedBy: receivedBy.trim(),
+            dateReceived: new Date(dateReceived).toISOString(),
+            referenceType,
+            invoiceNo,
+            invoiceDate: referenceType === 'invoice' ? new Date(invoiceDate).toISOString() : null,
+            dcNo,
+            dcDate: referenceType === 'dc' ? new Date(dcDate).toISOString() : null
         };
 
         try {
-            await api.post('/grn', grnData);
-            setSuccess('GRN created successfully!');
+            let response;
+            if (existingGRN && existingGRN._id) {
+                // Update existing GRN
+                response = await api.put(`/grn/${existingGRN._id}`, grnData);
+            } else {
+                // Create new GRN
+                response = await api.post('/grn', grnData);
+            }
+            
+            setSuccess(existingGRN ? 'GRN updated successfully!' : 'GRN created successfully!');
             if (onCreate) onCreate();
-            // Redirect to the GRN list after a short delay
-            setTimeout(() => {
-                navigate('/packing/grn/view');
-            }, 1500);
+            
+            // Redirect to GRN Details page after successful creation
+            if (!existingGRN && response?.data?._id) {
+                setTimeout(() => {
+                    navigation(`/packing/grn/${response.data._id}`);
+                }, 1500);
+            }
+            
+            // Reset form after successful submission (only for new GRNs)
+            if (!existingGRN) {
+                setSelectedPOId('');
+                setItems([]);
+                setReferenceType('');
+                setInvoiceNo('');
+                setDcNo('');
+            }
         } catch (err) {
-            setError(err.response?.data?.message || 'Failed to create GRN.');
+            const errorMessage = err.response?.data?.message || 'Failed to create/update GRN.';
+            setError(errorMessage);
+            console.error('Error creating/updating GRN:', err);
         } finally {
             setIsLoading(false);
         }
     };
-    
+
+    // Function to check if form should be disabled (for completed GRNs)
+    const isFormDisabled = existingGRN && existingGRN.status === 'Completed';
+
     // Helper class for form inputs
     const inputStyle = "mt-1 block w-full px-4 py-2 text-dark-700 bg-light-100 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent";
     
@@ -396,6 +450,7 @@ if (normalPending === 0 && extraPending === 0) {
                                 value={referenceType}
                                 onChange={(e) => setReferenceType(e.target.value)}
                                 className="mt-1 block w-full px-4 py-2 text-dark-700 bg-light-100 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                                disabled={isFormDisabled}
                             >
                                 <option value="">-- Select Reference Type --</option>
                                 <option value="invoice">Invoice</option>
@@ -414,6 +469,7 @@ if (normalPending === 0 && extraPending === 0) {
                                         onChange={(e) => setInvoiceNo(e.target.value)}
                                         className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
                                         placeholder="Enter Invoice No"
+                                        disabled={isFormDisabled}
                                     />
                                 </div>
                                 <div>
@@ -424,6 +480,7 @@ if (normalPending === 0 && extraPending === 0) {
                                         value={invoiceDate}
                                         onChange={(e) => setInvoiceDate(e.target.value)}
                                         className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
+                                        disabled={isFormDisabled}
                                     />
                                 </div>
                             </>
@@ -440,6 +497,7 @@ if (normalPending === 0 && extraPending === 0) {
                                         onChange={(e) => setDcNo(e.target.value)}
                                         className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
                                         placeholder="Enter DC No"
+                                        disabled={isFormDisabled}
                                     />
                                 </div>
                                 <div>
@@ -450,6 +508,7 @@ if (normalPending === 0 && extraPending === 0) {
                                         value={dcDate}
                                         onChange={(e) => setDcDate(e.target.value)}
                                         className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
+                                        disabled={isFormDisabled}
                                     />
                                 </div>
                             </>

@@ -112,16 +112,39 @@ const PurchaseOrderForm = ({ suppliers, materials, rawMaterials, onOrderCreated,
         
         if (materialIds.length === 0) return;
         
-        // Filter POs based on date range and supplier if provided
+        // Filter POs based on date range, supplier, and material if provided
         let filteredPOs = previousPOData;
-        if (dateFrom || dateTo || comparisonSupplier) {
+        if (dateFrom || dateTo || comparisonSupplier || materialIds.length > 0) {
             filteredPOs = previousPOData.filter(po => {
                 const poDate = new Date(po.createdAt);
-                // Date filtering
-                if (dateFrom && poDate < new Date(dateFrom)) return false;
-                if (dateTo && poDate > new Date(dateTo)) return false;
+                
+                // Date filtering - check if poDate is within the selected range
+                // Normalize dates to compare only the date part (without time)
+                const fromDate = dateFrom ? new Date(dateFrom) : null;
+                const toDate = dateTo ? new Date(dateTo) : null;
+                    
+                // Set time to beginning of day for consistent comparison
+                if (fromDate) {
+                    fromDate.setHours(0, 0, 0, 0);
+                }
+                if (toDate) {
+                    toDate.setHours(23, 59, 59, 999); // End of day
+                }
+                    
+                if (fromDate && poDate < fromDate) return false;
+                if (toDate && poDate > toDate) return false;
+                
                 // Supplier filtering
                 if (comparisonSupplier && po.supplier?._id !== comparisonSupplier) return false;
+                
+                // Material filtering - check if PO contains any of the selected materials
+                if (materialIds.length > 0) {
+                    const poContainsMaterial = po.items?.some(item => 
+                        materialIds.some(id => id === item.material?.toString())
+                    );
+                    if (!poContainsMaterial) return false;
+                }
+                
                 return true;
             });
         }
@@ -180,6 +203,14 @@ const PurchaseOrderForm = ({ suppliers, materials, rawMaterials, onOrderCreated,
         });
         
         setComparisonData(materialComparisonData);
+        
+        // Scroll to comparison panel
+        setTimeout(() => {
+            const panel = document.getElementById('comparison-panel');
+            if (panel) {
+                panel.scrollIntoView({ behavior: 'smooth' });
+            }
+        }, 100);
     };
 
     const handleItemChange = (index, field, value) => {
@@ -243,16 +274,39 @@ const PurchaseOrderForm = ({ suppliers, materials, rawMaterials, onOrderCreated,
             // Store the fetched data for future updates
             setPreviousPOData(allPOs);
             
-            // Filter POs based on date range and supplier if provided
+            // Filter POs based on date range, supplier, and material if provided
             let filteredPOs = allPOs;
-            if (dateFrom || dateTo || comparisonSupplier) {
+            if (dateFrom || dateTo || comparisonSupplier || materialIds.length > 0) {
                 filteredPOs = allPOs.filter(po => {
                     const poDate = new Date(po.createdAt);
-                    // Date filtering
-                    if (dateFrom && poDate < new Date(dateFrom)) return false;
-                    if (dateTo && poDate > new Date(dateTo)) return false;
+                    
+                    // Date filtering - check if poDate is within the selected range
+                    // Normalize dates to compare only the date part (without time)
+                    const fromDate = dateFrom ? new Date(dateFrom) : null;
+                    const toDate = dateTo ? new Date(dateTo) : null;
+                    
+                    // Set time to beginning of day for consistent comparison
+                    if (fromDate) {
+                        fromDate.setHours(0, 0, 0, 0);
+                    }
+                    if (toDate) {
+                        toDate.setHours(23, 59, 59, 999); // End of day
+                    }
+                    
+                    if (fromDate && poDate < fromDate) return false;
+                    if (toDate && poDate > toDate) return false;
+                    
                     // Supplier filtering
                     if (comparisonSupplier && po.supplier?._id !== comparisonSupplier) return false;
+                    
+                    // Material filtering - check if PO contains any of the selected materials
+                    if (materialIds.length > 0) {
+                        const poContainsMaterial = po.items?.some(item => 
+                            materialIds.some(id => id === item.material?.toString())
+                        );
+                        if (!poContainsMaterial) return false;
+                    }
+                    
                     return true;
                 });
             }
@@ -339,7 +393,16 @@ const PurchaseOrderForm = ({ suppliers, materials, rawMaterials, onOrderCreated,
 
     // Function to apply date filter
     const applyDateFilter = () => {
-        updateComparisonData(); // Use existing data instead of re-fetching
+        // Re-fetch data when filters change to ensure we have the latest data
+        comparePrices().then(() => {
+            // Scroll to comparison panel after data is loaded
+            setTimeout(() => {
+                const panel = document.getElementById('comparison-panel');
+                if (panel) {
+                    panel.scrollIntoView({ behavior: 'smooth' });
+                }
+            }, 100);
+        });
     };
 
     const handleSubmit = async (e) => {
@@ -445,19 +508,6 @@ const PurchaseOrderForm = ({ suppliers, materials, rawMaterials, onOrderCreated,
         <Card title="Create New Purchase Order" className="max-w-7xl mx-auto">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
                 <h2 className="text-2xl font-bold text-dark-700">Purchase Order Details</h2>
-                <button 
-                    type="button" 
-                    onClick={comparePrices}
-                    disabled={items.filter(item => item.materialId).length === 0}
-                    className={`flex items-center px-4 py-2 rounded-lg transition-colors ${
-                        items.filter(item => item.materialId).length > 0
-                            ? 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white hover:from-blue-600 hover:to-indigo-700 shadow-md' 
-                            : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                    }`}
-                >
-                    <FaExchangeAlt className="mr-2" />
-                    Compare Prices
-                </button>
             </div>
             
             {/* Supplier Details Preview */}
@@ -709,6 +759,23 @@ const PurchaseOrderForm = ({ suppliers, materials, rawMaterials, onOrderCreated,
                             </tbody>
                         </table>
                     </div>
+                </div>
+                
+                {/* Compare Prices Button */}
+                <div className="flex justify-center my-6">
+                    <button 
+                        type="button" 
+                        onClick={comparePrices}
+                        disabled={items.filter(item => item.materialId).length === 0}
+                        className={`flex items-center px-6 py-3 rounded-lg transition-all transform hover:scale-105 ${
+                            items.filter(item => item.materialId).length > 0
+                                ? 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white hover:from-blue-600 hover:to-indigo-700 shadow-lg' 
+                                : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                        }`}
+                    >
+                        <FaExchangeAlt className="mr-2" />
+                        Compare Prices
+                    </button>
                 </div>
                 
                 {/* Totals Section */}

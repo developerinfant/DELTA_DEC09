@@ -26,13 +26,13 @@ const InvoiceDetail = () => {
     }, [id]);
 
     const handlePrint = () => {
-        // Navigate to the new print layout instead of using window.print()
-        navigate(`/fg/invoice/${id}/print`);
+        // Navigate to the print layout in the same tab for printing
+        navigate(`/fg/invoice/${id}/print?print=true`);
     };
 
     const handleDownloadPDF = () => {
-        // Navigate to the new print layout for PDF generation
-        navigate(`/fg/invoice/${id}/print`);
+        // Navigate to the print layout in the same tab for PDF download
+        navigate(`/fg/invoice/${id}/print?download=true`);
     };
 
     const formatDate = (dateString) => {
@@ -145,12 +145,17 @@ const InvoiceDetail = () => {
                         Back
                     </button>
                     <button 
+                        onClick={handleDownloadPDF}
+                        className="flex items-center px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600"
+                    >
+                        <FaFilePdf className="mr-2" /> Download PDF
+                    </button>
+                    <button 
                         onClick={handlePrint}
                         className="flex items-center px-4 py-2 bg-primary-500 text-white rounded-lg hover:bg-primary-600"
                     >
-                        <FaPrint className="mr-2" /> VIEW 
+                        <FaPrint className="mr-2" /> Print
                     </button>
-                    
                 </div>
             </div>
             

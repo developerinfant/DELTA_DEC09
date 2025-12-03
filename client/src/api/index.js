@@ -83,5 +83,15 @@ api.interceptors.response.use(
     }
 );
 
+// Add helper methods for driver master
+api.drivers = {
+  getAll: () => api.get('/fg/drivers'),
+  getById: (id) => api.get(`/fg/drivers/${id}`),
+  create: (driverData) => api.post('/fg/drivers', driverData),
+  update: (id, driverData) => api.put(`/fg/drivers/${id}`, driverData),
+  delete: (id) => api.delete(`/fg/drivers/${id}`),
+  getNextDriverCode: () => api.get('/fg/drivers/next-driver-code')
+};
+
 // 4. Export the configured axios instance
 export default api;

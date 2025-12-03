@@ -197,15 +197,8 @@ const Dashboard = () => {
         fetchDashboardData();
     }, [fetchDashboardData]);
 
-    // Set up polling for real-time updates (every 30 seconds)
-    useEffect(() => {
-        const intervalId = setInterval(() => {
-            fetchDashboardData();
-        }, 30000); // 30 seconds
-
-        // Clean up interval on component unmount
-        return () => clearInterval(intervalId);
-    }, [fetchDashboardData]);
+    // Removed auto-refresh functionality to prevent automatic reloading
+    // The dashboard will only refresh when the user clicks the refresh button
 
     if (isLoading) {
         return (
@@ -311,7 +304,7 @@ const Dashboard = () => {
                     title="Active Orders"
                     value={fgStats?.activeOrders || 0}
                     subtitle="Ongoing Jobs"
-                    linkTo="/fg/dc/view"
+                    linkTo="/fg/delivery-challan/view"
                     gradient="bg-gradient-to-br from-teal-400 to-teal-600"
                     icon={<FaClipboardList />}
                 />

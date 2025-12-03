@@ -2,12 +2,12 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import api from '../../api';
 import Card from '../../components/common/Card';
-import { FaSpinner, FaEye, FaDownload } from 'react-icons/fa';
+import { FaSpinner, FaEye } from 'react-icons/fa';
 import ViewReportTools from '../../components/common/ViewReportTools';
 import Modal from '../../components/common/Modal';
 import PackingGRNPrintLayout from './PackingGRNPrintLayout'; // Import our new print layout
 
-const GRNTable = ({ grns, onDownloadOptions }) => {
+const GRNTable = ({ grns }) => {
     const navigate = useNavigate();
 
     const formatDate = (dateString) => {
@@ -80,12 +80,7 @@ const GRNTable = ({ grns, onDownloadOptions }) => {
                                         <Link to={`/packing/grn/${grn._id}`} className="text-blue-500 hover:text-blue-700">
                                             <FaEye />
                                         </Link>
-                                        <button 
-                                            onClick={() => onDownloadOptions(grn)}
-                                            className="text-blue-500 hover:text-blue-700 focus:outline-none"
-                                        >
-                                            <FaDownload />
-                                        </button>
+
                                     </div>
                                 </td>
                             </tr>
@@ -106,7 +101,7 @@ const ViewPackingGRNs = () => {
     const [statusFilter, setStatusFilter] = useState('');
     const [selectedGRN, setSelectedGRN] = useState(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
-    const [isDownloadModalOpen, setIsDownloadModalOpen] = useState(false); // State for download options modal
+
     const [lastUpdated, setLastUpdated] = useState(new Date());
     const sourceType = 'purchase_order'; // Permanently set to purchase_order for Packing Materials
     const navigate = useNavigate();
@@ -173,39 +168,11 @@ const ViewPackingGRNs = () => {
         
         setSelectedGRN(grnData);
         setIsModalOpen(true);
-        setIsDownloadModalOpen(false); // Close download options modal
-    };
-
-    // Function to handle Download PDF - opens GRN detail page with print option
-    const handleDownloadPDF = async (grn) => {
-        // Open in a new tab with download parameter
-        const printUrl = `${window.location.origin}/#/packing/grn/${grn._id}/print?download=true`;
-        window.open(printUrl, '_blank');
-        setIsDownloadModalOpen(false); // Close download options modal
-    };
-
-    // Function to handle Print PDF - opens GRN detail page with print option
-    const handlePrintPDF = async (grn) => {
-        // Open in a new tab without download parameter
-        const printUrl = `${window.location.origin}/#/packing/grn/${grn._id}/print`;
-        window.open(printUrl, '_blank');
-        setIsDownloadModalOpen(false); // Close download options modal
-    };
-
-    // Function to open download options modal
-    const handleDownloadOptions = (grn) => {
-        setSelectedGRN(grn);
-        setIsDownloadModalOpen(true);
     };
 
     // Close modals
     const closeModal = () => {
         setIsModalOpen(false);
-        setSelectedGRN(null);
-    };
-
-    const closeDownloadModal = () => {
-        setIsDownloadModalOpen(false);
         setSelectedGRN(null);
     };
 
@@ -286,7 +253,7 @@ const ViewPackingGRNs = () => {
                     </div>
                 )}
                 
-                <GRNTable grns={filteredGRNs} onDownloadOptions={handleDownloadOptions} />
+                <GRNTable grns={filteredGRNs} />
                 
                 <div className="mt-6 text-sm text-gray-500 flex justify-between items-center">
                     <div>
@@ -309,45 +276,7 @@ const ViewPackingGRNs = () => {
                 </div>
             </Modal>
             
-            {/* Modal for Download Options */}
-            <Modal isOpen={isDownloadModalOpen} onClose={closeDownloadModal} title="Download Options">
-                <div className="p-6">
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <button
-                            onClick={() => handleViewReport(selectedGRN)}
-                            className="flex flex-col items-center justify-center p-6 bg-white rounded-xl shadow-sm hover:shadow-md transition-shadow border border-light-200"
-                        >
-                            <div className="bg-blue-100 p-3 rounded-full mb-3">
-                                <FaEye className="text-blue-600 text-xl" />
-                            </div>
-                            <span className="font-medium text-dark-700">View Report</span>
-                            <span className="text-sm text-light-500 mt-1">Preview in browser</span>
-                        </button>
-                        
-                        <button
-                            onClick={() => handleDownloadPDF(selectedGRN)}
-                            className="flex flex-col items-center justify-center p-6 bg-white rounded-xl shadow-sm hover:shadow-md transition-shadow border border-light-200"
-                        >
-                            <div className="bg-green-100 p-3 rounded-full mb-3">
-                                <FaDownload className="text-green-600 text-xl" />
-                            </div>
-                            <span className="font-medium text-dark-700">Download PDF</span>
-                            <span className="text-sm text-light-500 mt-1">Save to device</span>
-                        </button>
-                        
-                        <button
-                            onClick={() => handlePrintPDF(selectedGRN)}
-                            className="flex flex-col items-center justify-center p-6 bg-white rounded-xl shadow-sm hover:shadow-md transition-shadow border border-light-200"
-                        >
-                            <div className="bg-purple-100 p-3 rounded-full mb-3">
-                                <FaDownload className="text-purple-600 text-xl" />
-                            </div>
-                            <span className="font-medium text-dark-700">Print PDF</span>
-                            <span className="text-sm text-light-500 mt-1">Send to printer</span>
-                        </button>
-                    </div>
-                </div>
-            </Modal>
+
         </div>
     );
 };

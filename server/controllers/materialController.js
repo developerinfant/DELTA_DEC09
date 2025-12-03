@@ -455,109 +455,43 @@ const getPackingMaterialStockReport = async (req, res) => {
             // Our stock is the current quantity in PM Store
             const ourStock = material.quantity;
             
-            // Calculate values
-            const ourStockValue = ourStock * material.perQuantityPrice;
-            const ownUnitValue = ownUnitStock * material.perQuantityPrice;
-            const jobberValue = jobberStock * material.perQuantityPrice;
+            // Calculate opening stock (previous day's closing stock)
+            const yesterday = new Date(selectedDate);
+            yesterday.setDate(yesterday.getDate() - 1);
             
-            // Calculate totals
-            const totalQty = ourStock + ownUnitStock + jobberStock;
-            const totalValue = ourStockValue + ownUnitValue + jobberValue;
-            
-            // Find the latest update timestamp
-            let lastUpdated = material.updatedAt;
-            
-            // Check DCs for more recent updates
-            deliveryChallans.forEach(dc => {
-                // Handle both old single product DCs and new multi-product DCs
-                let dcMaterial = null;
-                
-                // Check if this is a new multi-product DC
-                if (dc.products && dc.products.length > 0) {
-                    // For multi-product DCs, check if any product uses this material
-                    for (const product of dc.products) {
-                        if (product.materials) {
-                            const foundMaterial = product.materials.find(m => m.material_name === material.name);
-                            if (foundMaterial) {
-                                dcMaterial = foundMaterial;
-                                break;
-                            }
-                        }
-                    }
-                } 
-                // Check if this is an old single product DC
-                else if (dc.materials) {
-                    dcMaterial = dc.materials.find(m => m.material_name === material.name);
-                }
-                
-                if (dcMaterial && dc.updatedAt > lastUpdated) {
-                    lastUpdated = dc.updatedAt;
-                }
-            });
-            
-            // Calculate Opening and Closing Stock for the selected date
-            let openingStock = 0;
-            let closingStock = 0;
-            
-            // Try to find a previous stock record
-            const previousDate = new Date(selectedDate);
-            previousDate.setDate(previousDate.getDate() - 1);
-            
-            const previousRecord = await PackingMaterialStockRecord.findOne({
+            const previousStockRecord = await PackingMaterialStockRecord.findOne({
                 materialId: material._id,
-                date: previousDate
+                date: yesterday
             });
             
-            if (previousRecord) {
-                openingStock = previousRecord.closingStock;
-            } else {
-                // Use initial PM Store value if no previous record exists
-                openingStock = material.quantity;
-            }
+            const openingStock = previousStockRecord ? previousStockRecord.closingStock : 0;
             
-            // Calculate inward stock (GRN) for the selected date
+            // Calculate inward stock from GRNs for the selected date
             let inward = 0;
             grns.forEach(grn => {
-                // Check if GRN date matches selected date
                 const grnDate = new Date(grn.dateReceived);
                 grnDate.setHours(0, 0, 0, 0);
                 
                 if (grnDate.getTime() === selectedDate.getTime()) {
                     grn.items.forEach(item => {
-                        // For PO-based GRNs, item.material is an ObjectId
-                        // For DC-based GRNs, item.material is a string
-                        // We need to check both cases properly
-                        let isMatchingMaterial = false;
-                        
-                        if (item.material) {
-                            // If item.material is an ObjectId, convert to string for comparison
-                            if (typeof item.material === 'object' && item.material.toString) {
-                                isMatchingMaterial = item.material.toString() === material._id.toString();
-                            } 
-                            // If item.material is already a string, compare directly
-                            else if (typeof item.material === 'string') {
-                                isMatchingMaterial = item.material === material.name || item.material === material._id.toString();
-                            }
-                        }
-                        
-                        if (isMatchingMaterial) {
-                            inward += item.receivedQuantity;
+                        // Handle both string and object formats for material
+                        const materialName = typeof item.material === 'string' ? item.material : item.material.name;
+                        if (materialName === material.name) {
+                            inward += item.receivedQuantity || 0;
                         }
                     });
                 }
             });
             
-            // Calculate outward stock (Delivery Challan) for the selected date
+            // Calculate outward stock from Delivery Challans for the selected date
             let outward = 0;
             deliveryChallans.forEach(dc => {
-                // Check if DC date matches selected date
                 const dcDate = new Date(dc.date);
                 dcDate.setHours(0, 0, 0, 0);
                 
                 if (dcDate.getTime() === selectedDate.getTime()) {
-                    // Handle both old single product DCs and new multi-product DCs
-                    if (dc.products && dc.products.length > 0) {
-                        // For multi-product DCs, sum materials from all products
+                    // Handle multiple products in DC
+                    if (dc.products && Array.isArray(dc.products)) {
                         dc.products.forEach(product => {
                             if (product.materials) {
                                 product.materials.forEach(dcMaterial => {
@@ -580,11 +514,38 @@ const getPackingMaterialStockReport = async (req, res) => {
             
             // Calculate closing stock using the correct formula
             // ClosingStock = OpeningStock + Today's GRN - Today's Delivery Challan
-            closingStock = openingStock + inward - outward;
+            let closingStock = openingStock + inward - outward;
             
             // Ensure closing stock is never negative
             if (closingStock < 0) {
                 closingStock = 0;
+            }
+            
+            // Calculate total quantity and value
+            const totalQty = ourStock + ownUnitStock + jobberStock;
+            const ourStockValue = ourStock * material.perQuantityPrice;
+            const ownUnitValue = ownUnitStock * material.perQuantityPrice;
+            const jobberValue = jobberStock * material.perQuantityPrice;
+            const totalValue = ourStockValue + ownUnitValue + jobberValue;
+            
+            // Determine last updated timestamp
+            let lastUpdated = material.updatedAt || material.createdAt || new Date();
+            
+            // Check if there were any transactions today that might have updated the material
+            const todayTransactions = [...grns, ...deliveryChallans].filter(item => {
+                const itemDate = new Date(item.dateReceived || item.date || item.createdAt);
+                itemDate.setHours(0, 0, 0, 0);
+                return itemDate.getTime() === selectedDate.getTime();
+            });
+            
+            if (todayTransactions.length > 0) {
+                // Find the latest transaction timestamp
+                const latestTransaction = todayTransactions.reduce((latest, current) => {
+                    const currentDate = new Date(current.dateReceived || current.date || current.createdAt);
+                    const latestDate = new Date(latest.dateReceived || latest.date || latest.createdAt);
+                    return currentDate > latestDate ? current : latest;
+                });
+                lastUpdated = latestTransaction.dateReceived || latestTransaction.date || latestTransaction.createdAt;
             }
             
             // Save or update the stock record for the selected date

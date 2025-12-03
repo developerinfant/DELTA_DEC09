@@ -1318,4 +1318,69 @@ export const generatePDFfromDeltaPOPrintLayout = async (poData) => {
     });
 };
 
+// Export a function to generate PDF blob directly from PO data using the same layout as the view
+export const generatePDFBlobFromDeltaPOPrintLayout = async (poData) => {
+    // Create a temporary DOM element to render the component
+    const tempDiv = document.createElement('div');
+    tempDiv.style.position = 'absolute';
+    tempDiv.style.left = '-9999px';
+    tempDiv.style.top = '-9999px';
+    document.body.appendChild(tempDiv);
+
+    return new Promise((resolve) => {
+        // Render the component into the temporary div
+        ReactDOM.render(<DeltaPOPrintLayout poData={poData} />, tempDiv, async () => {
+            try {
+                // Wait a bit for all images to load
+                await new Promise(resolve => setTimeout(resolve, 500));
+                
+                // Get the report element
+                const reportElement = tempDiv.querySelector('[ref]');
+                const reportRefElement = tempDiv.firstChild;
+                
+                if (!reportRefElement) {
+                    throw new Error('Could not find report element');
+                }
+
+                // Generate canvas from the element
+                const canvas = await html2canvas(reportRefElement, {
+                    scale: 2,
+                    useCORS: true,
+                    logging: false
+                });
+
+                // Convert to PDF
+                const imgData = canvas.toDataURL('image/png');
+                const pdf = new jsPDF('p', 'mm', 'a4');
+                const imgWidth = 210;
+                const pageHeight = 297;
+                const imgHeight = (canvas.height * imgWidth) / canvas.width;
+                let heightLeft = imgHeight;
+                let position = 0;
+
+                pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+                heightLeft -= pageHeight;
+
+                while (heightLeft >= 0) {
+                    position = heightLeft - imgHeight;
+                    pdf.addPage();
+                    pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+                    heightLeft -= pageHeight;
+                }
+
+                // Return the PDF blob instead of saving it
+                const blob = pdf.output('blob');
+
+                // Clean up
+                document.body.removeChild(tempDiv);
+                resolve({ success: true, blob: blob, pdf: pdf });
+            } catch (error) {
+                console.error('Error generating PDF:', error);
+                document.body.removeChild(tempDiv);
+                resolve({ success: false, error: error.message });
+            }
+        });
+    });
+};
+
 export default DeltaPOPrintLayout;

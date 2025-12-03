@@ -200,6 +200,30 @@ const GRNDetail = () => {
 
     const supplierInfo = getSupplierInfo();
 
+    // Get reference document info (Invoice or DC) for PO-based GRNs
+    const getReferenceDocumentInfo = () => {
+        if (grn?.sourceType === 'purchase_order') {
+            if (grn?.referenceType === 'invoice') {
+                return {
+                    label: 'Invoice No',
+                    value: grn?.invoiceNo || 'N/A',
+                    dateLabel: 'Invoice Date',
+                    dateValue: grn?.invoiceDate ? formatDate(grn.invoiceDate) : 'N/A'
+                };
+            } else if (grn?.referenceType === 'dc') {
+                return {
+                    label: 'DC No',
+                    value: grn?.dcNo || 'N/A',
+                    dateLabel: 'DC Date',
+                    dateValue: grn?.dcDate ? formatDate(grn.dcDate) : 'N/A'
+                };
+            }
+        }
+        return null;
+    };
+
+    const referenceDocumentInfo = getReferenceDocumentInfo();
+
     // Calculate carton balance for carton-based GRNs
     const cartonBalance = grn && grn.cartonsSent !== undefined && cartonsReturned !== '' 
         ? grn.cartonsSent - parseInt(cartonsReturned) 
@@ -304,6 +328,19 @@ const GRNDetail = () => {
                         <p className="text-sm text-gray-500 uppercase tracking-wider">Received By</p>
                         <p className="font-bold text-lg">{grn?.receivedBy || 'N/A'}</p>
                     </div>
+                    {/* Add Reference Document Information for PO-based GRNs */}
+                    {referenceDocumentInfo && (
+                        <>
+                            <div className="bg-gray-50 p-4 rounded-lg">
+                                <p className="text-sm text-gray-500 uppercase tracking-wider">{referenceDocumentInfo.label}</p>
+                                <p className="font-bold text-lg">{referenceDocumentInfo.value}</p>
+                            </div>
+                            <div className="bg-gray-50 p-4 rounded-lg">
+                                <p className="text-sm text-gray-500 uppercase tracking-wider">{referenceDocumentInfo.dateLabel}</p>
+                                <p className="font-bold text-lg">{referenceDocumentInfo.dateValue}</p>
+                            </div>
+                        </>
+                    )}
                     {grn?.approvedBy && (
                         <div className="bg-gray-50 p-4 rounded-lg">
                             <p className="text-sm text-gray-500 uppercase tracking-wider">Approved By</p>
@@ -375,6 +412,9 @@ const GRNDetail = () => {
                                     <th className="px-6 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider">Previous Received</th>
                                     <th className="px-6 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider">Pending Qty</th>
                                     <th className="px-6 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider">Received Qty</th>
+                                    <th className="px-6 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider">Extra Allowed</th>
+                                    <th className="px-6 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider">Extra Received</th>
+                                    <th className="px-6 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider">Extra Pending</th>
                                     <th className="px-6 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider">Balance</th>
                                     <th className="px-6 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider">Status</th>
                                     <th className="px-6 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider">Damaged</th>
@@ -390,12 +430,20 @@ const GRNDetail = () => {
                                     const orderedQty = item?.orderedQuantity || 0;
                                     const receivedQty = item?.receivedQuantity || 0;
                                     const previousReceived = item?.previousReceived || 0;
-                                    const pendingQty = orderedQty - previousReceived;  // Pending is based on previous received
+                                    // Fix pending quantity calculation to match GRN Create page formula
+                                    const pendingQty = Math.max(0, orderedQty - previousReceived - receivedQty);
                                     // Use the balanceQuantity from the GRN record if available, otherwise calculate it
                                     const balanceQty = item?.balanceQuantity !== undefined ? item.balanceQuantity : (orderedQty - (previousReceived + receivedQty));
                                     
+                                    // Calculate extra quantities using the correct formulas
+                                    const extraAllowed = item?.extraAllowedQty || 0;
+                                    const extraReceived = item?.extraReceivedQty || 0;
+                                    const previousExtraReceived = item?.previousExtraReceived || 0;
+                                    // Fix extra pending calculation to match GRN Create page formula
+                                    const extraPending = Math.max(0, extraAllowed - previousExtraReceived - extraReceived);
+                                    
                                     // Status logic based on the actual GRN record
-                                    if (balanceQty > 0) {
+                                    if (balanceQty > 0 || extraPending > 0) {
                                         itemStatus = 'Partial';
                                         itemStatusClass = 'bg-orange-100 text-orange-800';
                                     } else {
@@ -420,6 +468,15 @@ const GRNDetail = () => {
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap text-center">
                                                 <div className="text-sm font-bold text-green-600">{receivedQty}</div>
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-center">
+                                                <div className="text-sm font-bold text-purple-600">{extraAllowed}</div>
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-center">
+                                                <div className="text-sm font-bold text-indigo-600">{extraReceived}</div>
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-center">
+                                                <div className="text-sm font-bold text-amber-600">{extraPending}</div>
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap text-center">
                                                 <div className={`text-sm font-bold ${balanceQty > 0 ? 'text-red-600' : 'text-gray-600'}`}>
@@ -463,13 +520,37 @@ const GRNDetail = () => {
                                 <div className="text-sm">
                                     <span className="text-gray-500">Total Pending: </span>
                                     <span className="font-bold text-orange-600">
-                                        {editedItems.reduce((sum, item) => sum + ((item?.orderedQuantity || 0) - (item?.previousReceived || 0)), 0)}
+                                        {editedItems.reduce((sum, item) => sum + Math.max(0, (item?.orderedQuantity || 0) - (item?.previousReceived || 0) - (item?.receivedQuantity || 0)), 0)}
                                     </span>
                                 </div>
                                 <div className="text-sm">
                                     <span className="text-gray-500">Total Received: </span>
                                     <span className="font-bold text-green-600">
                                         {editedItems.reduce((sum, item) => sum + (item?.receivedQuantity || 0), 0)}
+                                    </span>
+                                </div>
+                                <div className="text-sm">
+                                    <span className="text-gray-500">Total Extra Allowed: </span>
+                                    <span className="font-bold text-purple-600">
+                                        {editedItems.reduce((sum, item) => sum + (item?.extraAllowedQty || 0), 0)}
+                                    </span>
+                                </div>
+                                <div className="text-sm">
+                                    <span className="text-gray-500">Total Extra Received: </span>
+                                    <span className="font-bold text-indigo-600">
+                                        {editedItems.reduce((sum, item) => sum + (item?.extraReceivedQty || 0), 0)}
+                                    </span>
+                                </div>
+                                <div className="text-sm">
+                                    <span className="text-gray-500">Total Extra Pending: </span>
+                                    <span className="font-bold text-amber-600">
+                                        {editedItems.reduce((sum, item) => {
+                                            const extraAllowed = item?.extraAllowedQty || 0;
+                                            const extraReceived = item?.extraReceivedQty || 0;
+                                            const previousExtraReceived = item?.previousExtraReceived || 0;
+                                            const extraPending = Math.max(0, extraAllowed - previousExtraReceived - extraReceived);
+                                            return sum + extraPending;
+                                        }, 0)}
                                     </span>
                                 </div>
                                 <div className="text-sm">

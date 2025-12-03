@@ -4,6 +4,8 @@ const GRN = require('../models/GRN');
 const ProductStock = require('../models/ProductStock');
 const ProductMaterialMapping = require('../models/ProductMaterialMapping');
 const app = require('../server');
+const fs = require('fs');
+const path = require('path');
 
 // Helper function to generate DC number
 const generateDCNumber = async () => {
@@ -542,9 +544,33 @@ const updateFGDeliveryChallan = async (req, res) => {
     }
 };
 
+/**
+ * @desc    Download FG delivery challan as PDF
+ * @route   GET /api/fg/delivery-challan/:id/download
+ * @access  Private
+ */
+const downloadFGDeliveryChallan = async (req, res) => {
+    try {
+        const challan = await FinishedGoodsDC.findById(req.params.id);
+
+        if (!challan) {
+            return res.status(404).json({ message: 'FG Delivery challan not found' });
+        }
+
+        // For now, we'll send a placeholder PDF download
+        // In a real implementation, this would generate a PDF and send it as attachment
+        // Since the client generates PDFs, we'll redirect to the print page which will handle the download
+        res.redirect(302, `/fg/delivery-challan/${req.params.id}/print`);
+    } catch (error) {
+        console.error(`Error downloading FG delivery challan: ${error.message}`);
+        res.status(500).json({ message: 'Server error while downloading FG delivery challan' });
+    }
+};
+
 module.exports = {
     createFGDeliveryChallan,
     getFGDeliveryChallans,
     getFGDeliveryChallanById,
-    updateFGDeliveryChallan
+    updateFGDeliveryChallan,
+    downloadFGDeliveryChallan
 };

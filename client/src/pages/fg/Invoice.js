@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../../api';
 import Card from '../../components/common/Card';
-import { FaSpinner, FaPlus, FaTrash, FaPrint, FaFilePdf } from 'react-icons/fa';
+import { FaSpinner, FaPlus, FaTrash, FaEye, FaPrint, FaFilePdf } from 'react-icons/fa';
 
 const Invoice = () => {
     const navigate = useNavigate();
@@ -37,12 +37,18 @@ const Invoice = () => {
     });
 
     const handleViewInvoice = (invoiceId) => {
+        // Eye button = view invoice details only
         navigate(`/fg/invoice/${invoiceId}`);
     };
 
+    const handleDownloadPDF = (invoiceId) => {
+        // Red PDF button = directly download invoice PDF in the same tab
+        navigate(`/fg/invoice/${invoiceId}/print?download=true`);
+    };
+
     const handlePrintInvoice = (invoiceId) => {
-        // For now, navigate to the invoice detail page which will have print functionality
-        navigate(`/fg/invoice/${invoiceId}`);
+        // Print icon = open print layout in the same tab and auto print
+        navigate(`/fg/invoice/${invoiceId}/print?print=true`);
     };
 
     const formatDate = (dateString) => {
@@ -120,12 +126,21 @@ const Invoice = () => {
                                             <button 
                                                 onClick={() => handleViewInvoice(invoice._id)}
                                                 className="text-blue-500 hover:text-blue-700"
+                                                title="View Invoice Details"
                                             >
-                                                View
+                                                <FaEye />
+                                            </button>
+                                            <button 
+                                                onClick={() => handleDownloadPDF(invoice._id)}
+                                                className="text-red-500 hover:text-red-700"
+                                                title="Download PDF"
+                                            >
+                                                <FaFilePdf />
                                             </button>
                                             <button 
                                                 onClick={() => handlePrintInvoice(invoice._id)}
                                                 className="text-green-500 hover:text-green-700"
+                                                title="Print Invoice"
                                             >
                                                 <FaPrint />
                                             </button>

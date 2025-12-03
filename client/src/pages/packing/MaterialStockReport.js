@@ -446,8 +446,10 @@ const JobStockReport = ({ deliveryChallans, onBack }) => {
     const jobberName = dc.supplier_id?.name || 'Unknown Jobber';
     const matchesSearch = jobberName.toLowerCase().includes(searchTerm.toLowerCase()) ||
       dc.dc_no.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      dc.materials.some(material => 
-        material.material_name.toLowerCase().includes(searchTerm.toLowerCase())
+      (dc.products || []).some(product => 
+        (product.materials || []).some(material => 
+          material.material_name.toLowerCase().includes(searchTerm.toLowerCase())
+        )
       );
     return matchesSearch;
   });
@@ -466,14 +468,17 @@ const JobStockReport = ({ deliveryChallans, onBack }) => {
     }
     
     acc[jobberName].totalDCs += 1;
-    acc[jobberName].totalCartonQty += dc.carton_qty || 0;
+    acc[jobberName].totalCartonQty += (dc.products || []).reduce((sum, product) => sum + (product.carton_qty || 0), 0);
     
-    // Calculate total material quantity with defensive check
-    const materials = dc.materials || []; // Ensure materials is an array
-    const totalMaterialQty = materials.reduce((sum, material) => sum + (material.total_qty || 0), 0);
-    acc[jobberName].totalMaterialQty += totalMaterialQty;
+    // Calculate total material quantity with defensive checks
+    let materialQty = 0;
+    (dc.products || []).forEach(product => {
+      (product.materials || []).forEach(material => {
+        materialQty += material.total_qty || 0;
+      });
+    });
     
-    // Add DC to list
+    acc[jobberName].totalMaterialQty += materialQty;
     acc[jobberName].dcs.push(dc);
     
     return acc;
@@ -660,38 +665,40 @@ const JobStockReport = ({ deliveryChallans, onBack }) => {
                     </tr>
                   ) : (
                     selectedJobber.dcs.flatMap(dc => 
-                      dc.materials.map((material, index) => (
-                        <tr 
-                          key={`${dc._id}-${index}`} 
-                          className={index % 2 === 0 ? 'bg-white hover:bg-blue-50' : 'bg-gray-50 hover:bg-blue-50'}
-                        >
-                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                            {dc.dc_no}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
-                            {formatDate(dc.date)}
-                          </td>
-                          <td className="px-6 py-4 text-sm text-gray-700 max-w-xs truncate" title={material.material_name}>
-                            <div className="truncate" title={material.material_name}>
-                              {material.material_name}
-                            </div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700 text-right font-medium">
-                            {material.total_qty}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700 text-right font-medium">
-                            {dc.carton_qty}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm">
-                            <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full 
-                              ${dc.status === 'Completed' ? 'bg-green-100 text-green-800' : 
-                                dc.status === 'Partial' ? 'bg-orange-100 text-orange-800' : 
-                                'bg-yellow-100 text-yellow-800'}`}>
-                              {dc.status}
-                            </span>
-                          </td>
-                        </tr>
-                      ))
+                      (dc.products || []).flatMap(product => 
+                        (product.materials || []).map((material, index) => (
+                          <tr 
+                            key={`${dc._id}-${index}`} 
+                            className={index % 2 === 0 ? 'bg-white hover:bg-blue-50' : 'bg-gray-50 hover:bg-blue-50'}
+                          >
+                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                              {dc.dc_no}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                              {formatDate(dc.date)}
+                            </td>
+                            <td className="px-6 py-4 text-sm text-gray-700 max-w-xs truncate" title={material.material_name}>
+                              <div className="truncate" title={material.material_name}>
+                                {material.material_name}
+                              </div>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700 text-right font-medium">
+                              {material.total_qty}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700 text-right font-medium">
+                              {(dc.products || []).reduce((sum, product) => sum + (product.carton_qty || 0), 0)}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm">
+                              <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full 
+                                ${dc.status === 'Completed' ? 'bg-green-100 text-green-800' : 
+                                  dc.status === 'Partial' ? 'bg-orange-100 text-orange-800' : 
+                                  'bg-yellow-100 text-yellow-800'}`}>
+                                {dc.status}
+                              </span>
+                            </td>
+                          </tr>
+                        ))
+                      )
                     )
                   )}
                 </tbody>
@@ -713,25 +720,29 @@ const OwnUnitReport = ({ deliveryChallans, onBack }) => {
   // Filter for own unit DCs
   const ownUnitDCs = deliveryChallans.filter(dc => dc.unit_type === 'Own Unit');
   
-  // Format data for display
+  // Format data for display with defensive checks
   const ownUnitData = ownUnitDCs.flatMap(dc => 
-    dc.materials.map(material => ({
-      dcId: dc._id,
-      dcNo: dc.dc_no,
-      personName: dc.person_name || 'N/A',
-      materialName: material.material_name,
-      qty: material.total_qty || 0,
-      cartonQty: dc.carton_qty || 0,
-      updatedAt: dc.updatedAt || dc.createdAt || new Date(),
-      status: dc.status
-    }))
+    (dc.products || []).flatMap(product => 
+      (product.materials || []).map(material => ({
+        dcId: dc._id,
+        dcNo: dc.dc_no,
+        personName: dc.person_name || 'N/A',
+        productName: product.product_name || 'N/A',
+        materialName: material.material_name,
+        qty: material.total_qty || 0,
+        cartonQty: product.carton_qty || 0,
+        updatedAt: dc.updatedAt || dc.createdAt || new Date(),
+        status: dc.status
+      }))
+    )
   );
   
   // Filter by search term
   const filteredOwnUnitData = ownUnitData.filter(item => 
     item.personName.toLowerCase().includes(searchTerm.toLowerCase()) ||
     item.materialName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    item.dcNo.toLowerCase().includes(searchTerm.toLowerCase())
+    item.dcNo.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    item.productName.toLowerCase().includes(searchTerm.toLowerCase())
   );
   
   // Pagination

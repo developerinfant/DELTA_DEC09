@@ -7,7 +7,8 @@ import { FaSpinner, FaTrash, FaPlus, FaInfoCircle, FaExclamationTriangle } from 
 const CreateInvoice = () => {
     const navigate = useNavigate();
     const [buyers, setBuyers] = useState([]);
-    const [products, setProducts] = useState([]); // Add products state
+    const [drivers, setDrivers] = useState([]); // Add drivers state
+    const [products, setProducts] = useState([]);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState('');
     
@@ -15,11 +16,15 @@ const CreateInvoice = () => {
     const [formData, setFormData] = useState({
         invoiceDate: new Date().toISOString().split('T')[0],
         buyerId: '',
+        driverId: '',
         billedTo: '',
         shippedTo: '',
         dispatchFrom: '',
         noOfPackages: '',
         transportName: '',
+        vehicleNo: '',
+        vehicleType: '',
+        driverPhone: '',
         termsOfPayment: '',
         destination: '',
         poNoDate: '',
@@ -29,14 +34,14 @@ const CreateInvoice = () => {
     
     const [items, setItems] = useState([
         { 
-            id: Date.now(), // Unique ID for each item
+            id: Date.now(),
             sn: 1, 
             itemCode: '', 
             product: '', 
             hsn: '', 
             gstPercent: 5, 
             scheme: '', 
-            uom: 'Cartons', // Default to Cartons
+            uom: 'Cartons',
             qty: 0, 
             rate: 0, 
             discPercent: 0, 
@@ -51,7 +56,7 @@ const CreateInvoice = () => {
     // Financial calculations
     const [schemeDiscount, setSchemeDiscount] = useState(0);
     const [taxableAmount, setTaxableAmount] = useState(0);
-    const [gstType, setGstType] = useState('CGST+SGST'); // Default to CGST+SGST
+    const [gstType, setGstType] = useState('CGST+SGST');
     const [cgstPercent, setCgstPercent] = useState(2.5);
     const [sgstPercent, setSgstPercent] = useState(2.5);
     const [igstPercent, setIgstPercent] = useState(5);
@@ -62,7 +67,7 @@ const CreateInvoice = () => {
     const [grandTotal, setGrandTotal] = useState(0);
     const [amountInWords, setAmountInWords] = useState('');
 
-    // Fetch buyers and products on component mount
+    // Fetch buyers, drivers and products on component mount
     useEffect(() => {
         const fetchData = async () => {
             setIsLoading(true);
@@ -70,6 +75,10 @@ const CreateInvoice = () => {
                 // Fetch buyers
                 const buyersRes = await api.get('/fg/buyers');
                 setBuyers(buyersRes.data);
+                
+                // Fetch drivers
+                const driversRes = await api.get('/fg/drivers');
+                setDrivers(driversRes.data);
                 
                 // Fetch products from stock report
                 const productsRes = await api.get('/fg/stock-report');
@@ -108,7 +117,6 @@ const CreateInvoice = () => {
                     setCgstPercent(2.5);
                     setSgstPercent(2.5);
                     setIgstPercent(0);
-                    // Update all items with 5% GST (2.5% CGST + 2.5% SGST)
                     setItems(prevItems => prevItems.map(item => ({
                         ...item,
                         gstPercent: 5
@@ -118,7 +126,6 @@ const CreateInvoice = () => {
                     setCgstPercent(0);
                     setSgstPercent(0);
                     setIgstPercent(5);
-                    // Update all items with 5% GST (IGST)
                     setItems(prevItems => prevItems.map(item => ({
                         ...item,
                         gstPercent: 5
@@ -127,6 +134,36 @@ const CreateInvoice = () => {
             }
         }
     }, [formData.buyerId, buyers]);
+
+    // Update form data when driver is selected
+    const handleDriverChange = (e) => {
+        const driverId = e.target.value;
+        setFormData({ ...formData, driverId });
+        
+        if (driverId) {
+            const selectedDriver = drivers.find(d => d._id === driverId);
+            if (selectedDriver) {
+                setFormData(prev => ({
+                    ...prev,
+                    transportName: selectedDriver.transportName || '',
+                    vehicleNo: selectedDriver.vehicleNo || '',
+                    vehicleType: selectedDriver.vehicleType || '',
+                    driverPhone: selectedDriver.phone || '',
+                    destination: selectedDriver.destination || ''
+                }));
+            }
+        } else {
+            // Clear driver-related fields when no driver is selected
+            setFormData(prev => ({
+                ...prev,
+                transportName: '',
+                vehicleNo: '',
+                vehicleType: '',
+                driverPhone: '',
+                destination: ''
+            }));
+        }
+    };
 
     // Calculate totals when items, scheme discount, or GST type change
     useEffect(() => {
@@ -147,11 +184,9 @@ const CreateInvoice = () => {
         let igst = 0;
         
         if (gstType === 'CGST+SGST') {
-            // Tamil Nadu - CGST 2.5% + SGST 2.5%
             cgst = taxable * (2.5 / 100);
             sgst = taxable * (2.5 / 100);
         } else if (gstType === 'IGST') {
-            // Other states - IGST 5%
             igst = taxable * (5 / 100);
         }
         
@@ -237,12 +272,11 @@ const CreateInvoice = () => {
                         const selectedProduct = products.find(p => p.productName === value);
                         if (selectedProduct) {
                             updatedItem.itemCode = selectedProduct.itemCode || '';
-                            updatedItem.hsn = selectedProduct.hsnCode || ''; // Auto-fill HSN code
+                            updatedItem.hsn = selectedProduct.hsnCode || '';
                             updatedItem.available_cartons = selectedProduct.available_cartons;
                             updatedItem.available_pieces = selectedProduct.available_pieces;
                             updatedItem.broken_carton_pieces = selectedProduct.broken_carton_pieces;
                             updatedItem.units_per_carton = selectedProduct.units_per_carton || 1;
-                            // Reset quantities when changing product
                             updatedItem.qty = 0;
                             
                             // Fetch the correct units per carton from product mapping
@@ -285,7 +319,6 @@ const CreateInvoice = () => {
             }
         } catch (error) {
             console.error('Error fetching product mapping:', error);
-            // Check if it's a 404 error (product mapping not found)
             if (error.response && error.response.status === 404) {
                 console.info(`Product mapping not found for ${productName}. Using units per carton from stock data.`);
             } else {
@@ -304,7 +337,7 @@ const CreateInvoice = () => {
                 itemCode: '', 
                 product: '', 
                 hsn: '', 
-                gstPercent: gstType === 'IGST' ? 5 : 5, // 5% for both IGST and CGST+SGST (2.5% + 2.5%)
+                gstPercent: gstType === 'IGST' ? 5 : 5,
                 scheme: '', 
                 uom: 'Cartons', 
                 qty: 0, 
@@ -324,7 +357,6 @@ const CreateInvoice = () => {
         if (items.length > 1) {
             setItems(prevItems => {
                 const filteredItems = prevItems.filter(item => item.id !== id);
-                // Renumber serial numbers
                 return filteredItems.map((item, index) => ({
                     ...item,
                     sn: index + 1
@@ -345,7 +377,6 @@ const CreateInvoice = () => {
                 return `You entered quantity above available stock. Maximum available: ${selectedProduct.available_cartons} cartons.`;
             }
         } else if (item.uom === 'Pieces') {
-            // Calculate total available pieces including cartons that can be broken
             const totalAvailablePieces = selectedProduct.available_pieces + 
                                         selectedProduct.broken_carton_pieces + 
                                         (selectedProduct.available_cartons * item.units_per_carton);
@@ -365,11 +396,9 @@ const CreateInvoice = () => {
                 if (item.id === id) {
                     const errorMessage = validateQuantity(item);
                     if (errorMessage) {
-                        // Extract maximum available quantity from error message
                         const match = errorMessage.match(/Maximum available: ([\d.]+)/);
                         if (match) {
                             const maxAvailable = parseFloat(match[1]);
-                            // Auto-correct quantity to maximum available
                             return { ...item, qty: maxAvailable };
                         }
                     }
@@ -385,7 +414,6 @@ const CreateInvoice = () => {
         setError('');
 
         try {
-            // Validate quantities before submission
             let hasValidationError = false;
             for (const item of items) {
                 const errorMessage = validateQuantity(item);
@@ -416,7 +444,6 @@ const CreateInvoice = () => {
                     amount: item.amount
                 })),
                 schemeDiscount,
-                // Add GST calculation data
                 gstType,
                 taxableAmount,
                 cgstAmount: gstType === 'CGST+SGST' ? cgstAmount : 0,
@@ -431,7 +458,7 @@ const CreateInvoice = () => {
             };
 
             await api.post('/fg/invoices', invoiceData);
-            navigate('/fg/invoice/view'); // Fixed the navigation path
+            navigate('/fg/invoice/view');
         } catch (err) {
             setError(err.response?.data?.message || 'Failed to create invoice.');
         } finally {
@@ -499,19 +526,23 @@ const CreateInvoice = () => {
                         
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">
-                                GST Type
+                                Driver
                             </label>
-                            <input
-                                type="text"
-                                value={gstType}
-                                readOnly
+                            <select
+                                name="driverId"
+                                value={formData.driverId || ''}
+                                onChange={handleDriverChange}
                                 className="w-full px-4 py-2 text-dark-700 bg-light-200 border border-transparent rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
-                            />
-                            <p className="text-xs text-gray-500 mt-1">
-                                {gstType === 'CGST+SGST' 
-                                    ? 'CGST 2.5% + SGST 2.5% (Tamil Nadu)' 
-                                    : 'IGST 5% (Other States)'}
-                            </p>
+                            >
+                                <option value="">Select a Driver</option>
+                                {drivers
+                                  .filter(driver => driver.status === 'Active')
+                                  .map(driver => (
+                                    <option key={driver._id} value={driver._id}>
+                                        {driver.name} ({driver.driverCode})
+                                    </option>
+                                ))}
+                            </select>
                         </div>
                     </div>
 
@@ -546,7 +577,7 @@ const CreateInvoice = () => {
                     </div>
 
                     {/* Additional Information */}
-                    <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">
                                 No. of Packages
@@ -568,6 +599,45 @@ const CreateInvoice = () => {
                                 type="text"
                                 name="transportName"
                                 value={formData.transportName}
+                                onChange={handleInputChange}
+                                className="w-full px-4 py-2 text-dark-700 bg-light-200 border border-transparent rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                            />
+                        </div>
+                        
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                                Vehicle No
+                            </label>
+                            <input
+                                type="text"
+                                name="vehicleNo"
+                                value={formData.vehicleNo}
+                                onChange={handleInputChange}
+                                className="w-full px-4 py-2 text-dark-700 bg-light-200 border border-transparent rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                            />
+                        </div>
+                        
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                                Vehicle Type
+                            </label>
+                            <input
+                                type="text"
+                                name="vehicleType"
+                                value={formData.vehicleType}
+                                onChange={handleInputChange}
+                                className="w-full px-4 py-2 text-dark-700 bg-light-200 border border-transparent rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                            />
+                        </div>
+                        
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                                Driver Phone
+                            </label>
+                            <input
+                                type="text"
+                                name="driverPhone"
+                                value={formData.driverPhone}
                                 onChange={handleInputChange}
                                 className="w-full px-4 py-2 text-dark-700 bg-light-200 border border-transparent rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
                             />
@@ -830,7 +900,7 @@ const CreateInvoice = () => {
                     <div className="flex justify-end space-x-4">
                         <button
                             type="button"
-                            onClick={() => navigate('/fg/invoice/view')} // Fixed the navigation path
+                            onClick={() => navigate('/fg/invoice/view')}
                             className="px-6 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
                             disabled={isLoading}
                         >

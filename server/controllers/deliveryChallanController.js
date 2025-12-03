@@ -112,60 +112,66 @@ const createDeliveryChallan = async (req, res) => {
         }
 
         // Validate required fields
+        if (!unit_type || !['Own Unit', 'Jobber'].includes(unit_type)) {
+            return res.status(400).json({ message: 'Valid unit_type (Own Unit or Jobber) is required.' });
+        }
+
+        if (!date) {
+            return res.status(400).json({ message: 'Date is required.' });
+        }
+
+        // For Jobber units, supplier_id is required
+        if (unit_type === 'Jobber' && !supplier_id) {
+            return res.status(400).json({ message: 'Supplier is required for Jobber units.' });
+        }
+
+        // For Own Unit, person_name is required
+        if (unit_type === 'Own Unit' && !person_name) {
+            return res.status(400).json({ message: 'Person name is required for Own Unit deliveries.' });
+        }
+
+        // Generate DC number
+        const dc_no = await generateDCNumber();
+
+        // Aggregate materials across all products
+        const aggregatedMaterials = {};
+
+        // Process each product to calculate required materials
         for (const product of productsToProcess) {
-            if (!product.product_name || !product.carton_qty || product.carton_qty < 1) {
+            // Validate product fields
+            if (!product.product_name || isNaN(product.carton_qty) || product.carton_qty <= 0) {
                 return res.status(400).json({ 
-                    message: 'Product name and carton quantity are required for all products. Carton quantity must be at least 1.' 
+                    message: 'Each product must have a valid product_name and positive carton_qty.' 
                 });
             }
-        }
 
-        // If Jobber, supplier_id is required
-        if (unit_type === 'Jobber' && !supplier_id) {
-            return res.status(400).json({ 
-                message: 'Supplier is required for Jobber unit type.' 
+            // Find product material mapping
+            const productMapping = await ProductMaterialMapping.findOne({ 
+                product_name: product.product_name 
             });
-        }
 
-        // Process materials for all products
-        const allMaterials = [];
-        const productMaterialsMap = {}; // To track which materials belong to which product
-        
-        for (const product of productsToProcess) {
-            // Fetch product mapping
-            const productMapping = await ProductMaterialMapping.findOne({ product_name: product.product_name });
             if (!productMapping) {
                 return res.status(404).json({ 
-                    message: `Product mapping not found for ${product.product_name}` 
+                    message: `Product mapping not found for: ${product.product_name}. Please create mapping in Item Master.` 
                 });
             }
 
-            // Calculate material requirements for this product
-            const productMaterials = productMapping.materials.map(material => ({
-                material_name: material.material_name,
-                qty_per_carton: material.qty_per_carton,
-                total_qty: material.qty_per_carton * product.carton_qty,
-                product_name: product.product_name // Track which product this material belongs to
-            }));
-            
-            // Add to all materials array
-            allMaterials.push(...productMaterials);
-            
-            // Store in map for later reference
-            productMaterialsMap[product.product_name] = productMaterials;
-        }
-
-        // Aggregate materials by name and sum quantities (in case same material is used in multiple products)
-        const aggregatedMaterials = {};
-        for (const material of allMaterials) {
-            if (!aggregatedMaterials[material.material_name]) {
-                aggregatedMaterials[material.material_name] = {
-                    material_name: material.material_name,
-                    qty_per_carton: 0, // This will be recalculated
-                    total_qty: 0
-                };
-            }
-            aggregatedMaterials[material.material_name].total_qty += material.total_qty;
+            // Calculate materials required for this product
+            productMapping.materials.forEach(material => {
+                const totalQty = material.qty_per_carton * product.carton_qty;
+                
+                if (aggregatedMaterials[material.material_name]) {
+                    // If material already exists, add to the total
+                    aggregatedMaterials[material.material_name].total_qty += totalQty;
+                } else {
+                    // Create new entry for the material
+                    aggregatedMaterials[material.material_name] = {
+                        material_name: material.material_name,
+                        qty_per_carton: material.qty_per_carton,
+                        total_qty: totalQty
+                    };
+                }
+            });
         }
 
         // Convert aggregated materials back to array
@@ -193,7 +199,7 @@ const createDeliveryChallan = async (req, res) => {
             });
         }
 
-        // Deduct stock from each material and create ledger entries
+        // Deduct stock from each material and update WIP tracking
         for (const material of finalMaterials) {
             // Prepare update object
             const updateObj = {
@@ -222,63 +228,55 @@ const createDeliveryChallan = async (req, res) => {
                 // Get supplier name for Jobber units
                 let supplierName = 'Own Unit';
                 if (unit_type === 'Jobber' && supplier_id) {
-                    try {
-                        const supplier = await Supplier.findById(supplier_id);
-                        if (supplier) {
-                            supplierName = supplier.name;
-                        }
-                    } catch (supplierError) {
-                        console.error(`Error fetching supplier: ${supplierError.message}`);
-                        // Continue with default supplier name
-                    }
+                    const supplier = await Supplier.findById(supplier_id);
+                    supplierName = supplier ? supplier.name : 'Unknown Supplier';
                 }
                 
-                const ledgerEntry = {
+                updatedMaterial.priceHistory.push({
                     date: new Date(),
                     type: 'DC-OUT',
                     supplier: supplierName,
                     poNumber: 'N/A',
-                    grnNumber: 'N/A',
-                    qty: -material.total_qty, // Negative to indicate deduction
+                    grnNumber: dc_no,
+                    qty: -material.total_qty, // Negative because it's outgoing
                     unitPrice: updatedMaterial.perQuantityPrice,
                     total: -material.total_qty * updatedMaterial.perQuantityPrice
-                };
+                });
                 
-                updatedMaterial.priceHistory.push(ledgerEntry);
                 await updatedMaterial.save();
             }
         }
 
-        // Generate DC number
-        const dc_no = await generateDCNumber();
-
-        // Create delivery challan record with multiple products
+        // Create the delivery challan with all products and their materials
         const deliveryChallan = new DeliveryChallan({
             dc_no,
             unit_type,
             supplier_id: unit_type === 'Jobber' ? supplier_id : null,
             products: productsToProcess.map(product => ({
-                product_name: product.product_name,
-                carton_qty: product.carton_qty,
-                materials: productMaterialsMap[product.product_name]
+                ...product,
+                materials: finalMaterials
             })),
             status: 'Pending',
             reference_type: unit_type,
-            date: date ? new Date(date) : new Date(),
-            remarks,
-            // Add person_name for Own Unit delivery challans
-            person_name: unit_type === 'Own Unit' ? person_name || null : null
+            date: new Date(date),
+            remarks: remarks || '',
+            person_name: unit_type === 'Own Unit' ? person_name : null,
+            created_at: new Date(),
+            updated_at: new Date()
         });
 
         const createdChallan = await deliveryChallan.save();
 
-        res.status(201).json({
-            message: 'Delivery Challan created and stock reserved.',
-            data: { 
-                dc_no: createdChallan.dc_no, 
-                status: createdChallan.status 
-            }
-        });
+        // Emit socket event for real-time updates
+        const io = req.app.get('io');
+        if (io) {
+            io.emit('dcCreated', { 
+                message: 'New Delivery Challan created',
+                dc: createdChallan 
+            });
+        }
+
+        res.status(201).json(createdChallan);
     } catch (error) {
         console.error(`Error creating delivery challan: ${error.message}`);
         res.status(500).json({ message: 'Server error while creating delivery challan' });

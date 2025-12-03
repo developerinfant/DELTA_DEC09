@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import ReactDOM from 'react-dom';
 import { Link } from 'react-router-dom';
 import api from '../../api';
 import Card from '../../components/common/Card';
@@ -7,7 +8,7 @@ import ViewReportTools from '../../components/common/ViewReportTools';
 import { exportPOToExcel } from '../../utils/excelExporter';
 import { generateDeltaPOPDF } from '../../utils/pdfGenerator';
 import Modal from '../../components/common/Modal'; // Import Modal component
-import DeltaPOPrintLayout, { generatePDFfromDeltaPOPrintLayout } from '../purchase/DeltaPOPrintLayout'; // Import DeltaPOPrintLayout component and new PDF generator
+import DeltaPOPrintLayout, { generatePDFfromDeltaPOPrintLayout, generatePDFBlobFromDeltaPOPrintLayout } from '../purchase/DeltaPOPrintLayout'; // Import DeltaPOPrintLayout component and new PDF generator
 
 // This component can be moved to its own file later if needed
 const PurchaseOrdersTable = ({ purchaseOrders, onViewReport, onDownloadPDF, onPrintPDF, onDownloadOptions }) => {
@@ -192,9 +193,31 @@ const ViewPackingPurchaseOrders = () => {
                 poData = response.data;
             }
             
-            // Use the new generatePDFfromDeltaPOPrintLayout for exact layout matching
-            await generatePDFfromDeltaPOPrintLayout(poData);
-            setIsDownloadModalOpen(false); // Close download options modal
+            // Generate PDF blob using the new function
+            const result = await generatePDFBlobFromDeltaPOPrintLayout(poData);
+            
+            if (result.success) {
+                // Create blob URL and open in new tab
+                const blobUrl = URL.createObjectURL(result.blob);
+                
+                // Open PDF in new tab
+                const newWindow = window.open(blobUrl, '_blank');
+                
+                // Auto-trigger print when the new window loads
+                if (newWindow) {
+                    newWindow.onload = function() {
+                        // Small delay to ensure PDF is loaded
+                        setTimeout(() => {
+                            newWindow.print();
+                        }, 1000);
+                    };
+                }
+                
+                setIsDownloadModalOpen(false); // Close download options modal
+            } else {
+                console.error('Error generating PDF for printing:', result.error);
+                alert('Failed to generate PDF for printing. Please try again.');
+            }
         } catch (error) {
             console.error('Error printing PDF:', error);
             alert('Failed to print PDF. Please try again.');
@@ -315,7 +338,7 @@ const ViewPackingPurchaseOrders = () => {
                             className="flex flex-col items-center justify-center p-6 bg-white rounded-xl shadow-sm hover:shadow-md transition-shadow border border-light-200"
                         >
                             <div className="bg-purple-100 p-3 rounded-full mb-3">
-                                <FaDownload className="text-purple-600 text-xl" />
+                                <FaEye className="text-purple-600 text-xl" />
                             </div>
                             <span className="font-medium text-dark-700">Print PDF</span>
                             <span className="text-sm text-light-500 mt-1">Send to printer</span>

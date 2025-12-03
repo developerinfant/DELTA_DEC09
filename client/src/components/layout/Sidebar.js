@@ -327,6 +327,13 @@ const Sidebar = ({ isOpen, packingAlertsCount = 0, rawAlertsCount = 0, toggleSid
                                             </NavLink>
                                         </li>
                                     )}
+                                    {isModuleVisibleForUser('view-fg-buyers') && (
+                                        <li>
+                                            <NavLink to="/fg/driver-master" className={({isActive}) => `${mobileSubLinkClass} ${isActive ? 'bg-light-300 text-accent-600' : ''}`} onClick={closeMobileMenu}>
+                                                <FaUsers className="mr-3" />Driver Master
+                                            </NavLink>
+                                        </li>
+                                    )}
                                 </ul>
                             )}
                         </div>
@@ -645,6 +652,13 @@ const Sidebar = ({ isOpen, packingAlertsCount = 0, rawAlertsCount = 0, toggleSid
                                         <li>
                                             <NavLink to="/fg/buyer-master" className={({isActive}) => `${subLinkClass} ${isActive ? 'bg-light-300 text-accent-600' : ''}`}>
                                                 <FaUsers className="mr-3" />Buyer Master
+                                            </NavLink>
+                                        </li>
+                                    )}
+                                    {isModuleVisibleForUser('view-fg-buyers') && (
+                                        <li>
+                                            <NavLink to="/fg/driver-master" className={({isActive}) => `${subLinkClass} ${isActive ? 'bg-light-300 text-accent-600' : ''}`}>
+                                                <FaUsers className="mr-3" />Driver Master
                                             </NavLink>
                                         </li>
                                     )}

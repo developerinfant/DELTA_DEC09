@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useParams } from 'react-router-dom';
+import { useLocation, useParams, useNavigate } from 'react-router-dom';
 import api from '../../api';
 import logoPO from '../../assets/logo-po.png';
 import { FaEye } from 'react-icons/fa';
@@ -8,6 +8,8 @@ import html2canvas from 'html2canvas';
 
 const FGInvoicePrintLayout = () => {
     const { id } = useParams();
+    const location = useLocation();
+    const navigate = useNavigate();
     const [invoice, setInvoice] = useState(null);
     const [buyer, setBuyer] = useState(null);
     const [settings, setSettings] = useState({
@@ -24,6 +26,11 @@ const FGInvoicePrintLayout = () => {
     const [error, setError] = useState('');
     const reportRef = useRef(null);
 
+    // Check if this is for printing or downloading
+    const searchParams = new URLSearchParams(location.search);
+    const isPrintMode = searchParams.has('print');
+    const isDownloadMode = searchParams.has('download');
+
     useEffect(() => {
         const fetchInvoiceData = async () => {
             try {
@@ -36,7 +43,9 @@ const FGInvoicePrintLayout = () => {
                 // Fetch buyer details
                 if (invoiceData.buyerId) {
                     try {
-                        const buyerResponse = await api.get(`/fg/buyers/${invoiceData.buyerId}`);
+                        // If buyerId is an object (populated), use its _id, otherwise use buyerId directly
+                        const buyerId = typeof invoiceData.buyerId === 'object' ? invoiceData.buyerId._id : invoiceData.buyerId;
+                        const buyerResponse = await api.get(`/fg/buyers/${buyerId}`);
                         setBuyer(buyerResponse.data);
                     } catch (buyerError) {
                         console.error('Error fetching buyer data:', buyerError);
@@ -55,6 +64,27 @@ const FGInvoicePrintLayout = () => {
             fetchInvoiceData();
         }
     }, [id]);
+
+    // Handle automatic printing or downloading when component loads
+    useEffect(() => {
+        if (!loading && !error && invoice) {
+            // Auto-print if in print mode
+            if (isPrintMode) {
+                // Small delay to ensure everything is rendered
+                setTimeout(() => {
+                    window.print();
+                }, 500);
+            }
+            
+            // Auto-download if in download mode
+            if (isDownloadMode) {
+                // Small delay to ensure everything is rendered
+                setTimeout(() => {
+                    downloadPDF();
+                }, 500);
+            }
+        }
+    }, [loading, error, invoice, isPrintMode, isDownloadMode]);
 
     const formatDate = (dateString) => {
         if (!dateString) return '';
@@ -125,6 +155,11 @@ const FGInvoicePrintLayout = () => {
         }
     };
 
+    const handleBack = () => {
+        // Navigate back to the invoice detail page
+        navigate(`/fg/invoice/${id}`);
+    };
+
     if (loading) {
         return <div className="flex justify-center items-center h-screen">Loading invoice data...</div>;
     }
@@ -150,16 +185,26 @@ const FGInvoicePrintLayout = () => {
 
     return (
         <div className="min-h-screen bg-gray-100 p-4">
-            <div className="flex justify-end mb-4">
-                <button
-                    onClick={downloadPDF}
-                    className="flex items-center px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition"
-                    title="Download PDF Report"
-                >
-                    <FaEye className="mr-2" />
-                    <span>Download Invoice</span>
-                </button>
-            </div>
+            {/* Only show download button and back button if not in print or download mode */}
+            {(!isPrintMode && !isDownloadMode) && (
+                <div className="flex justify-between mb-4">
+                    <button
+                        onClick={handleBack}
+                        className="flex items-center px-4 py-2 text-sm font-medium text-white bg-gray-600 rounded-md hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 transition"
+                        title="Back to Invoice"
+                    >
+                        Back
+                    </button>
+                    <button
+                        onClick={downloadPDF}
+                        className="flex items-center px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition"
+                        title="Download PDF Report"
+                    >
+                        <FaEye className="mr-2" />
+                        <span>Download Invoice</span>
+                    </button>
+                </div>
+            )}
 
             <div ref={reportRef} style={{ 
                 width: '210mm', 
