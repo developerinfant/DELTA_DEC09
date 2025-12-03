@@ -208,9 +208,7 @@ const ViewPackingGRNs = () => {
                 <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
                     {/* Only show Purchase Order option - DC-based options removed */}
                     <div className="flex items-center">
-                        <span className="px-4 py-2 rounded-lg font-medium bg-primary-500 text-white">
-                            Purchase Order (PO-based)
-                        </span>
+                        
                     </div>
                     
                     <ViewReportTools 

@@ -1,17 +1,21 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import ReactDOM from 'react-dom';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import api from '../../api';
 import Card from '../../components/common/Card';
-import { FaSpinner, FaEye, FaDownload } from 'react-icons/fa';
+import { FaSpinner, FaEye, FaDownload, FaPrint, FaFilePdf, FaCheck, FaTimes } from 'react-icons/fa';
 import ViewReportTools from '../../components/common/ViewReportTools';
 import { exportPOToExcel } from '../../utils/excelExporter';
 import { generateDeltaPOPDF } from '../../utils/pdfGenerator';
-import Modal from '../../components/common/Modal'; // Import Modal component
-import DeltaPOPrintLayout, { generatePDFfromDeltaPOPrintLayout, generatePDFBlobFromDeltaPOPrintLayout } from '../purchase/DeltaPOPrintLayout'; // Import DeltaPOPrintLayout component and new PDF generator
+import Modal from '../../components/common/Modal';
+import DeltaPOPrintLayout, { generatePDFfromDeltaPOPrintLayout, generatePDFBlobFromDeltaPOPrintLayout } from '../purchase/DeltaPOPrintLayout';
+import { useAuth } from '../../context/AuthContext';
+import { toast } from 'react-toastify';
 
 // This component can be moved to its own file later if needed
-const PurchaseOrdersTable = ({ purchaseOrders, onViewReport, onDownloadPDF, onPrintPDF, onDownloadOptions }) => {
+const PurchaseOrdersTable = ({ purchaseOrders, onViewReport, onDownloadPDF, onPrintPDF, onStatusUpdate, user }) => {
+    const navigate = useNavigate();
+    
     const formatDate = (dateString) => {
         return new Date(dateString).toLocaleDateString(undefined, {
             year: 'numeric', month: 'short', day: 'numeric'
@@ -33,6 +37,26 @@ const PurchaseOrdersTable = ({ purchaseOrders, onViewReport, onDownloadPDF, onPr
             case 'Received': return 'bg-green-100 text-green-800';
             case 'Cancelled': return 'bg-red-100 text-red-800';
             default: return 'bg-gray-100 text-gray-800';
+        }
+    };
+
+    const handleApprove = async (poId) => {
+        try {
+            const response = await api.put(`/purchase-orders/${poId}/approve`);
+            toast.success('Purchase Order Approved Successfully');
+            onStatusUpdate();
+        } catch (err) {
+            toast.error(err.response?.data?.message || 'Failed to approve purchase order.');
+        }
+    };
+
+    const handleReject = async (poId) => {
+        try {
+            const response = await api.put(`/purchase-orders/${poId}/reject`);
+            toast.success('Purchase Order Rejected Successfully');
+            onStatusUpdate();
+        } catch (err) {
+            toast.error(err.response?.data?.message || 'Failed to reject purchase order.');
         }
     };
 
@@ -62,20 +86,45 @@ const PurchaseOrdersTable = ({ purchaseOrders, onViewReport, onDownloadPDF, onPr
                                 <td className="px-6 py-4 text-sm text-dark-700">{formatDate(po.createdAt)}</td>
                                 <td className="px-6 py-4 text-sm font-semibold text-dark-700">{formatCurrency(po.totalAmount)}</td>
                                 <td className="px-6 py-4 text-sm">
-                                    <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusClass(po.status)}`}>
-                                        {po.status}
-                                    </span>
+                                    {po.status === 'Pending' && user?.role === 'Admin' ? (
+                                        <div className="flex space-x-2">
+                                            <button 
+                                                onClick={() => handleApprove(po._id)}
+                                                className="px-3 py-1 bg-green-500 text-white rounded-md hover:bg-green-600 flex items-center text-xs"
+                                            >
+                                                <FaCheck className="mr-1" /> Approve
+                                            </button>
+                                            <button 
+                                                onClick={() => handleReject(po._id)}
+                                                className="px-3 py-1 bg-red-500 text-white rounded-md hover:bg-red-600 flex items-center text-xs"
+                                            >
+                                                <FaTimes className="mr-1" /> Reject
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusClass(po.status)}`}>
+                                            {po.status}
+                                        </span>
+                                    )}
                                 </td>
-                                <td className="px-6 py-4 text-sm">
-                                    <div className="flex items-center space-x-2">
-                                        <Link to={`/packing/purchase-orders/${po._id}`} className="text-blue-500 hover:text-blue-700">
+                                <td className="px-6 py-4">
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', whiteSpace: 'nowrap' }}>
+                                        <Link to={`/packing/purchase-orders/${po._id}`} className="text-blue-500 hover:text-blue-700" title="View Details">
                                             <FaEye />
                                         </Link>
                                         <button 
-                                            onClick={() => onDownloadOptions(po)}
-                                            className="text-blue-500 hover:text-blue-700 focus:outline-none"
+                                            onClick={() => onDownloadPDF(po)} 
+                                            className="text-red-500 hover:text-red-700"
+                                            title="Download PDF"
                                         >
-                                            <FaDownload />
+                                            <FaFilePdf />
+                                        </button>
+                                        <button 
+                                            onClick={() => onPrintPDF(po)} 
+                                            className="text-green-500 hover:text-green-700"
+                                            title="Print PDF"
+                                        >
+                                            <FaPrint />
                                         </button>
                                     </div>
                                 </td>
@@ -89,14 +138,14 @@ const PurchaseOrdersTable = ({ purchaseOrders, onViewReport, onDownloadPDF, onPr
 };
 
 const ViewPackingPurchaseOrders = () => {
+    const { user } = useAuth();
     const [purchaseOrders, setPurchaseOrders] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState('');
     const [searchTerm, setSearchTerm] = useState('');
     const [statusFilter, setStatusFilter] = useState('');
-    const [selectedPO, setSelectedPO] = useState(null); // State for selected PO for modal
-    const [isModalOpen, setIsModalOpen] = useState(false); // State for modal visibility
-    const [isDownloadModalOpen, setIsDownloadModalOpen] = useState(false); // State for download options modal
+    const [selectedPO, setSelectedPO] = useState(null);
+    const [isModalOpen, setIsModalOpen] = useState(false);
 
     useEffect(() => {
         const fetchPurchaseOrders = async () => {
@@ -121,23 +170,34 @@ const ViewPackingPurchaseOrders = () => {
         });
     }, [purchaseOrders, searchTerm, statusFilter]);
 
-    // Report columns configuration
+    // --- Report Columns Configuration ---
     const reportColumns = [
         { header: 'PO Number', key: 'poNumber' },
-        { header: 'Supplier', key: 'supplier.name' },
+        { header: 'Supplier', key: 'supplier', render: (value) => value?.name || 'N/A' },
         { header: 'Date', key: 'createdAt', render: (value) => new Date(value).toLocaleDateString() },
         { header: 'Total Amount', key: 'totalAmount', render: (value) => `₹${parseFloat(value).toFixed(2)}` },
-        { header: 'Status', key: 'status' }
+        { header: 'Status', key: 'status', render: (value) => (
+            <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                value === 'Pending' ? 'bg-yellow-100 text-yellow-800' :
+                value === 'Approved' ? 'bg-blue-100 text-blue-800' :
+                value === 'Ordered' ? 'bg-indigo-100 text-indigo-800' :
+                value === 'Received' ? 'bg-green-100 text-green-800' :
+                value === 'Cancelled' ? 'bg-red-100 text-red-800' :
+                'bg-gray-100 text-gray-800'
+            }`}>
+                {value}
+            </span>
+        ) }
     ];
-
+    
     // Format data for export
     const formatDataForExport = (data) => {
         return data.map(po => ({
-            'PO Number': po.poNumber,
-            'Supplier': po.supplier?.name || 'N/A',
-            'Date': po.createdAt ? new Date(po.createdAt).toLocaleDateString() : 'N/A',
-            'Total Amount': `₹${parseFloat(po.totalAmount).toFixed(2)}`,
-            'Status': po.status
+            poNumber: po.poNumber,
+            supplier: po.supplier?.name || 'N/A',
+            createdAt: new Date(po.createdAt).toLocaleDateString(),
+            totalAmount: parseFloat(po.totalAmount).toFixed(2),
+            status: po.status
         }));
     };
 
@@ -159,7 +219,6 @@ const ViewPackingPurchaseOrders = () => {
         
         setSelectedPO(poData);
         setIsModalOpen(true);
-        setIsDownloadModalOpen(false); // Close download options modal
     };
 
     // Function to handle Download PDF - using DeltaPOPrintLayout for consistent layout
@@ -175,7 +234,6 @@ const ViewPackingPurchaseOrders = () => {
             
             // Use the new generatePDFfromDeltaPOPrintLayout for exact layout matching
             await generatePDFfromDeltaPOPrintLayout(poData);
-            setIsDownloadModalOpen(false); // Close download options modal
         } catch (error) {
             console.error('Error downloading PDF:', error);
             alert('Failed to download PDF. Please try again.');
@@ -212,8 +270,6 @@ const ViewPackingPurchaseOrders = () => {
                         }, 1000);
                     };
                 }
-                
-                setIsDownloadModalOpen(false); // Close download options modal
             } else {
                 console.error('Error generating PDF for printing:', result.error);
                 alert('Failed to generate PDF for printing. Please try again.');
@@ -224,20 +280,9 @@ const ViewPackingPurchaseOrders = () => {
         }
     };
 
-    // Function to open download options modal
-    const handleDownloadOptions = (po) => {
-        setSelectedPO(po);
-        setIsDownloadModalOpen(true);
-    };
-
     // Close modals
     const closeModal = () => {
         setIsModalOpen(false);
-        setSelectedPO(null);
-    };
-
-    const closeDownloadModal = () => {
-        setIsDownloadModalOpen(false);
         setSelectedPO(null);
     };
 
@@ -270,15 +315,15 @@ const ViewPackingPurchaseOrders = () => {
             <div className="flex items-center space-x-4 mb-4">
                 <input
                     type="text"
-                    placeholder="Search by PO# or Supplier..."
+                    placeholder="Search PO number or supplier..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="w-full md:w-1/3 px-4 py-2 text-dark-700 bg-light-200 border border-transparent rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                    className="flex-grow px-4 py-2 border border-light-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
                 />
                 <select 
                     value={statusFilter}
                     onChange={(e) => setStatusFilter(e.target.value)}
-                    className="w-full md:w-1/4 px-4 py-2 text-dark-700 bg-light-200 border border-transparent rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                    className="px-4 py-2 border border-light-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
                 >
                     <option value="">All Statuses</option>
                     <option value="Pending">Pending</option>
@@ -288,12 +333,25 @@ const ViewPackingPurchaseOrders = () => {
                     <option value="Cancelled">Cancelled</option>
                 </select>
             </div>
+            
             <PurchaseOrdersTable 
                 purchaseOrders={filteredPurchaseOrders} 
                 onViewReport={handleViewReport}
                 onDownloadPDF={handleDownloadPDF}
                 onPrintPDF={handlePrintPDF}
-                onDownloadOptions={handleDownloadOptions}
+                onStatusUpdate={() => {
+                    // Refresh the purchase orders list
+                    const fetchPurchaseOrders = async () => {
+                        try {
+                            const { data } = await api.get('/purchase-orders?materialType=packing');
+                            setPurchaseOrders(data);
+                        } catch (err) {
+                            setError('Failed to fetch purchase orders.');
+                        }
+                    };
+                    fetchPurchaseOrders();
+                }}
+                user={user}
             />
             
             {/* Modal for View Report */}
@@ -304,46 +362,6 @@ const ViewPackingPurchaseOrders = () => {
                             <DeltaPOPrintLayout poData={selectedPO} />
                         </div>
                     )}
-                </div>
-            </Modal>
-            
-            {/* Modal for Download Options */}
-            <Modal isOpen={isDownloadModalOpen} onClose={closeDownloadModal} title="Download Options">
-                <div className="p-6">
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <button
-                            onClick={() => handleViewReport(selectedPO)}
-                            className="flex flex-col items-center justify-center p-6 bg-white rounded-xl shadow-sm hover:shadow-md transition-shadow border border-light-200"
-                        >
-                            <div className="bg-blue-100 p-3 rounded-full mb-3">
-                                <FaEye className="text-blue-600 text-xl" />
-                            </div>
-                            <span className="font-medium text-dark-700">View Report</span>
-                            <span className="text-sm text-light-500 mt-1">Preview in browser</span>
-                        </button>
-                        
-                        <button
-                            onClick={() => handleDownloadPDF(selectedPO)}
-                            className="flex flex-col items-center justify-center p-6 bg-white rounded-xl shadow-sm hover:shadow-md transition-shadow border border-light-200"
-                        >
-                            <div className="bg-green-100 p-3 rounded-full mb-3">
-                                <FaDownload className="text-green-600 text-xl" />
-                            </div>
-                            <span className="font-medium text-dark-700">Download PDF</span>
-                            <span className="text-sm text-light-500 mt-1">Save to device</span>
-                        </button>
-                        
-                        <button
-                            onClick={() => handlePrintPDF(selectedPO)}
-                            className="flex flex-col items-center justify-center p-6 bg-white rounded-xl shadow-sm hover:shadow-md transition-shadow border border-light-200"
-                        >
-                            <div className="bg-purple-100 p-3 rounded-full mb-3">
-                                <FaEye className="text-purple-600 text-xl" />
-                            </div>
-                            <span className="font-medium text-dark-700">Print PDF</span>
-                            <span className="text-sm text-light-500 mt-1">Send to printer</span>
-                        </button>
-                    </div>
                 </div>
             </Modal>
         </Card>

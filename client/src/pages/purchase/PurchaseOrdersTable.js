@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { FaEye, FaPrint } from 'react-icons/fa';
+import { FaEye, FaPrint, FaFilePdf } from 'react-icons/fa';
 import { generateDeltaPOPDF } from '../../utils/pdfGenerator';
 
 const PurchaseOrdersTable = ({ purchaseOrders }) => {
@@ -43,6 +43,12 @@ const PurchaseOrdersTable = ({ purchaseOrders }) => {
         await generateDeltaPOPDF(po, 'download');
     };
 
+    // Function to print PDF
+    const handlePrintPDF = async (po) => {
+        // Generate and view PDF for printing
+        await generateDeltaPOPDF(po, 'view');
+    };
+
     return (
         <div className="overflow-x-auto bg-light-100 rounded-xl shadow-lg">
             <table className="min-w-full divide-y divide-light-200">
@@ -74,20 +80,20 @@ const PurchaseOrdersTable = ({ purchaseOrders }) => {
                                     </span>
                                 </td>
                                 <td className="px-6 py-4 text-sm space-x-2">
-                                    <Link to={`/purchase-orders/${po._id}`} className="text-blue-500 hover:text-blue-700">
+                                    <Link to={`/purchase-orders/${po._id}`} className="text-blue-500 hover:text-blue-700" title="View Details">
                                         <FaEye />
                                     </Link>
                                     <button 
-                                        onClick={() => handleViewReport(po)} 
-                                        className="text-green-500 hover:text-green-700"
-                                        title="View Report"
+                                        onClick={() => handleDownloadPDF(po)} 
+                                        className="text-red-500 hover:text-red-700"
+                                        title="Download PDF"
                                     >
-                                        <FaPrint />
+                                        <FaFilePdf />
                                     </button>
                                     <button 
-                                        onClick={() => handleDownloadPDF(po)} 
-                                        className="text-blue-500 hover:text-blue-700"
-                                        title="Download PDF"
+                                        onClick={() => handlePrintPDF(po)} 
+                                        className="text-green-500 hover:text-green-700"
+                                        title="Print PDF"
                                     >
                                         <FaPrint />
                                     </button>
