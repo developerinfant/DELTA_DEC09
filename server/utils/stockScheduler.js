@@ -9,14 +9,46 @@ let openingTime = '0 9 * * *'; // 9:00 AM daily
 let closingTime = '0 21 * * *'; // 9:00 PM daily
 
 // Function to load configuration from database
+// Helper function to convert HH:MM format to cron expression
+const convertTimeToCron = (timeStr) => {
+  if (!timeStr || typeof timeStr !== 'string') {
+    return null;
+  }
+  
+  // Check if it's already in cron format
+  if (timeStr.includes('*')) {
+    return timeStr;
+  }
+  
+  // Convert HH:MM format to cron format (minute hour * * *)
+  const parts = timeStr.split(':');
+  if (parts.length === 2) {
+    const [hour, minute] = parts;
+    if (!isNaN(hour) && !isNaN(minute)) {
+      return `${minute} ${hour} * * *`;
+    }
+  }
+  
+  return null;
+};
+
 const loadConfig = async () => {
   try {
     const config = await StockCaptureConfig.getConfig();
-    openingTime = config.openingTime;
-    closingTime = config.closingTime;
-    console.log(`Stock capture configuration loaded: Opening at ${openingTime}, Closing at ${closingTime}`);
+    
+    // Convert HH:MM format to cron expressions
+    const openingCron = convertTimeToCron(config.openingTime);
+    const closingCron = convertTimeToCron(config.closingTime);
+    
+    openingTime = openingCron || '0 9 * * *'; // Default to 9:00 AM
+    closingTime = closingCron || '0 21 * * *'; // Default to 9:00 PM
+    
+    console.log(`Stock capture configuration loaded: Opening at ${openingTime} (from ${config.openingTime}), Closing at ${closingTime} (from ${config.closingTime})`);
   } catch (error) {
     console.error('Error loading stock capture configuration:', error);
+    // Use default values if there's an error
+    openingTime = '0 9 * * *'; // 9:00 AM daily
+    closingTime = '0 21 * * *'; // 9:00 PM daily
   }
 };
 
@@ -136,19 +168,31 @@ const scheduleStockCapture = async () => {
   // Load configuration from database
   await loadConfig();
   
-  // Schedule opening stock capture
-  cron.schedule(openingTime, captureOpeningStock, {
-    scheduled: true,
-    timezone: "Asia/Kolkata"
-  });
+  // Validate cron expressions before scheduling
+  if (typeof openingTime !== 'string' || typeof closingTime !== 'string') {
+    console.error('Invalid cron expressions:', { openingTime, closingTime });
+    openingTime = '0 9 * * *'; // Default to 9:00 AM
+    closingTime = '0 21 * * *'; // Default to 9:00 PM
+  }
   
-  // Schedule closing stock capture
-  cron.schedule(closingTime, captureClosingStock, {
-    scheduled: true,
-    timezone: "Asia/Kolkata"
-  });
-  
-  console.log(`Stock capture scheduled: Opening at ${openingTime}, Closing at ${closingTime}`);
+  try {
+    // Schedule opening stock capture
+    cron.schedule(openingTime, captureOpeningStock, {
+      scheduled: true,
+      timezone: "Asia/Kolkata"
+    });
+    
+    // Schedule closing stock capture
+    cron.schedule(closingTime, captureClosingStock, {
+      scheduled: true,
+      timezone: "Asia/Kolkata"
+    });
+    
+    console.log(`Stock capture scheduled: Opening at ${openingTime}, Closing at ${closingTime}`);
+  } catch (error) {
+    console.error('Error scheduling stock capture:', error);
+    throw error;
+  }
 };
 
 module.exports = {

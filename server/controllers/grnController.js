@@ -842,6 +842,8 @@ const createGRN = async (req, res) => {
             // Calculate balance quantity (ordered - (previous received + current received))
             const balanceQuantity = poItem.quantity - (previousReceived + receivedQuantity);
             
+            const totalReceived = previousReceived + receivedQuantity;
+            
             processedItems.push({
                 material,
                 materialModel,
@@ -856,7 +858,13 @@ const createGRN = async (req, res) => {
                 priceDifference: priceData.priceDifference,
                 priceDifferencePercentage: priceData.priceDifferencePercentage,
                 balanceQuantity: balanceQuantity,
-                previousReceived: previousReceived
+                previousReceived: previousReceived,
+                receivedQuantity: parseFloat(receivedQuantity),
+                totalReceived: totalReceived,
+                pendingQty: pendingQuantity,
+                extraAllowedQty: poItem.extraAllowedQty,
+                previousExtraReceived: previousExtraReceived,
+                extraPending: pendingExtraQuantity
             });
         }
         
@@ -1733,6 +1741,8 @@ const updateGRN = async (req, res) => {
             // Calculate balance quantity (ordered - (previous received + current received))
             const balanceQuantity = orderedQuantity - (previousReceived + receivedQuantity);
             
+            const totalReceived = previousReceived + receivedQuantity;
+            
             processedItems.push({
                 ...item,
                 orderedQuantity,
@@ -1742,7 +1752,13 @@ const updateGRN = async (req, res) => {
                 lastUnitPrice: priceData.lastUnitPrice,
                 priceDifference: priceData.priceDifference,
                 priceDifferencePercentage: priceData.priceDifferencePercentage,
-                previousReceived: previousReceived || 0
+                previousReceived: previousReceived || 0,
+                receivedQuantity: parseFloat(receivedQuantity),
+                totalReceived: totalReceived,
+                pendingQty: pendingQuantity,
+                extraAllowedQty: poItem.extraAllowedQty,
+                previousExtraReceived: previousExtraReceived || 0,
+                extraPending: pendingExtraQuantity
             });
         }
         

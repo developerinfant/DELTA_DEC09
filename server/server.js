@@ -140,7 +140,9 @@ const server = httpServer.listen(PORT, () => {
     console.log(`Server is running in ${process.env.NODE_ENV || 'development'} mode on port ${PORT}`);
     
     // Initialize stock capture scheduler
-    scheduleStockCapture();
+    scheduleStockCapture().catch(err => {
+        console.error('Failed to initialize stock capture scheduler:', err);
+    });
 });
 
 // Graceful shutdown

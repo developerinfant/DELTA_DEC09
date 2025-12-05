@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import apiWithOfflineSupport from '../../utils/apiWithOfflineSupport';
 import Card from '../../components/common/Card';
+import Modal from '../../components/common/Modal';
 import { FaSpinner, FaExclamationTriangle, FaEye, FaPlus, FaTimes, FaTrash } from 'react-icons/fa';
-import { ToastContainer, toast } from 'react-toastify';
-import 'react-toastify/dist/ReactToastify.css';
+import { ToastContainer, toast } from 'react-toastify';import 'react-toastify/dist/ReactToastify.css';
 import DeliveryChallanDetailModal from '../../components/deliveryChallan/DeliveryChallanDetailModal';
 import { useAuth } from '../../context/AuthContext'; // Add this import
 import Select from 'react-select'; // Add this import
@@ -373,86 +373,74 @@ const OutgoingPackingMaterials = () => {
         <div className="container mx-auto px-4 py-6 max-w-7xl">
             <ToastContainer position="top-right" autoClose={5000} />
             
-            {/* Person Name Popup */}
-            {isPersonNamePopupOpen && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-                    <div className="bg-white rounded-lg p-6 w-full max-w-md">
-                        <div className="flex justify-between items-center mb-4">
-                            <h3 className="text-lg font-semibold text-gray-800">
-                                {editingPersonName !== null ? 'Edit Person Name' : 'Add Person Name'}
-                            </h3>
-                            <button 
-                                onClick={closePersonNamePopup}
-                                className="text-gray-500 hover:text-gray-700"
-                            >
-                                <FaTimes />
-                            </button>
-                        </div>
-                        
-                        <div className="mb-4">
-                            <label className="block text-sm font-medium text-gray-700 mb-1">
-                                Person Name
-                            </label>
-                            <input
-                                type="text"
-                                value={newPersonName}
-                                onChange={(e) => setNewPersonName(e.target.value)}
-                                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                                placeholder="Enter person name"
-                            />
-                        </div>
-                        
-                        <div className="flex justify-end space-x-3">
-                            <button
-                                onClick={closePersonNamePopup}
-                                className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
-                                disabled={isPersonNamesLoading}
-                            >
-                                Cancel
-                            </button>
-                            <button
-                                onClick={savePersonName}
-                                className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50"
-                                disabled={isPersonNamesLoading}
-                            >
-                                {isPersonNamesLoading ? 'Saving...' : (editingPersonName !== null ? 'Update' : 'Add')}
-                            </button>
-                        </div>
-                        
-                        {/* List of existing person names */}
-                        {personNames.length > 0 && (
-                            <div className="mt-6">
-                                <h4 className="text-sm font-medium text-gray-700 mb-2">Existing Person Names</h4>
-                                <div className="max-h-40 overflow-y-auto border border-gray-200 rounded-md">
-                                    <ul className="divide-y divide-gray-200">
-                                        {personNames.map((person, index) => (
-                                            <li key={person._id} className="px-4 py-2 flex justify-between items-center">
-                                                <span className="text-gray-700">{person.name}</span>
-                                                <div className="flex space-x-2">
-                                                    <button
-                                                        onClick={() => editPersonName(index)}
-                                                        className="text-indigo-600 hover:text-indigo-900 text-sm"
-                                                        disabled={isPersonNamesLoading}
-                                                    >
-                                                        Edit
-                                                    </button>
-                                                    <button
-                                                        onClick={() => deletePersonName(index)}
-                                                        className="text-red-600 hover:text-red-900 text-sm"
-                                                        disabled={isPersonNamesLoading}
-                                                    >
-                                                        Delete
-                                                    </button>
-                                                </div>
-                                            </li>
-                                        ))}
-                                    </ul>
-                                </div>
-                            </div>
-                        )}
-                    </div>
+            {/* Person Name Popup - Updated to use shared Modal component */}
+            <Modal 
+                isOpen={isPersonNamePopupOpen} 
+                onClose={closePersonNamePopup} 
+                title={editingPersonName !== null ? 'Edit Person Name' : 'Add Person Name'}
+            >
+                <div className="mb-4">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Person Name
+                    </label>
+                    <input
+                        type="text"
+                        value={newPersonName}
+                        onChange={(e) => setNewPersonName(e.target.value)}
+                        className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                        placeholder="Enter person name"
+                    />
                 </div>
-            )}
+                
+                <div className="flex justify-end space-x-3">
+                    <button
+                        onClick={closePersonNamePopup}
+                        className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
+                        disabled={isPersonNamesLoading}
+                    >
+                        Cancel
+                    </button>
+                    <button
+                        onClick={savePersonName}
+                        className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50"
+                        disabled={isPersonNamesLoading}
+                    >
+                        {isPersonNamesLoading ? 'Saving...' : (editingPersonName !== null ? 'Update' : 'Add')}
+                    </button>
+                </div>
+                
+                {/* List of existing person names */}
+                {personNames.length > 0 && (
+                    <div className="mt-6">
+                        <h4 className="text-sm font-medium text-gray-700 mb-2">Existing Person Names</h4>
+                        <div className="max-h-40 overflow-y-auto border border-gray-200 rounded-md">
+                            <ul className="divide-y divide-gray-200">
+                                {personNames.map((person, index) => (
+                                    <li key={person._id} className="px-4 py-2 flex justify-between items-center">
+                                        <span className="text-gray-700">{person.name}</span>
+                                        <div className="flex space-x-2">
+                                            <button
+                                                onClick={() => editPersonName(index)}
+                                                className="text-indigo-600 hover:text-indigo-900 text-sm"
+                                                disabled={isPersonNamesLoading}
+                                            >
+                                                Edit
+                                            </button>
+                                            <button
+                                                onClick={() => deletePersonName(index)}
+                                                className="text-red-600 hover:text-red-900 text-sm"
+                                                disabled={isPersonNamesLoading}
+                                            >
+                                                Delete
+                                            </button>
+                                        </div>
+                                    </li>
+                                ))}
+                            </ul>
+                        </div>
+                    </div>
+                )}
+            </Modal>
             
             <div className="mb-8">
                 <h1 className="text-3xl font-bold text-gray-800 mb-2">

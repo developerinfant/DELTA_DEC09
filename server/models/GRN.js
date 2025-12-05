@@ -62,6 +62,35 @@ const grnItemSchema = new mongoose.Schema({
     remainingQty: {
         type: Number,
         default: 0
+    },
+    // Add fields to store calculated values for GRN details page
+    previousReceived: {
+        type: Number,
+        default: 0
+    },
+    receivedQuantity: {
+        type: Number,
+        required: true,
+    },
+    totalReceived: {
+        type: Number,
+        default: 0
+    },
+    pendingQty: {
+        type: Number,
+        default: 0
+    },
+    extraAllowedQty: {
+        type: Number,
+        default: 0
+    },
+    previousExtraReceived: {
+        type: Number,
+        default: 0
+    },
+    extraPending: {
+        type: Number,
+        default: 0
     }
 });
 

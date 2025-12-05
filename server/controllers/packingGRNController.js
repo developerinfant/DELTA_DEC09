@@ -312,6 +312,7 @@ const createGRN = async (req, res) => {
             
             // Calculate balance quantity (ordered - (previous received + current received))
             const balanceQuantity = poItem.quantity - (previousReceived + receivedQuantity);
+            const totalReceived = previousReceived + receivedQuantity;
             
             processedItems.push({
                 material,
@@ -327,7 +328,13 @@ const createGRN = async (req, res) => {
                 priceDifference: priceData.priceDifference,
                 priceDifferencePercentage: priceData.priceDifferencePercentage,
                 balanceQuantity: balanceQuantity,
-                previousReceived: previousReceived
+                previousReceived: previousReceived,
+                receivedQuantity: parseFloat(receivedQuantity),
+                totalReceived: totalReceived,
+                pendingQty: pendingQuantity,
+                extraAllowedQty: poItem.extraAllowedQty,
+                previousExtraReceived: previousExtraReceived,
+                extraPending: pendingExtraQuantity
             });
         }
         
@@ -708,6 +715,42 @@ const updateGRN = async (req, res) => {
                 }
             }
 
+            // Check if received quantity exceeds pending quantity
+            if (receivedQuantity > pendingQuantity) {
+                return res.status(400).json({ 
+                    message: `Received quantity cannot exceed pending quantity. Pending: ${pendingQuantity}, Received: ${receivedQuantity}` 
+                });
+            }
+            
+            // Check if extra received quantity exceeds pending extra quantity
+            if (extraReceivedQty > pendingExtraQuantity) {
+                return res.status(400).json({ 
+                    message: `Extra received quantity cannot exceed pending extra quantity. Pending: ${pendingExtraQuantity}, Received: ${extraReceivedQty}` 
+                });
+            }
+            
+            // Check if all items are fully received to determine status
+            if (previousReceived + receivedQuantity !== poItem.quantity) {
+                allItemsMatch = false;
+            }
+            
+            // Check if all extra items are fully received to determine status
+            if (previousExtraReceived + extraReceivedQty !== poItem.extraAllowedQty) {
+                allExtraItemsMatch = false;
+            }
+            
+            // Check if received quantity exceeds ordered quantity (sent quantity)
+            if (receivedQuantity > poItem.quantity + 0.001) {
+                return res.status(400).json({ 
+                    message: `Received quantity cannot exceed sent quantity. Sent: ${poItem.quantity}, Received: ${receivedQuantity}` 
+                });
+            }
+            
+            // Check if received quantity differs from ordered quantity (sent quantity)
+            if (Math.abs(receivedQuantity - poItem.quantity) > 0.001) {
+                allItemsMatch = false;
+            }
+            
             // Calculate price difference using the (possibly updated) unitPrice
             const priceData = await calculatePriceDifference(material, materialModel, unitPrice);
             
@@ -715,6 +758,7 @@ const updateGRN = async (req, res) => {
             const orderedQuantity = poItem ? poItem.quantity : receivedQuantity;
             // Calculate balance quantity (ordered - (previous received + current received))
             const balanceQuantity = orderedQuantity - (previousReceived + receivedQuantity);
+            const totalReceived = previousReceived + receivedQuantity;
             
             processedItems.push({
                 ...item,
@@ -725,7 +769,13 @@ const updateGRN = async (req, res) => {
                 lastUnitPrice: priceData.lastUnitPrice,
                 priceDifference: priceData.priceDifference,
                 priceDifferencePercentage: priceData.priceDifferencePercentage,
-                previousReceived: previousReceived || 0
+                previousReceived: previousReceived || 0,
+                receivedQuantity: parseFloat(receivedQuantity),
+                totalReceived: totalReceived,
+                pendingQty: pendingQuantity,
+                extraAllowedQty: poItem.extraAllowedQty,
+                previousExtraReceived: previousExtraReceived || 0,
+                extraPending: pendingExtraQuantity
             });
         }
         

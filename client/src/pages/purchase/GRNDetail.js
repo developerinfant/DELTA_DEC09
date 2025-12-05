@@ -4,6 +4,7 @@ import api from '../../api';
 import { useAuth } from '../../context/AuthContext';
 import Card from '../../components/common/Card';
 import Modal from '../../components/common/Modal';
+import ReceivedItemsDisplay from '../../components/purchase/ReceivedItemsDisplay';
 import { FaSpinner, FaArrowLeft, FaCheck, FaTimes, FaEdit, FaBan, FaPrint } from 'react-icons/fa';
 
 // Add a helper function to validate ObjectId
@@ -403,164 +404,14 @@ const GRNDetail = () => {
             ) : (
                 // Show material-based table for Purchase Order GRNs
                 <Card title="Items Received" className="shadow-lg">
-                    <div className="overflow-x-auto">
-                        <table className="min-w-full divide-y divide-gray-200">
-                            <thead className="bg-gray-50">
-                                <tr>
-                                    <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Material Name</th>
-                                    <th className="px-6 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider">Ordered Qty</th>
-                                    <th className="px-6 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider">Previous Received</th>
-                                    <th className="px-6 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider">Pending Qty</th>
-                                    <th className="px-6 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider">Received Qty</th>
-                                    <th className="px-6 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider">Extra Allowed</th>
-                                    <th className="px-6 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider">Extra Received</th>
-                                    <th className="px-6 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider">Extra Pending</th>
-                                    <th className="px-6 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider">Balance</th>
-                                    <th className="px-6 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider">Status</th>
-                                    <th className="px-6 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider">Damaged</th>
-                                </tr>
-                            </thead>
-                            <tbody className="bg-white divide-y divide-gray-200">
-                                {editedItems.map((item, index) => {
-                                    // Calculate item status and quantities based on the actual GRN record data
-                                    let itemStatus = 'Completed';
-                                    let itemStatusClass = 'bg-green-100 text-green-800';
-                                    
-                                    // Use the actual values from the GRN record
-                                    const orderedQty = item?.orderedQuantity || 0;
-                                    const receivedQty = item?.receivedQuantity || 0;
-                                    const previousReceived = item?.previousReceived || 0;
-                                    // Fix pending quantity calculation to match GRN Create page formula
-                                    const pendingQty = Math.max(0, orderedQty - previousReceived - receivedQty);
-                                    // Use the balanceQuantity from the GRN record if available, otherwise calculate it
-                                    const balanceQty = item?.balanceQuantity !== undefined ? item.balanceQuantity : (orderedQty - (previousReceived + receivedQty));
-                                    
-                                    // Calculate extra quantities using the correct formulas
-                                    const extraAllowed = item?.extraAllowedQty || 0;
-                                    const extraReceived = item?.extraReceivedQty || 0;
-                                    const previousExtraReceived = item?.previousExtraReceived || 0;
-                                    // Fix extra pending calculation to match GRN Create page formula
-                                    const extraPending = Math.max(0, extraAllowed - previousExtraReceived - extraReceived);
-                                    
-                                    // Status logic based on the actual GRN record
-                                    if (balanceQty > 0 || extraPending > 0) {
-                                        itemStatus = 'Partial';
-                                        itemStatusClass = 'bg-orange-100 text-orange-800';
-                                    } else {
-                                        itemStatus = 'Completed';
-                                        itemStatusClass = 'bg-green-100 text-green-800';
-                                    }
-                                    
-                                    return (
-                                        <tr key={item._id} className="hover:bg-gray-50">
-                                            <td className="px-6 py-4 whitespace-nowrap">
-                                                <div className="text-sm font-medium text-gray-900">{item.material?.name || item.material || 'N/A'}</div>
-                                                <div className="text-xs text-gray-500">{item.material?.itemCode ? `(${item.material.itemCode})` : ''} {item.material?.unit ? `(${item.material.unit})` : ''}</div>
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-center">
-                                                <div className="text-sm font-bold text-blue-600">{orderedQty}</div>
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-center">
-                                                <div className="text-sm font-bold text-yellow-600">{previousReceived}</div>
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-center">
-                                                <div className="text-sm font-bold text-orange-600">{pendingQty}</div>
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-center">
-                                                <div className="text-sm font-bold text-green-600">{receivedQty}</div>
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-center">
-                                                <div className="text-sm font-bold text-purple-600">{extraAllowed}</div>
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-center">
-                                                <div className="text-sm font-bold text-indigo-600">{extraReceived}</div>
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-center">
-                                                <div className="text-sm font-bold text-amber-600">{extraPending}</div>
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-center">
-                                                <div className={`text-sm font-bold ${balanceQty > 0 ? 'text-red-600' : 'text-gray-600'}`}>
-                                                    {balanceQty}
-                                                </div>
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-center">
-                                                <span className={`px-2 py-1 text-xs font-semibold rounded-full ${itemStatusClass}`}>
-                                                    {itemStatus}
-                                                </span>
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-center">
-                                                <div className="text-sm font-bold text-red-600">{item?.damagedQuantity || 0}</div>
-                                            </td>
-                                        </tr>
-                                    );
-                                })}
-                            </tbody>
-                        </table>
-                    </div>
-                    
-                    {/* Table Footer with Summary */}
-                    <div className="mt-4 pt-4 border-t border-gray-200">
-                        <div className="flex justify-between items-center">
-                            <div className="text-sm text-gray-500">
-                                Total Items: {editedItems.length}
-                            </div>
-                            <div className="flex space-x-4">
-                                <div className="text-sm">
-                                    <span className="text-gray-500">Total Ordered: </span>
-                                    <span className="font-bold text-blue-600">
-                                        {editedItems.reduce((sum, item) => sum + (item?.orderedQuantity || 0), 0)}
-                                    </span>
-                                </div>
-                                <div className="text-sm">
-                                    <span className="text-gray-500">Total Previous Received: </span>
-                                    <span className="font-bold text-yellow-600">
-                                        {editedItems.reduce((sum, item) => sum + (item?.previousReceived || 0), 0)}
-                                    </span>
-                                </div>
-                                <div className="text-sm">
-                                    <span className="text-gray-500">Total Pending: </span>
-                                    <span className="font-bold text-orange-600">
-                                        {editedItems.reduce((sum, item) => sum + Math.max(0, (item?.orderedQuantity || 0) - (item?.previousReceived || 0) - (item?.receivedQuantity || 0)), 0)}
-                                    </span>
-                                </div>
-                                <div className="text-sm">
-                                    <span className="text-gray-500">Total Received: </span>
-                                    <span className="font-bold text-green-600">
-                                        {editedItems.reduce((sum, item) => sum + (item?.receivedQuantity || 0), 0)}
-                                    </span>
-                                </div>
-                                <div className="text-sm">
-                                    <span className="text-gray-500">Total Extra Allowed: </span>
-                                    <span className="font-bold text-purple-600">
-                                        {editedItems.reduce((sum, item) => sum + (item?.extraAllowedQty || 0), 0)}
-                                    </span>
-                                </div>
-                                <div className="text-sm">
-                                    <span className="text-gray-500">Total Extra Received: </span>
-                                    <span className="font-bold text-indigo-600">
-                                        {editedItems.reduce((sum, item) => sum + (item?.extraReceivedQty || 0), 0)}
-                                    </span>
-                                </div>
-                                <div className="text-sm">
-                                    <span className="text-gray-500">Total Extra Pending: </span>
-                                    <span className="font-bold text-amber-600">
-                                        {editedItems.reduce((sum, item) => {
-                                            const extraAllowed = item?.extraAllowedQty || 0;
-                                            const extraReceived = item?.extraReceivedQty || 0;
-                                            const previousExtraReceived = item?.previousExtraReceived || 0;
-                                            const extraPending = Math.max(0, extraAllowed - previousExtraReceived - extraReceived);
-                                            return sum + extraPending;
-                                        }, 0)}
-                                    </span>
-                                </div>
-                                <div className="text-sm">
-                                    <span className="text-gray-500">Total Balance: </span>
-                                    <span className="font-bold text-red-600">
-                                        {editedItems.reduce((sum, item) => sum + ((item?.orderedQuantity || 0) - ((item?.previousReceived || 0) + (item?.receivedQuantity || 0))), 0)}
-                                    </span>
-                                </div>
-                            </div>
+                    <div className="space-y-4">
+                        <div className="flex justify-between items-center bg-white p-4 rounded-xl shadow-sm border border-gray-100">
+                            <h3 className="text-xl font-bold text-dark-700">Received Items</h3>
+                            <span className="bg-primary-100 text-primary-800 px-3 py-1 rounded-full font-medium">
+                                {editedItems.length} items
+                            </span>
                         </div>
+                        <ReceivedItemsDisplay items={editedItems} />
                     </div>
                 </Card>
             )}

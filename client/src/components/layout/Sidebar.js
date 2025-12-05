@@ -339,8 +339,8 @@ const Sidebar = ({ isOpen, packingAlertsCount = 0, rawAlertsCount = 0, toggleSid
                         </div>
                     )}
 
-                    {/* Stock Maintenance Collapsible Menu */}
-                    {isModuleSectionVisible('stock') && (
+                    {/* Stock Maintenance Collapsible Menu - Hidden as per requirement */}
+                    {false && isModuleSectionVisible('stock') && (
                         <div className="pt-2">
                             <button
                                 onClick={() => setIsStockOpen(!isStockOpen)}
@@ -420,8 +420,8 @@ const Sidebar = ({ isOpen, packingAlertsCount = 0, rawAlertsCount = 0, toggleSid
                         </div>
                     )}
 
-                    {/* Product Management Collapsible Menu */}
-                    {isModuleSectionVisible('product') && (
+                    {/* Product Management Collapsible Menu - Hidden as per requirement */}
+                    {false && isModuleSectionVisible('product') && (
                         <div className="pt-2">
                             <button
                                 onClick={() => setIsProductOpen(!isProductOpen)}
@@ -667,8 +667,8 @@ const Sidebar = ({ isOpen, packingAlertsCount = 0, rawAlertsCount = 0, toggleSid
                         </div>
                     )}
 
-                    {/* Stock Maintenance Collapsible Menu */}
-                    {isModuleSectionVisible('stock') && (
+                    {/* Stock Maintenance Collapsible Menu - Hidden as per requirement */}
+                    {false && isModuleSectionVisible('stock') && (
                         <div className="pt-2">
                             <button
                                 onClick={() => setIsStockOpen(!isStockOpen)}
@@ -748,8 +748,8 @@ const Sidebar = ({ isOpen, packingAlertsCount = 0, rawAlertsCount = 0, toggleSid
                         </div>
                     )}
 
-                    {/* Product Management Collapsible Menu */}
-                    {isModuleSectionVisible('product') && (
+                    {/* Product Management Collapsible Menu - Hidden as per requirement */}
+                    {false && isModuleSectionVisible('product') && (
                         <div className="pt-2">
                             <button
                                 onClick={() => setIsProductOpen(!isProductOpen)}
