@@ -89,7 +89,8 @@ const recalculateAllStock = async () => {
           const grnDate = new Date(grn.dateReceived);
           grnDate.setHours(0, 0, 0, 0);
           
-          if (grnDate.getTime() === dateTimestamp) {
+          // Count all GRNs except those marked as Draft or Cancelled
+          if (!['Draft', 'Cancelled'].includes(grn.status) && grnDate.getTime() === dateTimestamp) {
             grn.items.forEach(item => {
               // Properly match materials
               let isMatchingMaterial = false;

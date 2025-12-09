@@ -51,6 +51,11 @@ const PackingGRNPrintLayout = ({ grnData }) => {
             <style>
                 {`
                     @media print {
+                        @page {
+                            size: A4;
+                            margin: 10mm;
+                        }
+                        
                         body * {
                             visibility: hidden;
                         }
@@ -62,10 +67,33 @@ const PackingGRNPrintLayout = ({ grnData }) => {
                             left: 0;
                             top: 0;
                             width: 100%;
-                            padding: 1.5rem; /* Add some padding for printing */
+                            padding: 10mm; /* Match the page margin */
                         }
                         .no-print {
                             display: none;
+                        }
+                        
+                        /* Ensure crisp single borders */
+                        table {
+                            border-collapse: collapse !important;
+                            table-layout: fixed !important;
+                        }
+                        
+                        th, td {
+                            border: 1px solid #000 !important;
+                            padding: 4px 6px !important;
+                            font-size: 10px !important;
+                        }
+                        
+                        /* Limit image size */
+                        img {
+                            max-width: 60mm !important;
+                            height: auto !important;
+                        }
+                        
+                        /* Hide UI elements during print */
+                        nav, header, aside, footer, .sidebar, .header {
+                            display: none !important;
                         }
                     }
                 `}
@@ -75,7 +103,7 @@ const PackingGRNPrintLayout = ({ grnData }) => {
                 {/* Header */}
                 <div className="flex justify-between items-start pb-4 border-b-2 border-black">
                     <div className="w-1/3">
-                        <img src={logo} alt="Delta Logo" className="h-20" />
+                        <img src={logo} alt="Delta Logo" className="h-20" style={{ maxWidth: '60mm', height: 'auto' }} />
                     </div>
                     <div className="w-2/3 text-right">
                         <h1 className="text-3xl font-bold text-black">DELTA'S TRADE LINK</h1>
@@ -102,24 +130,24 @@ const PackingGRNPrintLayout = ({ grnData }) => {
                 </div>
 
                 {/* Items Table */}
-                <table className="min-w-full divide-y divide-gray-300 border">
+                <table className="min-w-full divide-y divide-gray-300 border" style={{ borderCollapse: 'collapse', tableLayout: 'fixed' }}>
                     <thead className="bg-gray-100">
                         <tr>
-                            <th className="px-4 py-2 text-left text-xs font-bold uppercase">Material</th>
-                            <th className="px-4 py-2 text-right text-xs font-bold uppercase">Ordered</th>
-                            <th className="px-4 py-2 text-right text-xs font-bold uppercase">Received</th>
-                            <th className="px-4 py-2 text-right text-xs font-bold uppercase">Damaged</th>
-                            <th className="px-4 py-2 text-left text-xs font-bold uppercase">Remarks</th>
+                            <th className="px-4 py-2 text-left text-xs font-bold uppercase" style={{ border: '1px solid #000', padding: '4px 6px', fontSize: '10px' }}>Material</th>
+                            <th className="px-4 py-2 text-right text-xs font-bold uppercase" style={{ border: '1px solid #000', padding: '4px 6px', fontSize: '10px' }}>Ordered</th>
+                            <th className="px-4 py-2 text-right text-xs font-bold uppercase" style={{ border: '1px solid #000', padding: '4px 6px', fontSize: '10px' }}>Received</th>
+                            <th className="px-4 py-2 text-right text-xs font-bold uppercase" style={{ border: '1px solid #000', padding: '4px 6px', fontSize: '10px' }}>Damaged</th>
+                            <th className="px-4 py-2 text-left text-xs font-bold uppercase" style={{ border: '1px solid #000', padding: '4px 6px', fontSize: '10px' }}>Remarks</th>
                         </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
                         {data.items?.map((item, index) => (
                             <tr key={item._id || index}>
-                                <td className="px-4 py-2 text-sm">{item.material?.name || 'N/A'}</td>
-                                <td className="px-4 py-2 text-sm text-right">{item.orderedQuantity || 0}</td>
-                                <td className="px-4 py-2 text-sm text-right">{item.receivedQuantity || 0}</td>
-                                <td className="px-4 py-2 text-sm text-right">{item.damagedQuantity || 0}</td>
-                                <td className="px-4 py-2 text-sm">{item.remarks || ''}</td>
+                                <td className="px-4 py-2 text-sm" style={{ border: '1px solid #000', padding: '4px 6px', fontSize: '10px' }}>{item.material?.name || 'N/A'}</td>
+                                <td className="px-4 py-2 text-sm text-right" style={{ border: '1px solid #000', padding: '4px 6px', fontSize: '10px' }}>{item.orderedQuantity || 0}</td>
+                                <td className="px-4 py-2 text-sm text-right" style={{ border: '1px solid #000', padding: '4px 6px', fontSize: '10px' }}>{item.receivedQuantity || 0}</td>
+                                <td className="px-4 py-2 text-sm text-right" style={{ border: '1px solid #000', padding: '4px 6px', fontSize: '10px' }}>{item.damagedQuantity || 0}</td>
+                                <td className="px-4 py-2 text-sm" style={{ border: '1px solid #000', padding: '4px 6px', fontSize: '10px' }}>{item.remarks || ''}</td>
                             </tr>
                         ))}
                     </tbody>

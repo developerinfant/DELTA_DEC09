@@ -24,7 +24,9 @@ import {
     FaHome,
     FaFileInvoice,
     FaUsers,
-    FaExclamationTriangle
+    FaExclamationTriangle,
+    FaChevronRight,
+    FaChevronDown
 } from 'react-icons/fa';
 import { useAuth } from '../../context/AuthContext';
 import { hasAnyPermissionInModule, hasModuleAccess, isModuleVisible } from '../../utils/permissions';
@@ -39,7 +41,7 @@ const Sidebar = ({ isOpen, packingAlertsCount = 0, rawAlertsCount = 0, toggleSid
     const [isStockOpen, setIsStockOpen] = useState(false);
     const [isProductOpen, setIsProductOpen] = useState(false);
     const [isFinishedGoodsOpen, setIsFinishedGoodsOpen] = useState(false);
-    const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false); // State for logout confirmation modal
+    const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
     const handleLogout = () => {
@@ -55,40 +57,49 @@ const Sidebar = ({ isOpen, packingAlertsCount = 0, rawAlertsCount = 0, toggleSid
         setIsLogoutModalOpen(false);
     };
 
-    // Toggle mobile menu
     const toggleMobileMenu = () => {
         setIsMobileMenuOpen(!isMobileMenuOpen);
     };
 
-    // Close mobile menu
     const closeMobileMenu = () => {
         setIsMobileMenuOpen(false);
     };
 
-    // Updated link classes with modern styling using new theme colors - Apple Style
-    const baseLinkClass = "flex items-center px-4 py-3 rounded-xl text-dark-700 hover:bg-light-200 transition-all duration-300 ease-in-out transform hover:scale-[1.02] hover:shadow-sm";
-    const activeLinkClass = "bg-gradient-to-r from-primary-500 to-secondary-500 text-white shadow-lg";
-    const subLinkClass = "flex items-center px-4 py-2.5 rounded-lg text-sm text-dark-700 hover:bg-light-200 transition-all duration-200";
-    
-    // Mobile link classes
-    const mobileLinkClass = "flex items-center px-4 py-4 rounded-xl text-dark-700 hover:bg-light-200 transition-all duration-300 ease-in-out";
-    const mobileSubLinkClass = "flex items-center px-4 py-3 rounded-lg text-sm text-dark-700 hover:bg-light-200 transition-all duration-200";
+    // --- NEW PREMIUM UI STYLING CONSTANTS ---
 
-    const NavIcon = ({ icon: IconComponent }) => {
-        return <IconComponent size={20} className="text-inherit" />;
+    // Main Navigation Link Styles
+    const baseLinkClass = "relative flex items-center px-4 py-3 my-1 mx-2 rounded-xl text-stone-500 font-medium transition-all duration-200 ease-in-out hover:bg-stone-50 hover:text-[#1A1A1A] group";
+    
+    // Active State - Gold Primary with Dark Text
+    const activeLinkClass = "bg-[#F2C94C] text-[#1A1A1A] font-bold shadow-md shadow-orange-100";
+
+    // Sub-menu Link Styles
+    const subLinkClass = "flex items-center px-4 py-2.5 my-0.5 rounded-lg text-sm text-stone-500 hover:text-[#1A1A1A] hover:bg-stone-50 transition-all duration-200";
+    
+    // Active Sub-menu - Olive Accent
+    const activeSubLinkClass = "bg-[#E8EFE0] text-[#6A7F3F] font-bold";
+
+    // Mobile Specifics
+    const mobileLinkClass = "flex items-center px-5 py-4 border-b border-stone-50 text-stone-600 font-medium active:bg-stone-100";
+    const mobileActiveLinkClass = "bg-[#FFF9E6] text-[#B48E25] font-bold border-l-4 border-[#F2C94C]";
+    const mobileSubLinkClass = "flex items-center px-8 py-3 text-sm text-stone-500 active:text-[#1A1A1A]";
+
+    // Icon Wrapper Helper
+    const NavIcon = ({ icon: IconComponent, isActive }) => {
+        return <IconComponent size={20} className={`transition-colors duration-200 ${isActive ? 'text-inherit' : 'text-stone-400 group-hover:text-[#1A1A1A]'}`} />;
     };
 
-    // Alert badge component for better visual indication
+    // Premium Alert Badge
     const AlertBadge = ({ count }) => {
         if (count <= 0) return null;
         return (
-            <span className="ml-2 flex items-center justify-center w-5 h-5 text-xs font-bold text-white bg-danger-500 rounded-full">
+            <span className="ml-auto flex items-center justify-center min-w-[20px] h-5 px-1.5 text-[10px] font-bold text-white bg-[#D9534F] rounded-full shadow-sm ring-2 ring-white">
                 {count > 9 ? '9+' : count}
             </span>
         );
     };
 
-    // Define module structure for permission checking
+    // --- PERMISSION LOGIC PRESERVED 100% ---
     const moduleStructure = {
         packing: [
             'view-materials',
@@ -119,719 +130,464 @@ const Sidebar = ({ isOpen, packingAlertsCount = 0, rawAlertsCount = 0, toggleSid
         ]
     };
 
-    // Check if a module should be visible based on user permissions
     const isModuleVisibleForUser = (moduleId) => {
-        // Admins can see all modules
         if (userRole === 'Admin') return true;
-        
-        // For managers, check if the module should be visible
         return isModuleVisible(user, moduleId);
     };
 
-    // Check if a module section should be visible based on user permissions
     const isModuleSectionVisible = (sectionKey) => {
-        // Admins can see all modules
         if (userRole === 'Admin') return true;
-        
-        // For managers, check if they have access to any submodule in this section
         return hasModuleAccess(user, moduleStructure[sectionKey]);
     };
 
     return (
         <>
-            {/* Mobile menu overlay */}
+            {/* --- MOBILE MENU OVERLAY --- */}
             {isMobileMenuOpen && (
-                <div className="fixed inset-0 z-40 bg-black bg-opacity-50 lg:hidden" onClick={closeMobileMenu}></div>
+                <div 
+                    className="fixed inset-0 z-40 bg-[#1A1A1A]/20 backdrop-blur-sm lg:hidden transition-opacity duration-300" 
+                    onClick={closeMobileMenu}
+                ></div>
             )}
 
-            {/* Mobile menu button */}
+            {/* --- MOBILE MENU TOGGLE BUTTON --- */}
             <div className="lg:hidden fixed top-4 left-4 z-50">
                 <button
                     onClick={toggleMobileMenu}
-                    className="p-2 rounded-lg bg-white shadow-md text-dark-700 hover:bg-light-200 transition-all duration-200 glass-container"
+                    className="p-3 rounded-xl bg-white shadow-lg shadow-stone-200/50 text-[#1A1A1A] active:scale-95 transition-all duration-200 border border-stone-100"
                 >
-                    {isMobileMenuOpen ? <FaTimes size={24} /> : <FaBars size={24} />}
+                    {isMobileMenuOpen ? <FaTimes size={20} /> : <FaBars size={20} />}
                 </button>
             </div>
 
-            {/* Mobile slide-out menu - Apple Style */}
+            {/* --- MOBILE SIDEBAR --- */}
             <div 
-                className={`fixed inset-y-0 left-0 z-50 w-64 bg-gradient-to-b from-light-100 to-light-200 flex flex-col transition-all duration-300 ease-in-out shadow-xl transform lg:hidden glass-container rounded-r-[var(--radius-lg)] ${
+                className={`fixed inset-y-0 left-0 z-50 w-[280px] bg-white flex flex-col transition-transform duration-300 ease-out shadow-2xl lg:hidden ${
                     isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'
                 }`}
             >
-                <div className="p-4 flex items-center justify-between h-20 border-b border-light-300">
-                    <img src={logo} alt="Delta Logo" className="h-12" />
+                {/* Mobile Header */}
+                <div className="p-6 flex items-center justify-between border-b border-stone-100">
+                    <img src={logo} alt="Delta Logo" className="h-10 w-auto" />
                     <button
                         onClick={closeMobileMenu}
-                        className="p-2 rounded-lg text-dark-700 hover:bg-light-200 transition-all duration-200"
+                        className="p-2 rounded-full bg-stone-50 text-stone-400 hover:bg-stone-100"
                     >
-                        <FaTimes size={20} />
+                        <FaTimes size={16} />
                     </button>
                 </div>
 
-                <nav className="flex-grow p-4 space-y-2 overflow-y-auto">
+                {/* Mobile Navigation Content */}
+                <nav className="flex-grow overflow-y-auto py-2 custom-scrollbar">
+                    <div className="px-4 mb-2">
+                        <p className="text-xs font-bold text-stone-400 uppercase tracking-widest pl-2 mb-2">Menu</p>
+                    </div>
+
                     <NavLink 
                         to="/" 
-                        className={({ isActive }) => `${mobileLinkClass} ${isActive ? activeLinkClass : ''}`}
+                        className={({ isActive }) => `${mobileLinkClass} ${isActive ? mobileActiveLinkClass : 'hover:bg-stone-50'}`}
                         onClick={closeMobileMenu}
                     >
-                        <NavIcon icon={FaHome} />
-                        <span className="ml-4 font-semibold">Dashboard</span>
+                        <FaHome size={18} className="mr-3" />
+                        <span className="font-semibold">Dashboard</span>
                     </NavLink>
 
-                    {/* Packing Materials Collapsible Menu */}
+                    {/* Mobile Packing Materials */}
                     {isModuleSectionVisible('packing') && (
-                        <div className="pt-4">
+                        <div>
                             <button
                                 onClick={() => setIsPackingOpen(!isPackingOpen)}
-                                className="w-full flex items-center justify-between p-3 rounded-xl text-dark-700 hover:bg-light-200 transition-all duration-200 group"
+                                className={`w-full ${mobileLinkClass} justify-between hover:bg-stone-50`}
                             >
                                 <div className="flex items-center">
-                                    <FaBoxOpen size={20} className="text-primary-500"/>
-                                    <span className="ml-4 font-semibold">Packing Materials</span>
+                                    <FaBoxOpen size={18} className="mr-3 text-[#F2C94C]"/>
+                                    <span className="font-semibold">Packing Materials</span>
                                 </div>
-                                {isPackingOpen ? <FaAngleDown className="transition-transform duration-200 group-hover:rotate-180" /> : <FaAngleRight />}
+                                <FaChevronDown className={`text-stone-300 transition-transform ${isPackingOpen ? 'rotate-180' : ''}`} size={12} />
                             </button>
+                            
                             {isPackingOpen && (
-                                <ul className="pl-6 mt-2 space-y-1 animate-fadeIn">
-                                    {/* Group 1: Stock Alert, Stock Report */}
+                                <div className="bg-stone-50/50 py-2 border-b border-stone-50">
                                     {isModuleVisibleForUser('stock-alerts') && (
-                                        <li>
-                                            <NavLink to="/materials/alerts" className={({isActive}) => `${mobileSubLinkClass} ${isActive ? 'bg-light-300 text-primary-600' : ''}`} onClick={closeMobileMenu}>
-                                                <FaExclamationTriangle className="mr-3" />Stock Alert
-                                            </NavLink>
-                                        </li>
+                                        <NavLink to="/materials/alerts" className={({isActive}) => `${mobileSubLinkClass} ${isActive ? 'text-[#F2C94C] font-bold' : ''}`} onClick={closeMobileMenu}>
+                                            <FaExclamationTriangle className="mr-3 opacity-70" size={14} />Stock Alert
+                                        </NavLink>
                                     )}
-                                    {isModuleVisibleForUser('stock-alerts') && (
-                                        <li>
-                                            <NavLink to="/materials/report" className={({isActive}) => `${mobileSubLinkClass} ${isActive ? 'bg-light-300 text-primary-600' : ''}`} onClick={closeMobileMenu}>
-                                                <FaChartBar className="mr-3" />Stock Report
-                                            </NavLink>
-                                        </li>
-                                    )}
+                                    <NavLink to="/packing/stock-report" className={({isActive}) => `${mobileSubLinkClass} ${isActive ? 'text-[#F2C94C] font-bold' : ''}`} onClick={closeMobileMenu}>
+                                        <FaChartBar className="mr-3 opacity-70" size={14} />Stock Report
+                                    </NavLink>
                                     
-                                    {/* Divider 1 */}
-                                    <div className="border-t border-light-400 my-2"></div>
+                                    <div className="my-2 border-t border-stone-100 mx-8"></div>
                                     
-                                    {/* Group 2: Purchase Order, GRN, Delivery Challan */}
                                     {isModuleVisibleForUser('view-packing-pos') && (
-                                        <li>
-                                            <NavLink to="/materials/purchase" className={({isActive}) => `${mobileSubLinkClass} ${isActive ? 'bg-light-300 text-primary-600' : ''}`} onClick={closeMobileMenu}>
-                                                <FaShoppingCart className="mr-3" />Purchase Order
-                                            </NavLink>
-                                        </li>
+                                        <NavLink to="/packing/purchase-orders" className={({isActive}) => `${mobileSubLinkClass} ${isActive ? 'text-[#F2C94C] font-bold' : ''}`} onClick={closeMobileMenu}>
+                                            <FaShoppingCart className="mr-3 opacity-70" size={14} />Purchase Order
+                                        </NavLink>
                                     )}
                                     {isModuleVisibleForUser('view-packing-grns') && (
-                                        <li>
-                                            <NavLink to="/packing/grn" className={({isActive}) => `${mobileSubLinkClass} ${isActive ? 'bg-light-300 text-primary-600' : ''}`} onClick={closeMobileMenu}>
-                                                <FaClipboardCheck className="mr-3" />GRN
-                                            </NavLink>
-                                        </li>
+                                        <NavLink to="/packing/grn/view" className={({isActive}) => `${mobileSubLinkClass} ${isActive ? 'text-[#F2C94C] font-bold' : ''}`} onClick={closeMobileMenu}>
+                                            <FaClipboardCheck className="mr-3 opacity-70" size={14} />GRN
+                                        </NavLink>
                                     )}
                                     {isModuleVisibleForUser('outgoing-materials') && (
-                                        <li>
-                                            <NavLink to="/materials/dc" className={({isActive}) => `${mobileSubLinkClass} ${isActive ? 'bg-light-300 text-primary-600' : ''}`} onClick={closeMobileMenu}>
-                                                <FaTruck className="mr-3" />Delivery Challan
-                                            </NavLink>
-                                        </li>
+                                        <NavLink to="/materials/outgoing" className={({isActive}) => `${mobileSubLinkClass} ${isActive ? 'text-[#F2C94C] font-bold' : ''}`} onClick={closeMobileMenu}>
+                                            <FaTruck className="mr-3 opacity-70" size={14} />Delivery Challan
+                                        </NavLink>
                                     )}
                                     
-                                    {/* Divider 2 */}
-                                    <div className="border-t border-light-400 my-2"></div>
+                                    <div className="my-2 border-t border-stone-100 mx-8"></div>
                                     
-                                    {/* Group 3: Master Supplier, Item Master */}
                                     {isModuleVisibleForUser('manage-packing-suppliers') && (
-                                        <li>
-                                            <NavLink to="/packing/suppliers" className={({isActive}) => `${mobileSubLinkClass} ${isActive ? 'bg-light-300 text-primary-600' : ''}`} onClick={closeMobileMenu}>
-                                                <FaUsersCog className="mr-3" />Supplier Master
-                                            </NavLink>
-                                        </li>
+                                        <NavLink to="/packing/suppliers" className={({isActive}) => `${mobileSubLinkClass} ${isActive ? 'text-[#F2C94C] font-bold' : ''}`} onClick={closeMobileMenu}>
+                                            <FaUsersCog className="mr-3 opacity-70" size={14} />Supplier Master
+                                        </NavLink>
                                     )}
                                     {isModuleVisibleForUser('view-materials') && (
-                                        <li>
-                                            <NavLink to="/materials" className={({isActive}) => `${mobileSubLinkClass} ${isActive ? 'bg-light-300 text-primary-600' : ''}`} onClick={closeMobileMenu}>
-                                                <FaFileAlt className="mr-3" />Item Master
-                                            </NavLink>
-                                        </li>
-                                    )}
-                                    {/* Damaged Stock Report - Only one instance */}
-                                    <li>
-                                        <NavLink to="/packing/damaged-stock-report" className={({isActive}) => `${mobileSubLinkClass} ${isActive ? 'bg-light-300 text-primary-600' : ''}`} onClick={closeMobileMenu}>
-                                            <FaExclamationTriangle className="mr-3" />Damaged Stock Report
+                                        <NavLink to="/materials" className={({isActive}) => `${mobileSubLinkClass} ${isActive ? 'text-[#F2C94C] font-bold' : ''}`} onClick={closeMobileMenu}>
+                                            <FaFileAlt className="mr-3 opacity-70" size={14} />Item Master
                                         </NavLink>
-                                    </li>
-
-                                </ul>
+                                    )}
+                                    <NavLink to="/packing/damaged-stock-report" className={({isActive}) => `${mobileSubLinkClass} ${isActive ? 'text-[#F2C94C] font-bold' : ''}`} onClick={closeMobileMenu}>
+                                        <FaExclamationTriangle className="mr-3 opacity-70" size={14} />Damaged Stock
+                                    </NavLink>
+                                </div>
                             )}
                         </div>
                     )}
 
-                    {/* Finished Goods Collapsible Menu */}
+                    {/* Mobile Finished Goods */}
                     {isModuleSectionVisible('finished-goods') && (
-                        <div className="pt-2">
+                        <div>
                             <button
                                 onClick={() => setIsFinishedGoodsOpen(!isFinishedGoodsOpen)}
-                                className="w-full flex items-center justify-between p-3 rounded-xl text-dark-700 hover:bg-light-200 transition-all duration-200 group"
+                                className={`w-full ${mobileLinkClass} justify-between hover:bg-stone-50`}
                             >
                                 <div className="flex items-center">
-                                    <FaBox size={20} className="text-accent-500"/>
-                                    <span className="ml-4 font-semibold">Finished Goods</span>
+                                    <FaBox size={18} className="mr-3 text-[#6A7F3F]"/>
+                                    <span className="font-semibold">Finished Goods</span>
                                 </div>
-                                {isFinishedGoodsOpen ? <FaAngleDown className="transition-transform duration-200 group-hover:rotate-180" /> : <FaAngleRight />}
+                                <FaChevronDown className={`text-stone-300 transition-transform ${isFinishedGoodsOpen ? 'rotate-180' : ''}`} size={12} />
                             </button>
+                            
                             {isFinishedGoodsOpen && (
-                                <ul className="pl-6 mt-2 space-y-1 animate-fadeIn">
-                                    <li>
-                                        <NavLink to="/fg/stock-alert" className={({isActive}) => `${mobileSubLinkClass} ${isActive ? 'bg-light-300 text-accent-600' : ''}`} onClick={closeMobileMenu}>
-                                            <FaExclamationTriangle className="mr-3" />Stock Alert
-                                        </NavLink>
-                                    </li>
-                                    <li>
-                                        <NavLink to="/fg/stock-report" className={({isActive}) => `${mobileSubLinkClass} ${isActive ? 'bg-light-300 text-accent-600' : ''}`} onClick={closeMobileMenu}>
-                                            <FaChartBar className="mr-3" />Stock Report
-                                        </NavLink>
-                                    </li>
+                                <div className="bg-stone-50/50 py-2 border-b border-stone-50">
+                                    <NavLink to="/fg/stock-alert" className={({isActive}) => `${mobileSubLinkClass} ${isActive ? 'text-[#6A7F3F] font-bold' : ''}`} onClick={closeMobileMenu}>
+                                        <FaExclamationTriangle className="mr-3 opacity-70" size={14} />Stock Alert
+                                    </NavLink>
+                                    <NavLink to="/fg/stock-report" className={({isActive}) => `${mobileSubLinkClass} ${isActive ? 'text-[#6A7F3F] font-bold' : ''}`} onClick={closeMobileMenu}>
+                                        <FaChartBar className="mr-3 opacity-70" size={14} />Stock Report
+                                    </NavLink>
                                     
-                                    {/* Divider 1 */}
-                                    <div className="border-t border-light-400 my-2"></div>
+                                    <div className="my-2 border-t border-stone-100 mx-8"></div>
                                     
                                     {isModuleVisibleForUser('view-fg-grns') && (
-                                        <li>
-                                            <NavLink to="/fg/grn" className={({isActive}) => `${mobileSubLinkClass} ${isActive ? 'bg-light-300 text-accent-600' : ''}`} onClick={closeMobileMenu}>
-                                                <FaClipboardCheck className="mr-3" />GRN (DC-based)
-                                            </NavLink>
-                                        </li>
+                                        <NavLink to="/fg/grn/view" className={({isActive}) => `${mobileSubLinkClass} ${isActive ? 'text-[#6A7F3F] font-bold' : ''}`} onClick={closeMobileMenu}>
+                                            <FaClipboardCheck className="mr-3 opacity-70" size={14} />GRN (DC-based)
+                                        </NavLink>
                                     )}
                                     {isModuleVisibleForUser('view-fg-dcs') && (
-                                        <li>
-                                            <NavLink to="/fg/delivery-challan" className={({isActive}) => `${mobileSubLinkClass} ${isActive ? 'bg-light-300 text-accent-600' : ''}`} onClick={closeMobileMenu}>
-                                                <FaTruck className="mr-3" />Delivery Challan
-                                            </NavLink>
-                                        </li>
+                                        <NavLink to="/fg/delivery-challan/create" className={({isActive}) => `${mobileSubLinkClass} ${isActive ? 'text-[#6A7F3F] font-bold' : ''}`} onClick={closeMobileMenu}>
+                                            <FaTruck className="mr-3 opacity-70" size={14} />Delivery Challan
+                                        </NavLink>
                                     )}
                                     
-                                    {/* Divider 2 */}
-                                    <div className="border-t border-light-400 my-2"></div>
+                                    <div className="my-2 border-t border-stone-100 mx-8"></div>
+                                    
                                     {isModuleVisibleForUser('view-fg-invoices') && (
-                                        <li>
-                                            <NavLink to="/fg/invoice" className={({isActive}) => `${mobileSubLinkClass} ${isActive ? 'bg-light-300 text-accent-600' : ''}`} onClick={closeMobileMenu}>
-                                                <FaFileInvoice className="mr-3" />Invoice
-                                            </NavLink>
-                                        </li>
-                                    )}
-                                    {isModuleVisibleForUser('view-fg-buyers') && (
-                                        <li>
-                                            <NavLink to="/fg/buyer-master" className={({isActive}) => `${mobileSubLinkClass} ${isActive ? 'bg-light-300 text-accent-600' : ''}`} onClick={closeMobileMenu}>
-                                                <FaUsers className="mr-3" />Buyer Master
-                                            </NavLink>
-                                        </li>
-                                    )}
-                                    {isModuleVisibleForUser('view-fg-buyers') && (
-                                        <li>
-                                            <NavLink to="/fg/driver-master" className={({isActive}) => `${mobileSubLinkClass} ${isActive ? 'bg-light-300 text-accent-600' : ''}`} onClick={closeMobileMenu}>
-                                                <FaUsers className="mr-3" />Driver Master
-                                            </NavLink>
-                                        </li>
-                                    )}
-                                </ul>
-                            )}
-                        </div>
-                    )}
-
-                    {/* Stock Maintenance Collapsible Menu - Hidden as per requirement */}
-                    {false && isModuleSectionVisible('stock') && (
-                        <div className="pt-2">
-                            <button
-                                onClick={() => setIsStockOpen(!isStockOpen)}
-                                className="w-full flex items-center justify-between p-3 rounded-xl text-dark-700 hover:bg-light-200 transition-all duration-200 group"
-                            >
-                                <div className="flex items-center">
-                                    <FaWarehouse size={20} className="text-secondary-500"/>
-                                    <span className="ml-4 font-semibold">Stock Maintenance</span>
-                                </div>
-                                {isStockOpen ? <FaAngleDown className="transition-transform duration-200 group-hover:rotate-180" /> : <FaAngleRight />}
-                            </button>
-                            {isStockOpen && (
-                                <ul className="pl-6 mt-2 space-y-1 animate-fadeIn">
-                                    {isModuleVisibleForUser('view-raw-materials') && (
-                                        <li>
-                                            <NavLink to="/stock/raw-materials" className={({isActive}) => `${mobileSubLinkClass} ${isActive ? 'bg-light-300 text-secondary-600' : ''}`} onClick={closeMobileMenu}>
-                                                <FaFileAlt className="mr-3" />RAW Materials
-                                            </NavLink>
-                                        </li>
-                                    )}
-                                    {isModuleVisibleForUser('jobber-unit') && (
-                                        <li>
-                                            <NavLink to="/stock/jobber-unit" className={({isActive}) => `${mobileSubLinkClass} ${isActive ? 'bg-light-300 text-secondary-600' : ''}`} onClick={closeMobileMenu}>
-                                                <FaTruck className="mr-3" />Worker Unit
-                                            </NavLink>
-                                        </li>
-                                    )}
-                                    {isModuleVisibleForUser('outgoing-raw-materials') && (
-                                        <li>
-                                            <NavLink to="/stock/outgoing-raw-materials" className={({isActive}) => `${mobileSubLinkClass} ${isActive ? 'bg-light-300 text-secondary-600' : ''}`} onClick={closeMobileMenu}>
-                                                <FaTruck className="mr-3" />Delivery Challan
-                                            </NavLink>
-                                        </li>
-                                    )}
-                                    {isModuleVisibleForUser('raw-stock-alerts') && (
-                                        <li>
-                                            <NavLink to="/stock/raw-material-alerts" className={({isActive}) => `${mobileSubLinkClass} ${isActive ? 'bg-light-300 text-secondary-600' : ''}`} onClick={closeMobileMenu}>
-                                                <div className="flex items-center">
-                                                    <FaBell className="mr-3" />Stock Alerts
-                                                    <AlertBadge count={rawAlertsCount} />
-                                                </div>
-                                            </NavLink>
-                                        </li>
-                                    )}
-                                    {/* Add Finishing Goods link */}
-                                    <li>
-                                        <NavLink to="/stock/finishing-goods" className={({isActive}) => `${mobileSubLinkClass} ${isActive ? 'bg-light-300 text-secondary-600' : ''}`} onClick={closeMobileMenu}>
-                                            <FaClipboardCheck className="mr-3" />Finishing Goods
-                                            {/* Note: This is a special case that might need its own permission */}
+                                        <NavLink to="/fg/invoice" className={({isActive}) => `${mobileSubLinkClass} ${isActive ? 'text-[#6A7F3F] font-bold' : ''}`} onClick={closeMobileMenu}>
+                                            <FaFileInvoice className="mr-3 opacity-70" size={14} />Invoice
                                         </NavLink>
-                                    </li>
-                                    {/* New Stock Maintenance PO, Suppliers, and GRNs links */}
-                                    {isModuleVisibleForUser('view-stock-pos') && (
-                                        <li>
-                                            <NavLink to="/stock/maintenance/purchase-orders" className={({isActive}) => `${mobileSubLinkClass} ${isActive ? 'bg-light-300 text-secondary-600' : ''}`} onClick={closeMobileMenu}>
-                                                <FaShoppingCart className="mr-3" />View POs
-                                            </NavLink>
-                                        </li>
                                     )}
-                                    {isModuleVisibleForUser('manage-stock-suppliers') && (
-                                        <li>
-                                            <NavLink to="/stock/maintenance/suppliers" className={({isActive}) => `${mobileSubLinkClass} ${isActive ? 'bg-light-300 text-secondary-600' : ''}`} onClick={closeMobileMenu}>
-                                                <FaUsersCog className="mr-3" />Supplier Master
-                                            </NavLink>
-                                        </li>
+                                    {isModuleVisibleForUser('view-fg-buyers') && (
+                                        <NavLink to="/fg/buyer-master" className={({isActive}) => `${mobileSubLinkClass} ${isActive ? 'text-[#6A7F3F] font-bold' : ''}`} onClick={closeMobileMenu}>
+                                            <FaUsers className="mr-3 opacity-70" size={14} />Buyer Master
+                                        </NavLink>
                                     )}
-                                    {isModuleVisibleForUser('view-stock-grns') && (
-                                        <li>
-                                            <NavLink to="/stock/grn" className={({isActive}) => `${mobileSubLinkClass} ${isActive ? 'bg-light-300 text-secondary-600' : ''}`} onClick={closeMobileMenu}>
-                                                <FaClipboardCheck className="mr-3" />GRN
-                                            </NavLink>
-                                        </li>
+                                    {isModuleVisibleForUser('view-fg-buyers') && (
+                                        <NavLink to="/fg/driver-master" className={({isActive}) => `${mobileSubLinkClass} ${isActive ? 'text-[#6A7F3F] font-bold' : ''}`} onClick={closeMobileMenu}>
+                                            <FaUsers className="mr-3 opacity-70" size={14} />Driver Master
+                                        </NavLink>
                                     )}
-
-                                </ul>
-                            )}
-                        </div>
-                    )}
-
-                    {/* Product Management Collapsible Menu - Hidden as per requirement */}
-                    {false && isModuleSectionVisible('product') && (
-                        <div className="pt-2">
-                            <button
-                                onClick={() => setIsProductOpen(!isProductOpen)}
-                                className="w-full flex items-center justify-between p-3 rounded-xl text-dark-700 hover:bg-light-200 transition-all duration-200 group"
-                            >
-                                <div className="flex items-center">
-                                    <FaBox size={20} className="text-accent-500"/>
-                                    <span className="ml-4 font-semibold">Product Management</span>
                                 </div>
-                                {isProductOpen ? <FaAngleDown className="transition-transform duration-200 group-hover:rotate-180" /> : <FaAngleRight />}
-                            </button>
-                            {isProductOpen && (
-                                <ul className="pl-6 mt-2 space-y-1 animate-fadeIn">
-                                    {isModuleVisibleForUser('product-details') && (
-                                        <li>
-                                            <NavLink to="/products/details" className={({isActive}) => `${mobileSubLinkClass} ${isActive ? 'bg-light-300 text-accent-600' : ''}`} onClick={closeMobileMenu}>
-                                                <FaClipboardList className="mr-3" />Product Details
-                                            </NavLink>
-                                        </li>
-                                    )}
-                                    {isModuleVisibleForUser('product-dc') && (
-                                        <li>
-                                            <NavLink to="/products/dc" className={({isActive}) => `${mobileSubLinkClass} ${isActive ? 'bg-light-300 text-accent-600' : ''}`} onClick={closeMobileMenu}>
-                                                <FaTruck className="mr-3" />Product DC
-                                            </NavLink>
-                                        </li>
-                                    )}
-
-                                </ul>
                             )}
                         </div>
                     )}
                     
-                    {/* Admin Only Links */}
+                    {/* Admin Links Mobile */}
                     {userRole === 'Admin' && (
                         <>
-                            <div className="pt-2">
-                                <NavLink to="/admin/managers/create" className={({ isActive }) => `${mobileLinkClass} ${isActive ? activeLinkClass : ''}`} onClick={closeMobileMenu}>
-                                    <NavIcon icon={FaUserPlus} />
-                                    <span className="ml-4 font-semibold">Create Manager</span>
-                                </NavLink>
+                            <div className="px-4 mt-6 mb-2">
+                                <p className="text-xs font-bold text-stone-400 uppercase tracking-widest pl-2 mb-2">Admin</p>
                             </div>
-                            <div className="pt-2">
-                                <NavLink to="/admin/settings" className={({ isActive }) => `${mobileLinkClass} ${isActive ? activeLinkClass : ''}`} onClick={closeMobileMenu}>
-                                    <NavIcon icon={FaCog} />
-                                    <span className="ml-4 font-semibold">Settings</span>
-                                </NavLink>
-                            </div>
+                            <NavLink to="/admin/managers/create" className={({ isActive }) => `${mobileLinkClass} ${isActive ? mobileActiveLinkClass : 'hover:bg-stone-50'}`} onClick={closeMobileMenu}>
+                                <FaUserPlus size={18} className="mr-3" />
+                                <span className="font-semibold">Create Manager</span>
+                            </NavLink>
+                            <NavLink to="/admin/settings" className={({ isActive }) => `${mobileLinkClass} ${isActive ? mobileActiveLinkClass : 'hover:bg-stone-50'}`} onClick={closeMobileMenu}>
+                                <FaCog size={18} className="mr-3" />
+                                <span className="font-semibold">Settings</span>
+                            </NavLink>
                         </>
                     )}
                 </nav>
 
-                <div className="p-4 border-t border-light-300">
+                <div className="p-4 border-t border-stone-100">
                     <button 
                         onClick={() => {
                             openLogoutModal();
                             closeMobileMenu();
                         }}
-                        className="flex items-center w-full px-4 py-3 rounded-xl text-dark-700 hover:bg-light-200 transition-all duration-200 group"
+                        className="flex items-center w-full px-5 py-3 rounded-xl bg-red-50 text-red-600 font-bold hover:bg-red-100 transition-colors"
                     >
-                        <FaSignOutAlt size={20} />
-                        <span className="ml-4 font-semibold">Logout</span>
-                        <span className="ml-auto transform transition-transform duration-200 group-hover:rotate-6">
-                            <FaAngleRight />
-                        </span>
+                        <FaSignOutAlt size={18} />
+                        <span className="ml-3">Sign Out</span>
                     </button>
                 </div>
             </div>
 
-            {/* Desktop sidebar - only shown on large screens - Apple Style */}
-            <aside className={`bg-gradient-to-b from-light-100 to-light-200 flex flex-col transition-all duration-300 ease-in-out shadow-xl hidden lg:flex glass-container rounded-r-[var(--radius-lg)] rounded-l-none ${isOpen ? 'w-64' : 'w-20'}`}>
-                <div className="p-4 flex items-center justify-center h-20 border-b border-light-300">
-                    <img src={logo} alt="Delta Logo" className={`transition-all duration-300 ${isOpen ? 'h-16' : 'h-12'}`} />
+            {/* --- DESKTOP SIDEBAR --- */}
+            <aside className={`fixed inset-y-0 left-0 z-30 bg-white border-r border-stone-100 shadow-[2px_0_24px_rgba(0,0,0,0.02)] flex flex-col transition-all duration-300 ease-in-out hidden lg:flex ${isOpen ? 'w-[280px]' : 'w-[80px]'}`}>
+                
+                {/* Logo Area */}
+                <div className="h-24 flex items-center justify-center p-6 border-b border-stone-50">
+                    {isOpen ? (
+                        <img src={logo} alt="Delta Logo" className="h-10 w-auto transition-all duration-300" />
+                    ) : (
+                        <img src={logo} alt="Delta" className="h-8 w-auto transition-all duration-300" />
+                    )}
                 </div>
 
-                <nav className="flex-grow p-4 space-y-2 overflow-y-auto">
+                {/* Navigation */}
+                <nav className="flex-grow overflow-y-auto py-6 px-3 custom-scrollbar flex flex-col gap-1">
+                    
+                    {/* Dashboard */}
                     <NavLink 
                         to="/" 
                         className={({ isActive }) => `${baseLinkClass} ${isActive ? activeLinkClass : ''}`}
+                        title={!isOpen ? "Dashboard" : ""}
                     >
-                        <NavIcon icon={FaChartPie} />
-                        {isOpen && <span className="ml-4 font-semibold">Dashboard</span>}
+                        {({ isActive }) => (
+                            <>
+                                <NavIcon icon={FaChartPie} isActive={isActive} />
+                                {isOpen && <span className="ml-3.5 tracking-wide">Dashboard</span>}
+                            </>
+                        )}
                     </NavLink>
 
-                    {/* Packing Materials Collapsible Menu */}
+                    {/* Section Label */}
+                    {isOpen && <div className="mt-6 mb-2 px-4 text-[11px] font-bold text-stone-400 uppercase tracking-widest">Inventory</div>}
+
+                    {/* Packing Materials Collapsible */}
                     {isModuleSectionVisible('packing') && (
-                        <div className="pt-4">
+                        <div className="mb-1">
                             <button
                                 onClick={() => setIsPackingOpen(!isPackingOpen)}
-                                className="w-full flex items-center justify-between p-3 rounded-xl text-dark-700 hover:bg-light-200 transition-all duration-200 group"
+                                className={`w-full ${baseLinkClass} justify-between ${isPackingOpen ? 'bg-stone-50 text-[#1A1A1A]' : ''}`}
+                                title={!isOpen ? "Packing Materials" : ""}
                             >
-                                <div className="flex items-center">
-                                    <FaBoxOpen size={20} className="text-primary-500"/>
-                                    {isOpen && <span className="ml-4 font-semibold">Packing Materials</span>}
+                                <div className="flex items-center min-w-0">
+                                    <div className={`${isPackingOpen ? 'text-[#F2C94C]' : 'text-stone-400 group-hover:text-[#F2C94C]'} transition-colors`}>
+                                        <FaBoxOpen size={20} />
+                                    </div>
+                                    {isOpen && <span className="ml-3.5 font-medium truncate">Packing Materials</span>}
                                 </div>
-                                {isOpen && (isPackingOpen ? <FaAngleDown className="transition-transform duration-200 group-hover:rotate-180" /> : <FaAngleRight />)}
+                                {isOpen && (
+                                    <FaChevronRight 
+                                        size={10} 
+                                        className={`text-stone-300 transition-transform duration-200 ${isPackingOpen ? 'rotate-90' : ''}`} 
+                                    />
+                                )}
                             </button>
-                            {isPackingOpen && isOpen && (
-                                <ul className="pl-6 mt-2 space-y-1 animate-fadeIn">
-                                    {/* Group 1: Stock Alert, Stock Report */}
+                            
+                            {/* Submenu */}
+                            <div className={`overflow-hidden transition-all duration-300 ease-in-out ${isPackingOpen && isOpen ? 'max-h-[800px] opacity-100' : 'max-h-0 opacity-0'}`}>
+                                <div className="pl-4 pr-2 py-1 ml-3 border-l-2 border-stone-100 space-y-1">
                                     {isModuleVisibleForUser('stock-alerts') && (
-                                        <li>
-                                            <NavLink to="/materials/alerts" className={({isActive}) => `${subLinkClass} ${isActive ? 'bg-light-300 text-primary-600' : ''}`}>
-                                                <div className="flex items-center">
-                                                    <FaBell className="mr-3" />Stock Alert
-                                                    <AlertBadge count={packingAlertsCount} />
-                                                </div>
-                                            </NavLink>
-                                        </li>
-                                    )}
-                                    <li>
-                                        <NavLink to="/packing/stock-report" className={({isActive}) => `${subLinkClass} ${isActive ? 'bg-light-300 text-primary-600' : ''}`}>
-                                            <FaChartBar className="mr-3" />Stock Report
+                                        <NavLink to="/materials/alerts" className={({isActive}) => `${subLinkClass} ${isActive ? activeSubLinkClass : ''}`}>
+                                            <div className="flex items-center w-full">
+                                                <span>Stock Alert</span>
+                                                <AlertBadge count={packingAlertsCount} />
+                                            </div>
                                         </NavLink>
-                                    </li>
+                                    )}
+                                    <NavLink to="/packing/stock-report" className={({isActive}) => `${subLinkClass} ${isActive ? activeSubLinkClass : ''}`}>
+                                        Stock Report
+                                    </NavLink>
                                     
-                                    {/* Divider 1 */}
-                                    <div className="border-t border-light-400 my-2"></div>
+                                    <div className="h-px bg-stone-100 mx-2 my-2"></div>
                                     
-                                    {/* Group 2: Purchase Order, GRN, Delivery Challan */}
                                     {isModuleVisibleForUser('view-packing-pos') && (
-                                        <li>
-                                            <NavLink to="/packing/purchase-orders" className={({isActive}) => `${subLinkClass} ${isActive ? 'bg-light-300 text-primary-600' : ''}`}>
-                                                <FaShoppingCart className="mr-3" />Purchase Order
-                                            </NavLink>
-                                        </li>
+                                        <NavLink to="/packing/purchase-orders" className={({isActive}) => `${subLinkClass} ${isActive ? activeSubLinkClass : ''}`}>
+                                            Purchase Order
+                                        </NavLink>
                                     )}
                                     {isModuleVisibleForUser('view-packing-grns') && (
-                                        <li>
-                                            <NavLink to="/packing/grn/view" className={({isActive}) => `${subLinkClass} ${isActive ? 'bg-light-300 text-primary-600' : ''}`}>
-                                                <FaClipboardCheck className="mr-3" />GRN
-                                            </NavLink>
-                                        </li>
+                                        <NavLink to="/packing/grn/view" className={({isActive}) => `${subLinkClass} ${isActive ? activeSubLinkClass : ''}`}>
+                                            GRN
+                                        </NavLink>
                                     )}
                                     {isModuleVisibleForUser('outgoing-materials') && (
-                                        <li>
-                                            <NavLink to="/materials/outgoing" className={({isActive}) => `${subLinkClass} ${isActive ? 'bg-light-300 text-primary-600' : ''}`}>
-                                                <FaTruck className="mr-3" />Delivery Challan
-                                            </NavLink>
-                                        </li>
+                                        <NavLink to="/materials/outgoing" className={({isActive}) => `${subLinkClass} ${isActive ? activeSubLinkClass : ''}`}>
+                                            Delivery Challan
+                                        </NavLink>
                                     )}
                                     
-                                    {/* Divider 2 */}
-                                    <div className="border-t border-light-400 my-2"></div>
+                                    <div className="h-px bg-stone-100 mx-2 my-2"></div>
                                     
-                                    {/* Group 3: Master Supplier, Item Master */}
                                     {isModuleVisibleForUser('manage-packing-suppliers') && (
-                                        <li>
-                                            <NavLink to="/packing/suppliers" className={({isActive}) => `${subLinkClass} ${isActive ? 'bg-light-300 text-primary-600' : ''}`}>
-                                                <FaUsersCog className="mr-3" />Supplier Master
-                                            </NavLink>
-                                        </li>
+                                        <NavLink to="/packing/suppliers" className={({isActive}) => `${subLinkClass} ${isActive ? activeSubLinkClass : ''}`}>
+                                            Supplier Master
+                                        </NavLink>
                                     )}
                                     {isModuleVisibleForUser('view-materials') && (
-                                        <li>
-                                            <NavLink to="/materials" className={({isActive}) => `${subLinkClass} ${isActive ? 'bg-light-300 text-primary-600' : ''}`}>
-                                                <FaFileAlt className="mr-3" />Item Master
-                                            </NavLink>
-                                        </li>
-                                    )}
-                                    {/* Damaged Stock Report - Only one instance */}
-                                    <li>
-                                        <NavLink to="/packing/damaged-stock-report" className={({isActive}) => `${subLinkClass} ${isActive ? 'bg-light-300 text-primary-600' : ''}`}>
-                                            <FaExclamationTriangle className="mr-3" />Damaged Stock Report
+                                        <NavLink to="/materials" className={({isActive}) => `${subLinkClass} ${isActive ? activeSubLinkClass : ''}`}>
+                                            Item Master
                                         </NavLink>
-                                    </li>
-
-                                </ul>
-                            )}
+                                    )}
+                                    <NavLink to="/packing/damaged-stock-report" className={({isActive}) => `${subLinkClass} ${isActive ? activeSubLinkClass : ''}`}>
+                                        Damaged Stock
+                                    </NavLink>
+                                </div>
+                            </div>
                         </div>
                     )}
 
-                    {/* Finished Goods Collapsible Menu */}
+                    {/* Finished Goods Collapsible */}
                     {isModuleSectionVisible('finished-goods') && (
-                        <div className="pt-2">
+                        <div className="mb-1">
                             <button
                                 onClick={() => setIsFinishedGoodsOpen(!isFinishedGoodsOpen)}
-                                className="w-full flex items-center justify-between p-3 rounded-xl text-dark-700 hover:bg-light-200 transition-all duration-200 group"
+                                className={`w-full ${baseLinkClass} justify-between ${isFinishedGoodsOpen ? 'bg-stone-50 text-[#1A1A1A]' : ''}`}
+                                title={!isOpen ? "Finished Goods" : ""}
                             >
-                                <div className="flex items-center">
-                                    <FaBox size={20} className="text-accent-500"/>
-                                    {isOpen && <span className="ml-4 font-semibold">Finished Goods</span>}
+                                <div className="flex items-center min-w-0">
+                                    <div className={`${isFinishedGoodsOpen ? 'text-[#6A7F3F]' : 'text-stone-400 group-hover:text-[#6A7F3F]'} transition-colors`}>
+                                        <FaBox size={20} />
+                                    </div>
+                                    {isOpen && <span className="ml-3.5 font-medium truncate">Finished Goods</span>}
                                 </div>
-                                {isOpen && (isFinishedGoodsOpen ? <FaAngleDown className="transition-transform duration-200 group-hover:rotate-180" /> : <FaAngleRight />)}
+                                {isOpen && (
+                                    <FaChevronRight 
+                                        size={10} 
+                                        className={`text-stone-300 transition-transform duration-200 ${isFinishedGoodsOpen ? 'rotate-90' : ''}`} 
+                                    />
+                                )}
                             </button>
-                            {isFinishedGoodsOpen && isOpen && (
-                                <ul className="pl-6 mt-2 space-y-1 animate-fadeIn">
-                                    <li>
-                                        <NavLink to="/fg/stock-alert" className={({isActive}) => `${subLinkClass} ${isActive ? 'bg-light-300 text-accent-600' : ''}`}>
-                                            <FaExclamationTriangle className="mr-3" />Stock Alert
-                                        </NavLink>
-                                    </li>
-                                    <li>
-                                        <NavLink to="/fg/stock-report" className={({isActive}) => `${subLinkClass} ${isActive ? 'bg-light-300 text-accent-600' : ''}`}>
-                                            <FaChartBar className="mr-3" />Stock Report
-                                        </NavLink>
-                                    </li>
+                            
+                            {/* Submenu */}
+                            <div className={`overflow-hidden transition-all duration-300 ease-in-out ${isFinishedGoodsOpen && isOpen ? 'max-h-[800px] opacity-100' : 'max-h-0 opacity-0'}`}>
+                                <div className="pl-4 pr-2 py-1 ml-3 border-l-2 border-stone-100 space-y-1">
+                                    <NavLink to="/fg/stock-alert" className={({isActive}) => `${subLinkClass} ${isActive ? activeSubLinkClass : ''}`}>
+                                        Stock Alert
+                                    </NavLink>
+                                    <NavLink to="/fg/stock-report" className={({isActive}) => `${subLinkClass} ${isActive ? activeSubLinkClass : ''}`}>
+                                        Stock Report
+                                    </NavLink>
                                     
-                                    {/* Divider 1 */}
-                                    <div className="border-t border-light-400 my-2"></div>
+                                    <div className="h-px bg-stone-100 mx-2 my-2"></div>
                                     
                                     {isModuleVisibleForUser('view-fg-grns') && (
-                                        <li>
-                                            <NavLink to="/fg/grn/view" className={({isActive}) => `${subLinkClass} ${isActive ? 'bg-light-300 text-accent-600' : ''}`}>
-                                                <FaClipboardCheck className="mr-3" />GRN (DC-based)
-                                            </NavLink>
-                                        </li>
+                                        <NavLink to="/fg/grn/view" className={({isActive}) => `${subLinkClass} ${isActive ? activeSubLinkClass : ''}`}>
+                                            GRN (DC-based)
+                                        </NavLink>
                                     )}
                                     {isModuleVisibleForUser('view-fg-dcs') && (
-                                        <li>
-                                            <NavLink to="/fg/delivery-challan/create" className={({isActive}) => `${subLinkClass} ${isActive ? 'bg-light-300 text-accent-600' : ''}`}>
-                                                <FaTruck className="mr-3" />Delivery Challan
-                                            </NavLink>
-                                        </li>
+                                        <NavLink to="/fg/delivery-challan/create" className={({isActive}) => `${subLinkClass} ${isActive ? activeSubLinkClass : ''}`}>
+                                            Delivery Challan
+                                        </NavLink>
                                     )}
                                     
-                                    {/* Divider 2 */}
-                                    <div className="border-t border-light-400 my-2"></div>
+                                    <div className="h-px bg-stone-100 mx-2 my-2"></div>
                                     
                                     {isModuleVisibleForUser('view-fg-invoices') && (
-                                        <li>
-                                            <NavLink to="/fg/invoice" className={({isActive}) => `${subLinkClass} ${isActive ? 'bg-light-300 text-accent-600' : ''}`}>
-                                                <FaFileInvoice className="mr-3" />Invoice
-                                            </NavLink>
-                                        </li>
-                                    )}
-                                    {isModuleVisibleForUser('view-fg-buyers') && (
-                                        <li>
-                                            <NavLink to="/fg/buyer-master" className={({isActive}) => `${subLinkClass} ${isActive ? 'bg-light-300 text-accent-600' : ''}`}>
-                                                <FaUsers className="mr-3" />Buyer Master
-                                            </NavLink>
-                                        </li>
-                                    )}
-                                    {isModuleVisibleForUser('view-fg-buyers') && (
-                                        <li>
-                                            <NavLink to="/fg/driver-master" className={({isActive}) => `${subLinkClass} ${isActive ? 'bg-light-300 text-accent-600' : ''}`}>
-                                                <FaUsers className="mr-3" />Driver Master
-                                            </NavLink>
-                                        </li>
-                                    )}
-                                </ul>
-                            )}
-                        </div>
-                    )}
-
-                    {/* Stock Maintenance Collapsible Menu - Hidden as per requirement */}
-                    {false && isModuleSectionVisible('stock') && (
-                        <div className="pt-2">
-                            <button
-                                onClick={() => setIsStockOpen(!isStockOpen)}
-                                className="w-full flex items-center justify-between p-3 rounded-xl text-dark-700 hover:bg-light-200 transition-all duration-200 group"
-                            >
-                                <div className="flex items-center">
-                                    <FaWarehouse size={20} className="text-secondary-500"/>
-                                    {isOpen && <span className="ml-4 font-semibold">Stock Maintenance</span>}
-                                </div>
-                                {isOpen && (isStockOpen ? <FaAngleDown className="transition-transform duration-200 group-hover:rotate-180" /> : <FaAngleRight />)}
-                            </button>
-                            {isStockOpen && isOpen && (
-                                <ul className="pl-6 mt-2 space-y-1 animate-fadeIn">
-                                    {isModuleVisibleForUser('view-raw-materials') && (
-                                        <li>
-                                            <NavLink to="/stock/raw-materials" className={({isActive}) => `${subLinkClass} ${isActive ? 'bg-light-300 text-secondary-600' : ''}`}>
-                                                <FaFileAlt className="mr-3" />RAW Materials
-                                            </NavLink>
-                                        </li>
-                                    )}
-                                    {isModuleVisibleForUser('jobber-unit') && (
-                                        <li>
-                                            <NavLink to="/stock/jobber-unit" className={({isActive}) => `${subLinkClass} ${isActive ? 'bg-light-300 text-secondary-600' : ''}`}>
-                                                <FaTruck className="mr-3" />Worker Unit
-                                            </NavLink>
-                                        </li>
-                                    )}
-                                    {isModuleVisibleForUser('outgoing-raw-materials') && (
-                                        <li>
-                                            <NavLink to="/stock/outgoing-raw-materials" className={({isActive}) => `${subLinkClass} ${isActive ? 'bg-light-300 text-secondary-600' : ''}`}>
-                                                <FaTruck className="mr-3" />Delivery Challan
-                                            </NavLink>
-                                        </li>
-                                    )}
-                                    {isModuleVisibleForUser('raw-stock-alerts') && (
-                                        <li>
-                                            <NavLink to="/stock/raw-material-alerts" className={({isActive}) => `${subLinkClass} ${isActive ? 'bg-light-300 text-secondary-600' : ''}`}>
-                                                <div className="flex items-center">
-                                                    <FaBell className="mr-3" />Stock Alerts
-                                                    <AlertBadge count={rawAlertsCount} />
-                                                </div>
-                                            </NavLink>
-                                        </li>
-                                    )}
-                                    {/* Add Finishing Goods link */}
-                                    <li>
-                                        <NavLink to="/stock/finishing-goods" className={({isActive}) => `${subLinkClass} ${isActive ? 'bg-light-300 text-secondary-600' : ''}`}>
-                                            <FaClipboardCheck className="mr-3" />Finishing Goods
-                                            {/* Note: This is a special case that might need its own permission */}
+                                        <NavLink to="/fg/invoice" className={({isActive}) => `${subLinkClass} ${isActive ? activeSubLinkClass : ''}`}>
+                                            Invoice
                                         </NavLink>
-                                    </li>
-                                    {/* New Stock Maintenance PO, Suppliers, and GRNs links */}
-                                    {isModuleVisibleForUser('view-stock-pos') && (
-                                        <li>
-                                            <NavLink to="/stock/maintenance/purchase-orders" className={({isActive}) => `${subLinkClass} ${isActive ? 'bg-light-300 text-secondary-600' : ''}`}>
-                                                <FaShoppingCart className="mr-3" />View POs
-                                            </NavLink>
-                                        </li>
                                     )}
-                                    {isModuleVisibleForUser('manage-stock-suppliers') && (
-                                        <li>
-                                            <NavLink to="/stock/maintenance/suppliers" className={({isActive}) => `${subLinkClass} ${isActive ? 'bg-light-300 text-secondary-600' : ''}`}>
-                                                <FaUsersCog className="mr-3" />Supplier Master
-                                            </NavLink>
-                                        </li>
+                                    {isModuleVisibleForUser('view-fg-buyers') && (
+                                        <NavLink to="/fg/buyer-master" className={({isActive}) => `${subLinkClass} ${isActive ? activeSubLinkClass : ''}`}>
+                                            Buyer Master
+                                        </NavLink>
                                     )}
-                                    {isModuleVisibleForUser('view-stock-grns') && (
-                                        <li>
-                                            <NavLink to="/stock/grn" className={({isActive}) => `${subLinkClass} ${isActive ? 'bg-light-300 text-secondary-600' : ''}`}>
-                                                <FaClipboardCheck className="mr-3" />GRN
-                                            </NavLink>
-                                        </li>
+                                    {isModuleVisibleForUser('view-fg-buyers') && (
+                                        <NavLink to="/fg/driver-master" className={({isActive}) => `${subLinkClass} ${isActive ? activeSubLinkClass : ''}`}>
+                                            Driver Master
+                                        </NavLink>
                                     )}
-
-                                </ul>
-                            )}
-                        </div>
-                    )}
-
-                    {/* Product Management Collapsible Menu - Hidden as per requirement */}
-                    {false && isModuleSectionVisible('product') && (
-                        <div className="pt-2">
-                            <button
-                                onClick={() => setIsProductOpen(!isProductOpen)}
-                                className="w-full flex items-center justify-between p-3 rounded-xl text-dark-700 hover:bg-light-200 transition-all duration-200 group"
-                            >
-                                <div className="flex items-center">
-                                    <FaBox size={20} className="text-accent-500"/>
-                                    {isOpen && <span className="ml-4 font-semibold">Product Management</span>}
                                 </div>
-                                {isOpen && (isProductOpen ? <FaAngleDown className="transition-transform duration-200 group-hover:rotate-180" /> : <FaAngleRight />)}
-                            </button>
-                            {isProductOpen && isOpen && (
-                                <ul className="pl-6 mt-2 space-y-1 animate-fadeIn">
-                                    {isModuleVisibleForUser('product-details') && (
-                                        <li>
-                                            <NavLink to="/products/details" className={({isActive}) => `${subLinkClass} ${isActive ? 'bg-light-300 text-accent-600' : ''}`}>
-                                                <FaClipboardList className="mr-3" />Product Details
-                                            </NavLink>
-                                        </li>
-                                    )}
-                                    {isModuleVisibleForUser('product-dc') && (
-                                        <li>
-                                            <NavLink to="/products/dc" className={({isActive}) => `${subLinkClass} ${isActive ? 'bg-light-300 text-accent-600' : ''}`}>
-                                                <FaTruck className="mr-3" />Product DC
-                                            </NavLink>
-                                        </li>
-                                    )}
-
-                                </ul>
-                            )}
+                            </div>
                         </div>
                     )}
                     
-                    {/* Admin Only Links */}
+                    {/* Admin Section */}
                     {userRole === 'Admin' && (
                         <>
-                            <div className="pt-2">
-                                <NavLink to="/admin/managers/create" className={({ isActive }) => `${baseLinkClass} ${isActive ? activeLinkClass : ''}`}>
-                                    <NavIcon icon={FaUserPlus} />
-                                    {isOpen && <span className="ml-4 font-semibold">Create Manager</span>}
-                                </NavLink>
-                            </div>
-                            <div className="pt-2">
-                                <NavLink to="/admin/settings" className={({ isActive }) => `${baseLinkClass} ${isActive ? activeLinkClass : ''}`}>
-                                    <NavIcon icon={FaCog} />
-                                    {isOpen && <span className="ml-4 font-semibold">Settings</span>}
-                                </NavLink>
-                            </div>
+                            {isOpen && <div className="mt-6 mb-2 px-4 text-[11px] font-bold text-stone-400 uppercase tracking-widest">Admin</div>}
+                            
+                            <NavLink 
+                                to="/admin/managers/create" 
+                                className={({ isActive }) => `${baseLinkClass} ${isActive ? activeLinkClass : ''}`}
+                                title={!isOpen ? "Create Manager" : ""}
+                            >
+                                {({ isActive }) => (
+                                    <>
+                                        <NavIcon icon={FaUserPlus} isActive={isActive} />
+                                        {isOpen && <span className="ml-3.5 tracking-wide">Create Manager</span>}
+                                    </>
+                                )}
+                            </NavLink>
+                            
+                            <NavLink 
+                                to="/admin/settings" 
+                                className={({ isActive }) => `${baseLinkClass} ${isActive ? activeLinkClass : ''}`}
+                                title={!isOpen ? "Settings" : ""}
+                            >
+                                {({ isActive }) => (
+                                    <>
+                                        <NavIcon icon={FaCog} isActive={isActive} />
+                                        {isOpen && <span className="ml-3.5 tracking-wide">Settings</span>}
+                                    </>
+                                )}
+                            </NavLink>
                         </>
                     )}
+
                 </nav>
 
-                <div className="p-4 border-t border-light-300">
+                {/* Footer / Logout */}
+                <div className="p-4 border-t border-stone-100 bg-white">
                     <button 
-                        onClick={openLogoutModal} // Changed to open the confirmation modal
-                        className="flex items-center w-full px-4 py-3 rounded-xl text-dark-700 hover:bg-light-200 transition-all duration-200 group"
+                        onClick={openLogoutModal}
+                        className={`w-full flex items-center ${isOpen ? 'justify-start px-4' : 'justify-center px-2'} py-3 rounded-xl text-stone-500 hover:bg-[#FFF5F5] hover:text-[#D9534F] transition-all duration-300 group`}
+                        title="Logout"
                     >
-                        <FaSignOutAlt size={20} />
-                        {isOpen && <span className="ml-4 font-semibold">Logout</span>}
-                        {isOpen && (
-                            <span className="ml-auto transform transition-transform duration-200 group-hover:rotate-6">
-                                <FaAngleRight />
-                            </span>
-                        )}
+                        <FaSignOutAlt size={20} className="transition-transform duration-300 group-hover:-translate-x-1" />
+                        {isOpen && <span className="ml-3 font-semibold">Logout</span>}
                     </button>
                 </div>
             </aside>
 
-            {/* Logout Confirmation Modal */}
+            {/* --- LOGOUT MODAL (RESTYLED) --- */}
             <Modal
                 isOpen={isLogoutModalOpen}
                 onClose={closeLogoutModal}
                 title="Confirm Logout"
             >
-                <div className="space-y-6 modal-body">
-                    <p className="text-dark-700">
-                        Are you sure you want to logout?
-                    </p>
-                    <div className="flex justify-end space-x-4 pt-4 modal-footer">
+                <div className="p-1">
+                    <div className="flex items-center gap-4 mb-6 bg-red-50 p-4 rounded-xl border border-red-100">
+                        <div className="p-3 bg-white rounded-full text-red-500 shadow-sm">
+                            <FaSignOutAlt size={20} />
+                        </div>
+                        <div>
+                            <h4 className="font-bold text-[#1A1A1A]">Ready to leave?</h4>
+                            <p className="text-sm text-stone-500">You will need to sign in again to access the dashboard.</p>
+                        </div>
+                    </div>
+                    
+                    <div className="flex justify-end gap-3 mt-4">
                         <button
                             onClick={closeLogoutModal}
-                            className="px-6 py-2.5 text-sm font-medium text-dark-700 bg-light-200 rounded-lg hover:bg-light-300 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-light-500 btn"
+                            className="px-5 py-2.5 rounded-xl font-semibold text-stone-600 hover:bg-stone-100 transition-colors"
                         >
                             Cancel
                         </button>
@@ -840,7 +596,7 @@ const Sidebar = ({ isOpen, packingAlertsCount = 0, rawAlertsCount = 0, toggleSid
                                 handleLogout();
                                 closeLogoutModal();
                             }}
-                            className="px-6 py-2.5 text-sm font-medium text-white bg-danger-500 rounded-lg hover:bg-danger-600 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-danger-500 btn btn-secondary"
+                            className="px-6 py-2.5 rounded-xl font-semibold text-white bg-[#D9534F] hover:bg-red-600 shadow-lg shadow-red-200 transition-all transform hover:scale-[1.02]"
                         >
                             Logout
                         </button>

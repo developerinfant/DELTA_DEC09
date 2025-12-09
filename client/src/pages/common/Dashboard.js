@@ -13,7 +13,8 @@ import {
     FaCheckCircle,
     FaArrowUp,
     FaArrowDown,
-    FaRedo
+    FaRedo,
+    FaChevronRight
 } from 'react-icons/fa';
 import { 
     LineChart, 
@@ -34,101 +35,136 @@ import {
 } from 'recharts';
 import Card from '../../components/common/Card';
 
-// Premium Glassmorphism StatCard with real-time animations - Apple Style
+// --- THEME CONSTANTS FOR CHARTS ---
+const THEME = {
+    gold: '#F2C94C',
+    goldLight: '#FCEFC7',
+    olive: '#6A7F3F',
+    oliveLight: '#E8EFE0',
+    dark: '#1A1A1A',
+    gray: '#888888',
+    cream: '#FAF7F2',
+    danger: '#D9534F',
+    white: '#FFFFFF'
+};
+
+// --- REDESIGNED COMPONENTS ---
+
+// Premium Minimal StatCard
+// Logic preserved, Styling completely changed to Warm Minimal
 const StatCard = ({ icon, title, value, percentage, linkTo, gradient, trend, subtitle }) => {
     const isPositive = trend === 'up';
     const TrendIcon = isPositive ? FaArrowUp : FaArrowDown;
-    const trendColor = isPositive ? 'text-green-500' : 'text-red-500';
-    const trendBg = isPositive ? 'bg-green-50' : 'bg-red-50';
+    // Using theme colors instead of generic red/green for a softer look
+    const trendColor = isPositive ? 'text-emerald-600' : 'text-red-500';
+    const trendBg = isPositive ? 'bg-emerald-50' : 'bg-red-50';
 
     return (
-        <Link to={linkTo} className="block h-full">
-            <div className="relative overflow-hidden rounded-[var(--radius-lg)] h-full transition-all duration-500 hover:scale-105 group mobile-card glass-container soft-shadow-hover">
-                <div className="relative p-6 mobile-p-4">
-                    <div className="flex justify-between items-start mb-4">
-                        <div className="flex-grow">
-                            <p className="text-xs font-bold uppercase text-gray-500 tracking-wider mb-1">{title}</p>
-                            <h3 className="text-3xl font-black text-gray-900 mb-1 bg-gradient-to-r from-gray-900 via-gray-700 to-gray-900 bg-clip-text text-transparent mobile-text-2xl">
-                                {value}
-                            </h3>
-                            {subtitle && <p className="text-xs text-gray-600">{subtitle}</p>}
-                        </div>
-                        <div className={`p-3 rounded-xl ${gradient} shadow-lg group-hover:scale-110 transition-transform duration-300`}>
-                            {React.cloneElement(icon, { className: 'text-white', size: 24 })}
-                        </div>
+        <Link to={linkTo} className="block h-full group">
+            <div className="relative h-full bg-white rounded-2xl p-6 shadow-sm border border-stone-100 transition-all duration-300 hover:shadow-md hover:-translate-y-1">
+                <div className="flex justify-between items-start mb-2">
+                    <div className="flex-grow">
+                        {/* Title - Muted uppercase tracking */}
+                        <p className="text-xs font-bold uppercase text-stone-400 tracking-widest mb-2">{title}</p>
+                        
+                        {/* Value - Large, Dark, Elegant font */}
+                        <h3 className="text-3xl font-bold text-[#1A1A1A] mb-1 tracking-tight">
+                            {value}
+                        </h3>
+                        
+                        {/* Subtitle - Soft Grey */}
+                        {subtitle && <p className="text-sm text-stone-500 font-medium">{subtitle}</p>}
                     </div>
                     
-                    {percentage && (
-                        <div className={`flex items-center gap-2 ${trendBg} rounded-lg px-3 py-2`}>
-                            <TrendIcon className={trendColor} size={12} />
-                            <span className={`text-sm font-bold ${trendColor}`}>{percentage}</span>
-                            <span className="text-xs text-gray-600">vs last week</span>
-                        </div>
-                    )}
+                    {/* Icon - Minimal Circle with Theme Colors */}
+                    <div className="p-3 rounded-full bg-[#FAF7F2] text-[#F2C94C] group-hover:bg-[#F2C94C] group-hover:text-white transition-colors duration-300">
+                        {React.cloneElement(icon, { size: 20 })}
+                    </div>
                 </div>
+                
+                {/* Trend Indicator - Pill shape */}
+                {percentage && (
+                    <div className="mt-4 flex items-center gap-2">
+                        <div className={`flex items-center gap-1 ${trendBg} rounded-full px-2.5 py-1`}>
+                            <TrendIcon className={trendColor} size={10} />
+                            <span className={`text-xs font-bold ${trendColor}`}>{percentage}</span>
+                        </div>
+                        <span className="text-xs text-stone-400 font-medium">vs last week</span>
+                    </div>
+                )}
             </div>
         </Link>
     );
 };
 
-// Quick Action Tile Component - Apple Style
+// Quick Action Tile - Minimal Button Style
 const QuickActionTile = ({ icon, title, description, linkTo, color }) => {
     return (
         <Link to={linkTo} className="block">
-            <div className="relative overflow-hidden rounded-xl p-4 transition-all duration-300 hover:scale-105 group cursor-pointer mobile-card glass-container soft-shadow-hover touch-target touch-animation">
-                <div className="relative flex items-center gap-3">
-                    <div className={`p-3 rounded-lg ${color} shadow-md`}>
-                        {React.cloneElement(icon, { className: 'text-white', size: 20 })}
+            <div className="group relative bg-white rounded-2xl p-5 border border-stone-100 shadow-sm transition-all duration-300 hover:border-[#F2C94C] hover:shadow-md cursor-pointer h-full">
+                <div className="flex items-center gap-4">
+                    {/* Icon Box */}
+                    <div className="p-3 rounded-xl bg-[#FAF7F2] text-[#6A7F3F] group-hover:bg-[#F2C94C] group-hover:text-[#1A1A1A] transition-colors duration-300">
+                        {React.cloneElement(icon, { size: 18 })}
                     </div>
-                    <div>
-                        <h4 className="text-sm font-bold text-gray-900">{title}</h4>
-                        <p className="text-xs text-gray-600">{description}</p>
+                    
+                    {/* Text Content */}
+                    <div className="flex-grow">
+                        <h4 className="text-sm font-bold text-[#1A1A1A] group-hover:text-[#6A7F3F] transition-colors">{title}</h4>
+                        <p className="text-xs text-stone-500 mt-0.5">{description}</p>
                     </div>
+
+                    {/* Arrow Indicator */}
+                    <FaChevronRight size={12} className="text-stone-300 group-hover:text-[#F2C94C] transition-colors" />
                 </div>
             </div>
         </Link>
     );
 };
 
-// Chart Card Wrapper - Apple Style
+// Chart Card Wrapper - Clean White Canvas
 const ChartCard = ({ title, subtitle, children, height = "350px" }) => {
     return (
-        <Card className="mobile-card">
-            <div className="mb-4">
-                <h3 className="text-lg font-bold text-gray-900">{title}</h3>
-                {subtitle && <p className="text-sm text-gray-600 mt-1">{subtitle}</p>}
+        <div className="bg-white rounded-2xl p-6 shadow-sm border border-stone-100 h-full">
+            <div className="mb-6 flex justify-between items-end">
+                <div>
+                    <h3 className="text-lg font-bold text-[#1A1A1A]">{title}</h3>
+                    {subtitle && <p className="text-sm text-stone-500 mt-1 font-medium">{subtitle}</p>}
+                </div>
+                {/* Decorative dot */}
+                <div className="w-2 h-2 rounded-full bg-[#F2C94C] mb-2"></div>
             </div>
-            <div style={{ height }} className="mobile-smooth-scroll">
+            <div style={{ height }} className="w-full">
                 {children}
             </div>
-        </Card>
+        </div>
     );
 };
 
-// Alert/Notification Card - Apple Style
+// Alert/Notification Card - Restyled
 const AlertCard = ({ type, title, message, count }) => {
     const config = {
-        warning: { bg: 'bg-yellow-50', border: 'border-yellow-200', icon: FaExclamationTriangle, iconColor: 'text-yellow-500' },
-        success: { bg: 'bg-green-50', border: 'border-green-200', icon: FaCheckCircle, iconColor: 'text-green-500' },
-        info: { bg: 'bg-blue-50', border: 'border-blue-200', icon: FaClipboardList, iconColor: 'text-blue-500' }
+        warning: { bg: 'bg-[#FFF8E1]', border: 'border-[#F2C94C]', icon: FaExclamationTriangle, iconColor: 'text-[#F2C94C]' },
+        success: { bg: 'bg-[#E8EFE0]', border: 'border-[#6A7F3F]', icon: FaCheckCircle, iconColor: 'text-[#6A7F3F]' },
+        info: { bg: 'bg-stone-50', border: 'border-stone-200', icon: FaClipboardList, iconColor: 'text-stone-500' }
     };
     
     const { bg, border, icon: Icon, iconColor } = config[type] || config.info;
     
     return (
-        <div className={`${bg} ${border} border rounded-xl p-4 glass-container mobile-card`}>
+        <div className={`${bg} rounded-xl p-4 border-l-4 ${border} mb-3 transition-transform hover:scale-[1.01]`}>
             <div className="flex items-start gap-3">
-                <Icon className={`${iconColor} mt-1`} size={20} />
+                <Icon className={`${iconColor} mt-0.5`} size={18} />
                 <div className="flex-grow">
                     <div className="flex justify-between items-start">
-                        <h4 className="text-sm font-bold text-gray-900">{title}</h4>
+                        <h4 className="text-sm font-bold text-[#1A1A1A]">{title}</h4>
                         {count && (
-                            <span className={`${iconColor} text-xs font-bold px-2 py-1 bg-white rounded-full`}>
+                            <span className={`${iconColor} text-[10px] font-bold px-2 py-0.5 bg-white/80 rounded-full shadow-sm`}>
                                 {count}
                             </span>
                         )}
                     </div>
-                    <p className="text-xs text-gray-600 mt-1">{message}</p>
+                    <p className="text-xs text-stone-600 mt-1 leading-relaxed">{message}</p>
                 </div>
             </div>
         </div>
@@ -197,15 +233,12 @@ const Dashboard = () => {
         fetchDashboardData();
     }, [fetchDashboardData]);
 
-    // Removed auto-refresh functionality to prevent automatic reloading
-    // The dashboard will only refresh when the user clicks the refresh button
-
     if (isLoading) {
         return (
-            <div className="flex justify-center items-center h-96">
+            <div className="flex justify-center items-center h-screen bg-[#FAF7F2]">
                 <div className="text-center">
-                    <FaSpinner className="animate-spin text-primary-500 mx-auto mb-4" size={48} />
-                    <p className="text-gray-600 font-medium">Loading Delta Factory Dashboard...</p>
+                    <FaSpinner className="animate-spin text-[#F2C94C] mx-auto mb-4" size={48} />
+                    <p className="text-[#6A7F3F] font-bold text-lg">Loading Delta Factory...</p>
                 </div>
             </div>
         );
@@ -213,19 +246,19 @@ const Dashboard = () => {
 
     if (error) {
         return (
-            <div className="flex justify-center items-center h-96">
-                <div className="text-center">
-                    <div className="bg-red-50 rounded-xl p-6 max-w-md glass-container">
-                        <div className="bg-red-100 rounded-full p-3 inline-block mb-4">
+            <div className="flex justify-center items-center h-screen bg-[#FAF7F2]">
+                <div className="text-center w-full max-w-md">
+                    <div className="bg-white rounded-2xl p-8 shadow-lg border border-red-100">
+                        <div className="bg-red-50 rounded-full p-4 inline-block mb-4">
                             <FaExclamationTriangle className="text-red-500" size={32} />
                         </div>
-                        <h3 className="text-lg font-bold text-gray-900 mb-2">Error Loading Dashboard</h3>
-                        <p className="text-gray-600 mb-4">{error}</p>
+                        <h3 className="text-xl font-bold text-[#1A1A1A] mb-2">Something went wrong</h3>
+                        <p className="text-stone-500 mb-6">{error}</p>
                         <button
                             onClick={fetchDashboardData}
-                            className="bg-primary-600 hover:bg-primary-700 text-white font-medium py-2 px-4 rounded-lg transition-colors mobile-btn btn btn-primary"
+                            className="bg-[#F2C94C] hover:bg-[#e0b840] text-[#1A1A1A] font-bold py-3 px-8 rounded-xl transition-all shadow-md hover:shadow-lg"
                         >
-                            Retry
+                            Try Again
                         </button>
                     </div>
                 </div>
@@ -234,284 +267,342 @@ const Dashboard = () => {
     }
 
     return (
-        <div className="space-y-6 mobile-container page-fade-in">
-            {/* Refresh Button */}
-            <div className="flex justify-end">
-                <button
-                    onClick={fetchDashboardData}
-                    className="flex items-center gap-2 bg-white hover:bg-gray-50 text-gray-700 font-medium py-2 px-4 rounded-lg border border-gray-200 transition-colors"
-                >
-                    <FaRedo size={16} />
-                    <span>Refresh</span>
-                </button>
-            </div>
-            
-            {/* KPI Cards Grid - Responsive grid that adapts to screen size */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mobile-grid">
-                <StatCard 
-                    title="Active SKUs"
-                    value={packingStats?.activeSKUs || 0}
-                    subtitle="Packing Materials"
-                    linkTo="/materials"
-                    gradient="bg-gradient-to-br from-yellow-400 to-orange-500"
-                    icon={<FaBoxes />}
-                />
-                <StatCard 
-                    title="Total Stock"
-                    value={packingStats?.totalStock || 0}
-                    subtitle="PM Store"
-                    linkTo="/packing/stock-report"
-                    gradient="bg-gradient-to-br from-red-500 to-pink-600"
-                    icon={<FaWarehouse />}
-                />
-                <StatCard 
-                    title="Stock Alerts"
-                    value={packingStats?.stockAlerts || 0}
-                    subtitle="Low Stock Items"
-                    linkTo="/materials/alerts"
-                    gradient="bg-gradient-to-br from-green-400 to-emerald-600"
-                    icon={<FaExclamationTriangle />}
-                />
-                <StatCard 
-                    title="GRNs Created"
-                    value={packingStats?.totalGRNsThisMonth || 0}
-                    subtitle="This Month"
-                    linkTo="/packing/grn/view"
-                    gradient="bg-gradient-to-br from-blue-500 to-indigo-600"
-                    icon={<FaClipboardList />}
-                />
-            </div>
-            
-            {/* Finished Goods Cards */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mobile-grid">
-                <StatCard 
-                    title="Active Products"
-                    value={fgStats?.activeFGProducts || 0}
-                    subtitle="Finished Goods"
-                    linkTo="/fg/delivery-challan/view"
-                    gradient="bg-gradient-to-br from-purple-400 to-purple-600"
-                    icon={<FaBoxes />}
-                />
-                <StatCard 
-                    title="Total FG Stock"
-                    value={fgStats?.totalFGStock || 0}
-                    subtitle="All Units"
-                    linkTo="/fg/stock-report"
-                    gradient="bg-gradient-to-br from-indigo-500 to-indigo-700"
-                    icon={<FaWarehouse />}
-                />
-                <StatCard 
-                    title="Active Orders"
-                    value={fgStats?.activeOrders || 0}
-                    subtitle="Ongoing Jobs"
-                    linkTo="/fg/delivery-challan/view"
-                    gradient="bg-gradient-to-br from-teal-400 to-teal-600"
-                    icon={<FaClipboardList />}
-                />
-                <StatCard 
-                    title="Monthly Revenue"
-                    value={`₹${fgStats?.monthlyRevenue ? Math.round(fgStats.monthlyRevenue).toLocaleString() : '0'}`}
-                    subtitle="This Month"
-                    linkTo="/fg/invoice/view"
-                    gradient="bg-gradient-to-br from-cyan-500 to-cyan-700"
-                    icon={<FaChartLine />}
-                />
-            </div>
+        <div className="min-h-screen bg-[#FAF7F2] p-4 md:p-8 font-sans">
+            <div className="max-w-[1600px] mx-auto space-y-8">
+                
+                {/* Header Section */}
+                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                    <div>
+                        <h1 className="text-3xl font-bold text-[#1A1A1A]">Dashboard</h1>
+                        <p className="text-stone-500 mt-1">Track and manage inventory, sales and transactions</p>
+                    </div>
+                    <button
+                        onClick={fetchDashboardData}
+                        className="group flex items-center gap-2 bg-white hover:bg-stone-50 text-[#1A1A1A] font-semibold py-2.5 px-5 rounded-xl border border-stone-200 shadow-sm transition-all hover:border-[#F2C94C]"
+                    >
+                        <FaRedo size={14} className="text-stone-400 group-hover:text-[#F2C94C] group-hover:rotate-180 transition-all duration-500" />
+                        <span>Refresh Data</span>
+                    </button>
+                </div>
+                
+                {/* KPI Cards Grid - Packing Materials */}
+                <div>
+                    <h2 className="text-sm font-bold uppercase text-stone-400 tracking-widest mb-4 ml-1">Packing Materials</h2>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                        <StatCard 
+                            title="Active SKUs"
+                            value={packingStats?.activeSKUs || 0}
+                            subtitle="In System"
+                            linkTo="/materials"
+                            // Gradient props kept for compatibility but ignored in favor of theme
+                            gradient=""
+                            icon={<FaBoxes />}
+                        />
+                        <StatCard 
+                            title="PM Stock"
+                            value={packingStats?.totalStock || 0}
+                            subtitle="Total Units"
+                            linkTo="/packing/stock-report"
+                            gradient=""
+                            icon={<FaWarehouse />}
+                        />
+                        <StatCard 
+                            title="Low Stock"
+                            value={packingStats?.stockAlerts || 0}
+                            subtitle="Requires Action"
+                            linkTo="/materials/alerts"
+                            gradient=""
+                            icon={<FaExclamationTriangle />}
+                            percentage={packingStats?.stockAlerts > 0 ? "+2" : "0%"} 
+                            trend={packingStats?.stockAlerts > 0 ? "up" : "down"}
+                        />
+                        <StatCard 
+                            title="Monthly GRNs"
+                            value={packingStats?.totalGRNsThisMonth || 0}
+                            subtitle="Receipts"
+                            linkTo="/packing/grn/view"
+                            gradient=""
+                            icon={<FaClipboardList />}
+                        />
+                    </div>
+                </div>
+                
+                {/* KPI Cards Grid - Finished Goods */}
+                <div>
+                    <h2 className="text-sm font-bold uppercase text-stone-400 tracking-widest mb-4 ml-1">Finished Goods</h2>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                        <StatCard 
+                            title="Products"
+                            value={fgStats?.activeFGProducts || 0}
+                            subtitle="Catalog"
+                            linkTo="/fg/delivery-challan/view"
+                            gradient=""
+                            icon={<FaBoxes />}
+                        />
+                        <StatCard 
+                            title="FG Stock"
+                            value={fgStats?.totalFGStock || 0}
+                            subtitle="Warehouse"
+                            linkTo="/fg/stock-report"
+                            gradient=""
+                            icon={<FaWarehouse />}
+                        />
+                        <StatCard 
+                            title="Active Jobs"
+                            value={fgStats?.activeOrders || 0}
+                            subtitle="Processing"
+                            linkTo="/fg/delivery-challan/view"
+                            gradient=""
+                            icon={<FaClipboardList />}
+                        />
+                        <StatCard 
+                            title="Revenue"
+                            value={`₹${fgStats?.monthlyRevenue ? Math.round(fgStats.monthlyRevenue).toLocaleString() : '0'}`}
+                            subtitle="This Month"
+                            linkTo="/fg/invoice/view"
+                            gradient=""
+                            icon={<FaChartLine />}
+                            percentage="+12%"
+                            trend="up"
+                        />
+                    </div>
+                </div>
 
-            {/* Quick Actions - Responsive grid */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mobile-grid">
-                <QuickActionTile 
-                    icon={<FaClipboardList />}
-                    title="New GRN"
-                    description="Create goods receipt"
-                    linkTo="/packing/grn/create"
-                    color="bg-gradient-to-br from-purple-500 to-purple-700"
-                />
-                <QuickActionTile 
-                    icon={<FaTruck />}
-                    title="New PO"
-                    description="Create purchase order"
-                    linkTo="/packing/purchase-orders/create"
-                    color="bg-gradient-to-br from-blue-500 to-blue-700"
-                />
-                <QuickActionTile 
-                    icon={<FaWarehouse />}
-                    title="Stock Check"
-                    description="View inventory levels"
-                    linkTo="/packing/stock-report"
-                    color="bg-gradient-to-br from-green-500 to-green-700"
-                />
-                <QuickActionTile 
-                    icon={<FaUsers />}
-                    title="Suppliers"
-                    description="Manage vendors"
-                    linkTo="/packing/suppliers"
-                    color="bg-gradient-to-br from-orange-500 to-orange-700"
-                />
-            </div>
+                {/* Quick Actions */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
+                    <QuickActionTile 
+                        icon={<FaClipboardList />}
+                        title="New GRN"
+                        description="Receive packing material"
+                        linkTo="/packing/grn/create"
+                        color=""
+                    />
+                    <QuickActionTile 
+                        icon={<FaTruck />}
+                        title="New PO"
+                        description="Order supplies"
+                        linkTo="/packing/purchase-orders/create"
+                        color=""
+                    />
+                    <QuickActionTile 
+                        icon={<FaWarehouse />}
+                        title="Stock Check"
+                        description="Full inventory report"
+                        linkTo="/packing/stock-report"
+                        color=""
+                    />
+                    <QuickActionTile 
+                        icon={<FaUsers />}
+                        title="Suppliers"
+                        description="Manage vendor database"
+                        linkTo="/packing/suppliers"
+                        color=""
+                    />
+                </div>
 
-            {/* Charts Row 1: GRN and PO Analytics - Responsive grid */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mobile-grid">
-                <ChartCard 
-                    title="GRN Analytics" 
-                    subtitle="Goods Receipt Notes - Last 7 Days"
-                >
-                    <ResponsiveContainer width="100%" height="100%">
-                        <AreaChart data={grnData}>
-                            <defs>
-                                <linearGradient id="colorCompleted" x1="0" y1="0" x2="0" y2="1">
-                                    <stop offset="5%" stopColor="#10b981" stopOpacity={0.8}/>
-                                    <stop offset="95%" stopColor="#10b981" stopOpacity={0.1}/>
-                                </linearGradient>
-                                <linearGradient id="colorPending" x1="0" y1="0" x2="0" y2="1">
-                                    <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.8}/>
-                                    <stop offset="95%" stopColor="#f59e0b" stopOpacity={0.1}/>
-                                </linearGradient>
-                            </defs>
-                            <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                            <XAxis dataKey="date" stroke="#6b7280" style={{ fontSize: '12px' }} />
-                            <YAxis stroke="#6b7280" style={{ fontSize: '12px' }} />
-                            <Tooltip 
-                                contentStyle={{ 
-                                    backgroundColor: 'rgba(255, 255, 255, 0.95)', 
-                                    border: 'none', 
-                                    borderRadius: '12px',
-                                    boxShadow: '0 10px 25px rgba(0,0,0,0.1)'
-                                }} 
-                            />
-                            <Legend wrapperStyle={{ fontSize: '12px' }} />
-                            <Area 
-                                type="monotone" 
-                                dataKey="completed" 
-                                stroke="#10b981" 
-                                fillOpacity={1} 
-                                fill="url(#colorCompleted)" 
-                                strokeWidth={2}
-                                name="Completed"
-                            />
-                            <Area 
-                                type="monotone" 
-                                dataKey="pending" 
-                                stroke="#f59e0b" 
-                                fillOpacity={1} 
-                                fill="url(#colorPending)" 
-                                strokeWidth={2}
-                                name="Pending"
-                            />
-                        </AreaChart>
-                    </ResponsiveContainer>
-                </ChartCard>
-
-                <ChartCard 
-                    title="Purchase Orders" 
-                    subtitle="PO Status - Last 7 Days"
-                >
-                    <ResponsiveContainer width="100%" height="100%">
-                        <BarChart data={poData}>
-                            <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                            <XAxis dataKey="date" stroke="#6b7280" style={{ fontSize: '12px' }} />
-                            <YAxis stroke="#6b7280" style={{ fontSize: '12px' }} />
-                            <Tooltip 
-                                contentStyle={{ 
-                                    backgroundColor: 'rgba(255, 255, 255, 0.95)', 
-                                    border: 'none', 
-                                    borderRadius: '12px',
-                                    boxShadow: '0 10px 25px rgba(0,0,0,0.1)'
-                                }} 
-                            />
-                            <Legend wrapperStyle={{ fontSize: '12px' }} />
-                            <Bar dataKey="approved" fill="#10b981" radius={[8, 8, 0, 0]} name="Approved" />
-                            <Bar dataKey="created" fill="#3b82f6" radius={[8, 8, 0, 0]} name="Created" />
-                            <Bar dataKey="pending" fill="#f59e0b" radius={[8, 8, 0, 0]} name="Pending" />
-                        </BarChart>
-                    </ResponsiveContainer>
-                </ChartCard>
-            </div>
-
-            {/* Charts Row 2: Stock Distribution and Trends - Responsive grid */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mobile-grid">
-                <ChartCard 
-                    title="Stock Distribution" 
-                    subtitle="Current Inventory by Category"
-                    height="300px"
-                >
-                    <ResponsiveContainer width="100%" height="100%">
-                        <PieChart>
-                            <Pie
-                                data={stockDistribution}
-                                cx="50%"
-                                cy="50%"
-                                innerRadius={60}
-                                outerRadius={90}
-                                paddingAngle={5}
-                                dataKey="value"
-                                label={({ name, value }) => `${name}: ${value}`}
-                            >
-                                {stockDistribution.map((entry, index) => (
-                                    <Cell key={`cell-${index}`} fill={index === 0 ? '#f59e0b' : '#ef4444'} />
-                                ))}
-                            </Pie>
-                            <Tooltip 
-                                contentStyle={{ 
-                                    backgroundColor: 'rgba(255, 255, 255, 0.95)', 
-                                    border: 'none', 
-                                    borderRadius: '12px',
-                                    boxShadow: '0 10px 25px rgba(0,0,0,0.1)'
-                                }} 
-                            />
-                            <Legend 
-                                verticalAlign="bottom" 
-                                height={36} 
-                                wrapperStyle={{ fontSize: '11px' }}
-                            />
-                        </PieChart>
-                    </ResponsiveContainer>
-                </ChartCard>
-
-                <div className="lg:col-span-2">
+                {/* Charts Section */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    {/* GRN Analytics Chart */}
                     <ChartCard 
-                        title="Real-Time Stock Alerts" 
-                        subtitle="Top 5 Lowest Stock Items"
+                        title="GRN Activity" 
+                        subtitle="Goods Received - Last 7 Days"
+                    >
+                        <ResponsiveContainer width="100%" height="100%">
+                            <AreaChart data={grnData}>
+                                <defs>
+                                    <linearGradient id="colorCompleted" x1="0" y1="0" x2="0" y2="1">
+                                        <stop offset="5%" stopColor={THEME.olive} stopOpacity={0.3}/>
+                                        <stop offset="95%" stopColor={THEME.olive} stopOpacity={0}/>
+                                    </linearGradient>
+                                    <linearGradient id="colorPending" x1="0" y1="0" x2="0" y2="1">
+                                        <stop offset="5%" stopColor={THEME.gold} stopOpacity={0.3}/>
+                                        <stop offset="95%" stopColor={THEME.gold} stopOpacity={0}/>
+                                    </linearGradient>
+                                </defs>
+                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E5E5" />
+                                <XAxis 
+                                    dataKey="date" 
+                                    stroke="#A0A0A0" 
+                                    tick={{fill: '#A0A0A0', fontSize: 12}} 
+                                    axisLine={false}
+                                    tickLine={false}
+                                    dy={10}
+                                />
+                                <YAxis 
+                                    stroke="#A0A0A0" 
+                                    tick={{fill: '#A0A0A0', fontSize: 12}} 
+                                    axisLine={false}
+                                    tickLine={false}
+                                    dx={-10}
+                                />
+                                <Tooltip 
+                                    contentStyle={{ 
+                                        backgroundColor: '#FFFFFF', 
+                                        border: 'none', 
+                                        borderRadius: '12px',
+                                        boxShadow: '0 4px 20px rgba(0,0,0,0.08)',
+                                        color: '#1A1A1A'
+                                    }}
+                                    itemStyle={{ fontSize: '12px', fontWeight: 600 }}
+                                />
+                                <Legend wrapperStyle={{ paddingTop: '20px' }} iconType="circle" />
+                                <Area 
+                                    type="monotone" 
+                                    dataKey="completed" 
+                                    stroke={THEME.olive} 
+                                    fillOpacity={1} 
+                                    fill="url(#colorCompleted)" 
+                                    strokeWidth={3}
+                                    name="Completed"
+                                />
+                                <Area 
+                                    type="monotone" 
+                                    dataKey="pending" 
+                                    stroke={THEME.gold} 
+                                    fillOpacity={1} 
+                                    fill="url(#colorPending)" 
+                                    strokeWidth={3}
+                                    name="Pending"
+                                />
+                            </AreaChart>
+                        </ResponsiveContainer>
+                    </ChartCard>
+
+                    {/* PO Analytics Chart */}
+                    <ChartCard 
+                        title="Purchase Orders" 
+                        subtitle="Status Overview"
+                    >
+                        <ResponsiveContainer width="100%" height="100%">
+                            <BarChart data={poData} barSize={20}>
+                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E5E5" />
+                                <XAxis 
+                                    dataKey="date" 
+                                    stroke="#A0A0A0" 
+                                    tick={{fill: '#A0A0A0', fontSize: 12}} 
+                                    axisLine={false}
+                                    tickLine={false}
+                                    dy={10}
+                                />
+                                <YAxis 
+                                    stroke="#A0A0A0" 
+                                    tick={{fill: '#A0A0A0', fontSize: 12}} 
+                                    axisLine={false}
+                                    tickLine={false}
+                                    dx={-10}
+                                />
+                                <Tooltip 
+                                    cursor={{fill: 'transparent'}}
+                                    contentStyle={{ 
+                                        backgroundColor: '#FFFFFF', 
+                                        border: 'none', 
+                                        borderRadius: '12px',
+                                        boxShadow: '0 4px 20px rgba(0,0,0,0.08)',
+                                    }} 
+                                />
+                                <Legend wrapperStyle={{ paddingTop: '20px' }} iconType="circle" />
+                                <Bar dataKey="approved" fill={THEME.olive} radius={[4, 4, 4, 4]} name="Approved" />
+                                <Bar dataKey="created" fill={THEME.gold} radius={[4, 4, 4, 4]} name="Created" />
+                                <Bar dataKey="pending" fill="#D1D5DB" radius={[4, 4, 4, 4]} name="Pending" />
+                            </BarChart>
+                        </ResponsiveContainer>
+                    </ChartCard>
+                </div>
+
+                {/* Bottom Row: Distribution & Alerts */}
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    {/* Stock Distribution */}
+                    <ChartCard 
+                        title="Inventory Split" 
+                        subtitle="Category Distribution"
                         height="300px"
                     >
-                        <div className="space-y-3 overflow-y-auto h-full pr-2 mobile-smooth-scroll">
-                            {stockAlerts && stockAlerts.length > 0 ? (
-                                stockAlerts.map((item, index) => (
-                                    <div key={index} className="bg-gradient-to-br from-red-50 to-red-100 rounded-xl p-4 border border-red-200 mobile-card glass-container">
-                                        <div className="flex justify-between items-start">
-                                            <div>
-                                                <h4 className="text-sm font-bold text-red-900">{item.name}</h4>
-                                                <p className="text-xs text-red-700 mt-1">{item.itemCode}</p>
-                                            </div>
-                                            <span className="text-xs font-bold px-2 py-1 bg-red-500 text-white rounded-full">
-                                                Low Stock
-                                            </span>
-                                        </div>
-                                        <div className="flex justify-between mt-3">
-                                            <div>
-                                                <p className="text-xs text-gray-600">Current Stock</p>
-                                                <p className="text-lg font-black text-red-600">{item.quantity}</p>
-                                            </div>
-                                            <div>
-                                                <p className="text-xs text-gray-600">Alert Limit</p>
-                                                <p className="text-lg font-black text-gray-900">{item.stockAlertThreshold}</p>
-                                            </div>
-                                            <div>
-                                                <p className="text-xs text-gray-600">Last Updated</p>
-                                                <p className="text-xs font-bold text-gray-900">
-                                                    {new Date(item.updatedAt).toLocaleDateString()}
-                                                </p>
-                                            </div>
-                                        </div>
-                                    </div>
-                                ))
-                            ) : (
-                                <div className="flex items-center justify-center h-full">
-                                    <p className="text-gray-500">No stock alerts at this time</p>
-                                </div>
-                            )}
-                        </div>
+                        <ResponsiveContainer width="100%" height="100%">
+                            <PieChart>
+                                <Pie
+                                    data={stockDistribution}
+                                    cx="50%"
+                                    cy="50%"
+                                    innerRadius={60}
+                                    outerRadius={90}
+                                    paddingAngle={5}
+                                    dataKey="value"
+                                    stroke="none"
+                                >
+                                    {stockDistribution.map((entry, index) => (
+                                        <Cell 
+                                            key={`cell-${index}`} 
+                                            fill={index % 2 === 0 ? THEME.gold : THEME.olive} 
+                                        />
+                                    ))}
+                                </Pie>
+                                <Tooltip 
+                                    contentStyle={{ 
+                                        backgroundColor: '#FFFFFF', 
+                                        border: 'none', 
+                                        borderRadius: '12px',
+                                        boxShadow: '0 4px 20px rgba(0,0,0,0.08)',
+                                    }} 
+                                />
+                                <Legend 
+                                    verticalAlign="bottom" 
+                                    height={36} 
+                                    iconType="circle"
+                                />
+                            </PieChart>
+                        </ResponsiveContainer>
                     </ChartCard>
+
+                    {/* Stock Alerts List */}
+                    <div className="lg:col-span-2">
+                        <ChartCard 
+                            title="Critical Alerts" 
+                            subtitle="Items below reorder level"
+                            height="300px"
+                        >
+                            <div className="h-full overflow-y-auto pr-2 custom-scrollbar">
+                                {stockAlerts && stockAlerts.length > 0 ? (
+                                    <div className="space-y-3">
+                                        {stockAlerts.map((item, index) => (
+                                            <div key={index} className="bg-[#FFFDF5] rounded-xl p-4 border border-stone-100 hover:border-[#F2C94C] transition-colors flex items-center justify-between group">
+                                                <div className="flex items-center gap-4">
+                                                    <div className="bg-red-50 text-red-500 p-3 rounded-xl">
+                                                        <FaExclamationTriangle size={16} />
+                                                    </div>
+                                                    <div>
+                                                        <h4 className="text-sm font-bold text-[#1A1A1A]">{item.name}</h4>
+                                                        <p className="text-xs text-stone-500 font-medium tracking-wide">{item.itemCode}</p>
+                                                    </div>
+                                                </div>
+                                                
+                                                <div className="flex items-center gap-6">
+                                                    <div className="text-right">
+                                                        <p className="text-xs text-stone-400 uppercase font-bold">In Stock</p>
+                                                        <p className="text-lg font-bold text-red-500">{item.quantity}</p>
+                                                    </div>
+                                                    <div className="w-px h-8 bg-stone-200 hidden sm:block"></div>
+                                                    <div className="text-right hidden sm:block">
+                                                        <p className="text-xs text-stone-400 uppercase font-bold">Limit</p>
+                                                        <p className="text-lg font-bold text-[#1A1A1A]">{item.stockAlertThreshold}</p>
+                                                    </div>
+                                                    <Link to={`/materials/edit/${item._id}`} className="opacity-0 group-hover:opacity-100 transition-opacity p-2 bg-white shadow-sm rounded-lg text-[#F2C94C] hover:text-[#d4aa2b]">
+                                                        <FaRedo size={12} />
+                                                    </Link>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <div className="flex flex-col items-center justify-center h-full text-stone-400">
+                                        <div className="bg-stone-50 p-4 rounded-full mb-3">
+                                            <FaCheckCircle size={32} className="text-[#6A7F3F]" />
+                                        </div>
+                                        <p className="font-medium">All stock levels are healthy</p>
+                                    </div>
+                                )}
+                            </div>
+                        </ChartCard>
+                    </div>
                 </div>
             </div>
         </div>

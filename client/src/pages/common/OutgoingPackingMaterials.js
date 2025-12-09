@@ -2,11 +2,12 @@ import React, { useState, useEffect, useMemo } from 'react';
 import apiWithOfflineSupport from '../../utils/apiWithOfflineSupport';
 import Card from '../../components/common/Card';
 import Modal from '../../components/common/Modal';
-import { FaSpinner, FaExclamationTriangle, FaEye, FaPlus, FaTimes, FaTrash } from 'react-icons/fa';
-import { ToastContainer, toast } from 'react-toastify';import 'react-toastify/dist/ReactToastify.css';
+import { FaSpinner, FaExclamationTriangle, FaEye, FaPlus, FaTimes, FaTrash, FaFilePdf, FaPrint } from 'react-icons/fa';
+import { ToastContainer, toast } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 import DeliveryChallanDetailModal from '../../components/deliveryChallan/DeliveryChallanDetailModal';
-import { useAuth } from '../../context/AuthContext'; // Add this import
-import Select from 'react-select'; // Add this import
+import { useAuth } from '../../context/AuthContext';
+import Select from 'react-select';
 
 const OutgoingPackingMaterials = () => {
     // State for materials, product mappings, suppliers, and delivery challan records
@@ -18,21 +19,21 @@ const OutgoingPackingMaterials = () => {
     // Form state
     const [unitType, setUnitType] = useState('Own Unit');
     const [supplierId, setSupplierId] = useState('');
-    const [selectedProduct, setSelectedProduct] = useState(null); // For multi-select
+    const [selectedProduct, setSelectedProduct] = useState(null);
     const [cartonQty, setCartonQty] = useState('');
     const [dcDate, setDcDate] = useState(new Date().toISOString().split('T')[0]);
     const [remarks, setRemarks] = useState('');
-    const [personName, setPersonName] = useState(''); // Add person name state
+    const [personName, setPersonName] = useState('');
     
     // Add new states for person names functionality
-    const [personNames, setPersonNames] = useState([]); // List of stored person names
+    const [personNames, setPersonNames] = useState([]);
     const [isPersonNamePopupOpen, setIsPersonNamePopupOpen] = useState(false);
     const [newPersonName, setNewPersonName] = useState('');
     const [editingPersonName, setEditingPersonName] = useState(null);
     const [isPersonNamesLoading, setIsPersonNamesLoading] = useState(false);
     
     // Multi-product state
-    const [selectedProducts, setSelectedProducts] = useState([]); // Array of selected products with quantities
+    const [selectedProducts, setSelectedProducts] = useState([]);
     
     // Calculated materials based on product mapping and carton quantity
     const [calculatedMaterials, setCalculatedMaterials] = useState([]);
@@ -53,7 +54,6 @@ const OutgoingPackingMaterials = () => {
     // Calculate materials when selected products change
     useEffect(() => {
         if (selectedProducts.length > 0) {
-            // Calculate total materials needed for all selected products
             const allMaterials = [];
             
             selectedProducts.forEach(product => {
@@ -62,10 +62,8 @@ const OutgoingPackingMaterials = () => {
                     mapping.materials.forEach(material => {
                         const existingMaterial = allMaterials.find(m => m.material_name === material.material_name);
                         if (existingMaterial) {
-                            // If material already exists, add to the quantity
                             existingMaterial.total_qty += material.qty_per_carton * product.carton_qty;
                         } else {
-                            // If new material, add it to the list
                             allMaterials.push({
                                 material_name: material.material_name,
                                 qty_per_carton: material.qty_per_carton,
@@ -82,12 +80,11 @@ const OutgoingPackingMaterials = () => {
         }
     }, [selectedProducts, productMappings]);
 
-    // Initial data fetch for materials, product mappings, suppliers, and history
+    // Initial data fetch
     useEffect(() => {
         const fetchPageData = async () => {
             setIsLoading(true);
             try {
-                // Fetch all data in parallel for better performance
                 const [materialsResponse, mappingsResponse, suppliersResponse, historyResponse, personNamesResponse] = await Promise.all([
                     apiWithOfflineSupport.get('/materials'),
                     apiWithOfflineSupport.get('/product-mapping'),
@@ -119,14 +116,12 @@ const OutgoingPackingMaterials = () => {
             return;
         }
         
-        // Check if product is already in the list
         const existingProduct = selectedProducts.find(p => p.product_name === selectedProduct.value);
         if (existingProduct) {
             toast.warn('⚠️ This product is already in the list.');
             return;
         }
         
-        // Add product to the list
         setSelectedProducts(prev => [
             ...prev,
             {
@@ -135,7 +130,6 @@ const OutgoingPackingMaterials = () => {
             }
         ]);
         
-        // Reset product selection and quantity
         setSelectedProduct(null);
         setCartonQty('');
     };
@@ -150,13 +144,11 @@ const OutgoingPackingMaterials = () => {
         e.preventDefault();
         setError('');
         
-        // Validate required fields
         if (selectedProducts.length === 0) {
             toast.warn('⚠️ Please add at least one product to the list.');
             return;
         }
         
-        // If Jobber, supplier is required
         if (unitType === 'Jobber' && !supplierId) {
             toast.warn('⚠️ Please select a supplier for Jobber unit type.');
             return;
@@ -167,17 +159,15 @@ const OutgoingPackingMaterials = () => {
         try {
             const payload = {
                 unit_type: unitType,
-                products: selectedProducts, // Send array of products
+                products: selectedProducts,
                 date: dcDate,
                 remarks
             };
             
-            // Add supplier ID if unit type is Jobber
             if (unitType === 'Jobber') {
                 payload.supplier_id = supplierId;
             }
             
-            // Add person name if unit type is Own Unit
             if (unitType === 'Own Unit') {
                 payload.person_name = personName;
             }
@@ -185,7 +175,7 @@ const OutgoingPackingMaterials = () => {
             const response = await apiWithOfflineSupport.createDeliveryChallan(payload);
             
             if (response.queued) {
-                toast.info('Delivery Challan queued for sync. Will be created when online.');
+                toast.info('📋 Delivery Challan queued for sync. Will be created when online.');
             } else {
                 toast.success('✅ Delivery Challan created and stock reserved.');
                 
@@ -196,7 +186,7 @@ const OutgoingPackingMaterials = () => {
                 setCartonQty('');
                 setDcDate(new Date().toISOString().split('T')[0]);
                 setRemarks('');
-                setPersonName(''); // Reset person name
+                setPersonName('');
                 setSelectedProducts([]);
                 setCalculatedMaterials([]);
                 
@@ -211,7 +201,6 @@ const OutgoingPackingMaterials = () => {
         } catch (err) {
             console.error('Error creating delivery challan:', err);
             if (err.response && err.response.data && err.response.data.message) {
-                // Show specific error message from server
                 if (err.response.data.message.includes('Low Stock')) {
                     toast.warn(`⚠️ ${err.response.data.message}`);
                 } else if (err.response.data.message.includes('Product mapping not found')) {
@@ -220,7 +209,7 @@ const OutgoingPackingMaterials = () => {
                     toast.error(err.response.data.message);
                 }
             } else {
-                toast.error('Failed to create delivery challan. Please try again.');
+                toast.error('❌ Failed to create delivery challan. Please try again.');
             }
         } finally {
             setIsSubmitting(false);
@@ -263,12 +252,49 @@ const OutgoingPackingMaterials = () => {
     
     // Handler for DC status update
     const handleDCStatusUpdate = (updatedDC) => {
-        // Update the record in the list
         setRecords(prevRecords => 
             prevRecords.map(record => 
                 record._id === updatedDC._id ? updatedDC : record
             )
         );
+    };
+
+    // ✅ NEW: Handle Direct PDF Download
+    const handleDownloadPDF = async (dcNo) => {
+        try {
+            toast.info('📥 Downloading PDF...');
+            const response = await apiWithOfflineSupport.get(`/api/delivery-challan/${dcNo}/pdf`, {
+                responseType: 'blob'
+            });
+            
+            // Create blob link to download
+            const url = window.URL.createObjectURL(new Blob([response.data]));
+            const link = document.createElement('a');
+            link.href = url;
+            link.setAttribute('download', `DC_${dcNo}.pdf`);
+            document.body.appendChild(link);
+            link.click();
+            link.parentNode.removeChild(link);
+            window.URL.revokeObjectURL(url);
+            
+            toast.success('✅ PDF downloaded successfully!');
+        } catch (error) {
+            console.error('Error downloading PDF:', error);
+            toast.error('❌ Failed to download PDF. Please try again.');
+        }
+    };
+
+    // ✅ NEW: Handle Direct Print Preview
+    const handlePrintPDF = (dcNo) => {
+        try {
+            // Open PDF in new tab for printing
+            const printUrl = `/api/delivery-challan/${dcNo}/pdf`;
+            window.open(printUrl, '_blank');
+            toast.info('🖨️ Opening print preview...');
+        } catch (error) {
+            console.error('Error opening print preview:', error);
+            toast.error('❌ Failed to open print preview. Please try again.');
+        }
     };
     
     // Functions for person name management
@@ -286,7 +312,7 @@ const OutgoingPackingMaterials = () => {
     
     const savePersonName = async () => {
         if (!newPersonName.trim()) {
-            toast.warn('Please enter a person name');
+            toast.warn('⚠️ Please enter a person name');
             return;
         }
         
@@ -294,27 +320,23 @@ const OutgoingPackingMaterials = () => {
         
         try {
             if (editingPersonName !== null) {
-                // Editing existing person name
                 const response = await apiWithOfflineSupport.updatePersonName(
                     personNames[editingPersonName]._id,
                     { name: newPersonName.trim() }
                 );
                 
-                // Update local state
                 const updatedPersonNames = [...personNames];
                 updatedPersonNames[editingPersonName] = response.data;
                 setPersonNames(updatedPersonNames);
                 
-                toast.success('Person name updated successfully');
+                toast.success('✅ Person name updated successfully');
             } else {
-                // Adding new person name
                 const response = await apiWithOfflineSupport.createPersonName({
                     name: newPersonName.trim()
                 });
                 
-                // Update local state
                 setPersonNames(prev => [...prev, response.data]);
-                toast.success('Person name added successfully');
+                toast.success('✅ Person name added successfully');
             }
             
             closePersonNamePopup();
@@ -323,7 +345,7 @@ const OutgoingPackingMaterials = () => {
             if (error.response && error.response.data && error.response.data.message) {
                 toast.error(error.response.data.message);
             } else {
-                toast.error('Failed to save person name. Please try again.');
+                toast.error('❌ Failed to save person name. Please try again.');
             }
         } finally {
             setIsPersonNamesLoading(false);
@@ -342,17 +364,16 @@ const OutgoingPackingMaterials = () => {
         try {
             await apiWithOfflineSupport.deletePersonName(personNameToDelete._id);
             
-            // Update local state
             const updatedPersonNames = personNames.filter((_, i) => i !== index);
             setPersonNames(updatedPersonNames);
             
-            toast.success('Person name deleted successfully');
+            toast.success('✅ Person name deleted successfully');
         } catch (error) {
             console.error('Error deleting person name:', error);
             if (error.response && error.response.data && error.response.data.message) {
                 toast.error(error.response.data.message);
             } else {
-                toast.error('Failed to delete person name. Please try again.');
+                toast.error('❌ Failed to delete person name. Please try again.');
             }
         }
     };
@@ -373,7 +394,7 @@ const OutgoingPackingMaterials = () => {
         <div className="container mx-auto px-4 py-6 max-w-7xl">
             <ToastContainer position="top-right" autoClose={5000} />
             
-            {/* Person Name Popup - Updated to use shared Modal component */}
+            {/* Person Name Popup */}
             <Modal 
                 isOpen={isPersonNamePopupOpen} 
                 onClose={closePersonNamePopup} 
@@ -572,20 +593,6 @@ const OutgoingPackingMaterials = () => {
                                         </div>
                                     </div>
                                 )}
-
-                                {/* Carton Quantity */}
-                                {/* <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                                        Carton Quantity <span className="text-red-500">*</span>
-                                    </label>
-                                    <input
-                                        type="number"
-                                        min="1"
-                                        value={cartonQty}
-                                        onChange={(e) => setCartonQty(e.target.value)}
-                                        className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                                    />
-                                </div> */}
                                 
                                 {/* Date */}
                                 <div>
@@ -622,7 +629,6 @@ const OutgoingPackingMaterials = () => {
                                         </label>
                                         <div className="flex space-x-2">
                                             <div className="flex-grow">
-                                                {/* Searchable dropdown for person names */}
                                                 <select
                                                     value={personName}
                                                     onChange={(e) => setPersonName(e.target.value)}
@@ -647,7 +653,7 @@ const OutgoingPackingMaterials = () => {
                                         <p className="mt-1 text-xs text-gray-500">Select or add a person to whom materials are being issued</p>
                                     </div>
                                 )}
-
+                                
                                 {/* Issued By Field */}
                                 <div className="md:col-span-2">
                                     <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -680,7 +686,6 @@ const OutgoingPackingMaterials = () => {
                                             </thead>
                                             <tbody className="bg-white divide-y divide-gray-200">
                                                 {calculatedMaterials.map((material, index) => {
-                                                    // Find the material in our materials list to check stock
                                                     const materialInfo = materials.find(m => m.name === material.material_name);
                                                     const isLowStock = materialInfo && materialInfo.quantity < material.total_qty;
                                                     
@@ -691,7 +696,7 @@ const OutgoingPackingMaterials = () => {
                                                                 {isLowStock && (
                                                                     <span className="ml-2 text-xs text-red-600">
                                                                         <FaExclamationTriangle className="inline mr-1" />
-                                        Low Stock
+                                                                        Low Stock
                                                                     </span>
                                                                 )}
                                                             </td>
@@ -731,7 +736,6 @@ const OutgoingPackingMaterials = () => {
                                 <h3 className="text-lg font-bold text-gray-800">Total Material Required</h3>
                                 <div className="space-y-2">
                                     {calculatedMaterials.map((material, index) => {
-                                        // Find the material in our materials list to check stock
                                         const materialInfo = materials.find(m => m.name === material.material_name);
                                         const isLowStock = materialInfo && materialInfo.quantity < material.total_qty;
                                         
@@ -768,7 +772,7 @@ const OutgoingPackingMaterials = () => {
                 </div>
             </div>
             
-            {/* Delivery Challan History */}
+            {/* ✅ UPDATED: Delivery Challan History with PDF and Print Actions */}
             <div className="mt-8">
                 <h2 className="text-xl font-semibold text-gray-800 mb-4">Delivery Challan History</h2>
                 <div className="overflow-x-auto bg-white rounded-lg shadow-md">
@@ -808,9 +812,7 @@ const OutgoingPackingMaterials = () => {
                                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{record.dc_no}</td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{record.unit_type}</td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
-                                            {/* Check if record has multiple products */}
                                             {record.products && record.products.length > 0 ? (
-                                                // Display multiple products
                                                 <div>
                                                     {record.products.map((product, index) => (
                                                         <div key={index}>
@@ -819,17 +821,13 @@ const OutgoingPackingMaterials = () => {
                                                     ))}
                                                 </div>
                                             ) : (
-                                                // Display single product (backward compatibility)
                                                 record.product_name
                                             )}
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
-                                            {/* Check if record has multiple products */}
                                             {record.products && record.products.length > 0 ? (
-                                                // Display total cartons for all products
                                                 record.products.reduce((total, product) => total + (product.carton_qty || 0), 0)
                                             ) : (
-                                                // Display single product carton quantity (backward compatibility)
                                                 record.carton_qty
                                             )}
                                         </td>
@@ -844,17 +842,38 @@ const OutgoingPackingMaterials = () => {
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{record.remarks || 'N/A'}</td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                            <button
-                                                onClick={() => handleViewDCDetail(record._id)}
-                                                className="text-indigo-600 hover:text-indigo-900"
-                                                title="View Details"
-                                            >
-                                                <FaEye />
-                                            </button>
+                                            {/* ✅ THREE ACTION BUTTONS - EXACTLY LIKE PURCHASE ORDER */}
+                                            <div className="flex items-center space-x-3">
+                                                {/* Eye Icon - View Details Modal */}
+                                                <button
+                                                    onClick={() => handleViewDCDetail(record._id)}
+                                                    className="text-indigo-600 hover:text-indigo-900 transition-colors"
+                                                    title="View Details"
+                                                >
+                                                    <FaEye size={18} />
+                                                </button>
+                                                
+                                                {/* Red PDF Icon - Direct Download */}
+                                                <button
+                                                    onClick={() => handleDownloadPDF(record.dc_no)}
+                                                    className="text-red-600 hover:text-red-900 transition-colors"
+                                                    title="Download PDF"
+                                                >
+                                                    <FaFilePdf size={18} />
+                                                </button>
+                                                
+                                                {/* Green Print Icon - Direct Print Preview */}
+                                                <button
+                                                    onClick={() => handlePrintPDF(record.dc_no)}
+                                                    className="text-green-600 hover:text-green-900 transition-colors"
+                                                    title="Print PDF"
+                                                >
+                                                    <FaPrint size={18} />
+                                                </button>
+                                            </div>
                                         </td>
                                     </tr>
                                 ))
-
                             )}
                         </tbody>
                     </table>

@@ -326,7 +326,17 @@ const createFGInvoice = async (req, res) => {
             dispatchFrom: dispatchFrom || null,
             noOfPackages: noOfPackages || null,
             transportName: transportName || buyer.transportName || null,
-            termsOfPayment: termsOfPayment || buyer.paymentTerms || null,
+            // Map buyer payment terms to invoice terms
+            termsOfPayment: (() => {
+                if (termsOfPayment) return termsOfPayment; // Use explicitly provided terms
+                // Map buyer's paymentTerms to invoice terms
+                if (buyer.paymentTerms === 'Net 15' || buyer.paymentTerms === 'Net 30') {
+                    return 'Credit';
+                } else if (buyer.paymentTerms === 'Advance') {
+                    return 'Advance';
+                }
+                return null;
+            })(),
             destination: destination || buyer.destination || null,
             poNoDate: poNoDate || null,
             deliveryChallanNoDate: deliveryChallanNoDate || null,
@@ -507,7 +517,16 @@ const updateFGInvoice = async (req, res) => {
         if (dispatchFrom !== undefined) invoice.dispatchFrom = dispatchFrom;
         if (noOfPackages !== undefined) invoice.noOfPackages = noOfPackages;
         if (transportName !== undefined) invoice.transportName = transportName;
-        if (termsOfPayment !== undefined) invoice.termsOfPayment = termsOfPayment;
+        if (termsOfPayment !== undefined) {
+            invoice.termsOfPayment = termsOfPayment;
+        } else if (buyer && buyer.paymentTerms !== undefined) {
+            // Map buyer payment terms to invoice terms if not explicitly provided
+            if (buyer.paymentTerms === 'Net 15' || buyer.paymentTerms === 'Net 30') {
+                invoice.termsOfPayment = 'Credit';
+            } else if (buyer.paymentTerms === 'Advance') {
+                invoice.termsOfPayment = 'Advance';
+            }
+        }
         if (destination !== undefined) invoice.destination = destination;
         if (poNoDate !== undefined) invoice.poNoDate = poNoDate;
         if (deliveryChallanNoDate !== undefined) invoice.deliveryChallanNoDate = deliveryChallanNoDate;

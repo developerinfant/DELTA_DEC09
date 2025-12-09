@@ -29,7 +29,8 @@ const Modal = ({ isOpen, onClose, title, children, size = 'default' }) => {
         <>
             {/* Modal Overlay: covers the entire screen */}
             <div 
-                className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 flex justify-center items-center modal-backdrop animate-fadeIn p-4"
+                className="fixed inset-0 bg-black/35 backdrop-blur-sm z-40 flex justify-center items-center modal-backdrop animate-fadeIn p-4"
+                style={{ backdropFilter: 'blur(6px)' }} // Custom blur effect as requested
                 onClick={onClose} // Close modal when clicking on the overlay
             >
                 {/* Modal Content Panel - Apple Style */}

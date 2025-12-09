@@ -1,0 +1,241 @@
+/* Global Theme File for Delta IMS */
+:root {
+  /* Color Palette */
+  --background-primary: #FAF7F2; /* Warm cream background */
+  --card-background: #FFFFFF; /* Card background */
+  --primary-accent: #F2C94C; /* Premium yellow-gold */
+  --secondary-accent: #6A7F3F; /* Olive green */
+  --text-primary: #1A1A1A; /* Section headers */
+  --text-muted: #6D6A62; /* Muted text */
+  --border-color: #E7E2D8; /* Soft borders */
+  --danger: #D9534F; /* Danger/Alert color */
+  --success: #28a745; /* Success color */
+  --warning: #ffc107; /* Warning color */
+  --info: #17a2b8; /* Info color */
+
+  /* Spacing System */
+  --spacing-xs: 8px;
+  --spacing-sm: 12px;
+  --spacing-md: 16px;
+  --spacing-lg: 20px;
+  --spacing-xl: 24px;
+  --spacing-2xl: 32px;
+  --spacing-3xl: 40px;
+
+  /* Border Radius */
+  --radius-sm: 12px;
+  --radius-md: 14px;
+  --radius-lg: 16px;
+  --radius-xl: 20px;
+
+  /* Shadows */
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.08);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.12);
+
+  /* Typography */
+  --font-family-base: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+  --font-size-xs: 12px;
+  --font-size-sm: 14px;
+  --font-size-base: 16px;
+  --font-size-lg: 18px;
+  --font-size-xl: 20px;
+  --font-size-2xl: 24px;
+  --font-size-3xl: 30px;
+  --font-size-4xl: 36px;
+  
+  --font-weight-regular: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+
+  /* Transitions */
+  --transition-fast: 0.2s ease-in-out;
+  --transition-normal: 0.3s ease-in-out;
+  --transition-slow: 0.5s ease-in-out;
+
+  /* Z-index layers */
+  --z-dropdown: 1000;
+  --z-sticky: 1020;
+  --z-fixed: 1030;
+  --z-modal-backdrop: 1040;
+  --z-modal: 1050;
+  --z-popover: 1060;
+  --z-tooltip: 1070;
+}
+
+/* Utility Classes */
+.bg-primary-bg { background-color: var(--background-primary); }
+.bg-card { background-color: var(--card-background); }
+.text-primary { color: var(--text-primary); }
+.text-muted { color: var(--text-muted); }
+.text-accent { color: var(--primary-accent); }
+.text-secondary { color: var(--secondary-accent); }
+.border-soft { border-color: var(--border-color); }
+
+/* Card Styles */
+.card-themed {
+  background-color: var(--card-background);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+  border: 1px solid var(--border-color);
+  padding: var(--spacing-xl);
+  transition: all var(--transition-normal);
+}
+
+.card-themed:hover {
+  box-shadow: var(--shadow-lg);
+  transform: translateY(-2px);
+}
+
+/* Button Styles */
+.btn-primary-themed {
+  background-color: var(--primary-accent);
+  color: var(--text-primary);
+  border: none;
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-sm) var(--spacing-lg);
+  font-weight: var(--font-weight-semibold);
+  transition: all var(--transition-fast);
+  cursor: pointer;
+}
+
+.btn-primary-themed:hover {
+  background-color: #e0b840; /* Slightly darker shade */
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+}
+
+.btn-secondary-themed {
+  background-color: var(--secondary-accent);
+  color: white;
+  border: none;
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-sm) var(--spacing-lg);
+  font-weight: var(--font-weight-semibold);
+  transition: all var(--transition-fast);
+  cursor: pointer;
+}
+
+.btn-secondary-themed:hover {
+  background-color: #5a6d35; /* Slightly darker shade */
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+}
+
+.btn-outline-themed {
+  background-color: transparent;
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-sm) var(--spacing-lg);
+  font-weight: var(--font-weight-medium);
+  transition: all var(--transition-fast);
+  cursor: pointer;
+}
+
+.btn-outline-themed:hover {
+  border-color: var(--primary-accent);
+  background-color: var(--background-primary);
+  color: var(--text-primary);
+}
+
+/* Form Elements */
+.input-themed {
+  background-color: var(--card-background);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: var(--spacing-md);
+  color: var(--text-primary);
+  font-size: var(--font-size-base);
+  transition: all var(--transition-fast);
+}
+
+.input-themed:focus {
+  outline: none;
+  border-color: var(--primary-accent);
+  box-shadow: 0 0 0 3px rgba(242, 201, 76, 0.2);
+}
+
+/* Table Styles */
+.table-themed {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  background-color: var(--card-background);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+}
+
+.table-themed th {
+  background-color: var(--background-primary);
+  color: var(--text-primary);
+  font-weight: var(--font-weight-semibold);
+  text-align: left;
+  padding: var(--spacing-lg);
+  font-size: var(--font-size-sm);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.table-themed td {
+  padding: var(--spacing-lg);
+  border-bottom: 1px solid var(--border-color);
+  color: var(--text-primary);
+}
+
+.table-themed tr:last-child td {
+  border-bottom: none;
+}
+
+.table-themed tr:hover td {
+  background-color: rgba(242, 201, 76, 0.05);
+}
+
+/* Alert Styles */
+.alert-themed {
+  padding: var(--spacing-lg);
+  border-radius: var(--radius-md);
+  margin-bottom: var(--spacing-lg);
+  border: 1px solid var(--border-color);
+  background-color: var(--card-background);
+  box-shadow: var(--shadow-sm);
+}
+
+.alert-danger-themed {
+  border-left: 4px solid var(--danger);
+  background-color: rgba(217, 83, 79, 0.05);
+}
+
+.alert-success-themed {
+  border-left: 4px solid var(--success);
+  background-color: rgba(40, 167, 69, 0.05);
+}
+
+.alert-warning-themed {
+  border-left: 4px solid var(--warning);
+  background-color: rgba(255, 193, 7, 0.05);
+}
+
+/* Badge Styles */
+.badge-themed {
+  display: inline-block;
+  padding: var(--spacing-xs) var(--spacing-sm);
+  border-radius: var(--radius-lg);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  text-align: center;
+  white-space: nowrap;
+  vertical-align: baseline;
+}
+
+.badge-primary-themed {
+  background-color: var(--primary-accent);
+  color: var(--text-primary);
+}
+
+.badge-secondary-themed {
+  background-color: var(--secondary-accent);
+  color: white;
+}

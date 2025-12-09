@@ -1,11 +1,11 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import api from '../../api';
-import { FaSpinner, FaBox, FaIndustry, FaUser, FaMoneyBill, FaRedo, FaSearch, FaArrowLeft, FaClipboardList, FaCheck, FaTimes, FaTruck } from 'react-icons/fa';
+import { FaSpinner, FaBox, FaIndustry, FaUser, FaMoneyBill, FaRedo, FaSearch, FaArrowLeft, FaClipboardList, FaCheck, FaTimes, FaTruck, FaCog, FaDownload, FaCalendar } from 'react-icons/fa';
 import StockSummaryCard from '../../components/StockSummaryCard';
+import Modal from '../../components/common/Modal';
+import * as XLSX from 'xlsx';
 import io from 'socket.io-client';
 import { toast } from 'react-toastify';
-import PackingMaterialStockReport from '../../components/PackingMaterialStockReport';
-import StockCaptureConfig from '../../components/StockCaptureConfig';
 
 const MaterialStockReport = () => {
   const [materialStocks, setMaterialStocks] = useState([]);
@@ -18,6 +18,9 @@ const MaterialStockReport = () => {
   const [materialRequests, setMaterialRequests] = useState([]);
   const [requestsLoading, setRequestsLoading] = useState(false);
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]); // Default to today
+  const [isConfigModalOpen, setIsConfigModalOpen] = useState(false);
+  const [config, setConfig] = useState({ openingTime: '09:00', closingTime: '21:00' });
+  const [newConfig, setNewConfig] = useState({ openingTime: '09:00', closingTime: '21:00' });
 
   // Fetch data
   const fetchData = async () => {
@@ -57,6 +60,20 @@ const MaterialStockReport = () => {
   useEffect(() => {
     fetchData();
     
+    // Fetch stock configuration
+    const fetchConfig = async () => {
+      try {
+        const response = await api.get('/packing/stock-config');
+        setConfig(response.data);
+        setNewConfig(response.data);
+      } catch (err) {
+        console.error('Error fetching stock configuration:', err);
+        toast.error('Failed to load stock configuration');
+      }
+    };
+    
+    fetchConfig();
+    
     // Initialize socket connection
     const newSocket = io();
     setSocket(newSocket);
@@ -64,6 +81,12 @@ const MaterialStockReport = () => {
     // Listen for DC creation events
     newSocket.on('dcCreated', (data) => {
       console.log('DC created, refreshing material stock report...', data);
+      fetchData();
+    });
+    
+    // Listen for DC update events
+    newSocket.on('dcUpdated', (data) => {
+      console.log('DC updated, refreshing material stock report...', data);
       fetchData();
     });
     
@@ -84,6 +107,22 @@ const MaterialStockReport = () => {
   const handleItemClick = (item) => {
     // In a real implementation, this would open a modal or navigate to a detail page
     console.log('View details for:', item);
+  };
+
+  // Handle saving stock configuration
+  const handleSaveConfig = async () => {
+    try {
+      await api.post('/packing/configure-stock-times', {
+        openingTime: newConfig.openingTime,
+        closingTime: newConfig.closingTime
+      });
+      setConfig(newConfig);
+      setIsConfigModalOpen(false);
+      toast.success('Configuration saved successfully!');
+    } catch (err) {
+      console.error('Error saving stock configuration:', err);
+      toast.error('Failed to save configuration');
+    }
   };
 
   // Filter materials by search term
@@ -115,16 +154,16 @@ const MaterialStockReport = () => {
 
   if (isLoading) {
     return (
-      <div className="flex justify-center items-center h-64">
-        <FaSpinner className="animate-spin text-indigo-600" size={48} />
-        <span className="ml-4 text-lg text-gray-600">Loading material stock report...</span>
+      <div className="flex justify-center items-center h-64 bg-[#FAF7F2]">
+        <FaSpinner className="animate-spin text-[#F2C94C]" size={48} />
+        <span className="ml-4 text-lg text-[#6D6A62]">Loading material stock report...</span>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="p-4 bg-red-100 text-red-700 rounded-md alert alert-error shadow-md">
+      <div className="p-4 bg-red-50 border-l-4 border-red-500 text-red-700 rounded-md alert alert-error shadow-md">
         <div className="flex items-center">
           <svg className="h-5 w-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
             <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
@@ -133,7 +172,7 @@ const MaterialStockReport = () => {
         </div>
         <button 
           onClick={fetchData}
-          className="mt-2 px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors"
+          className="mt-2 px-4 py-2 bg-[#F2C94C] text-[#1A1A1A] rounded-xl hover:bg-[#e0b840] transition-all shadow-sm hover:shadow-md font-semibold"
         >
           Retry
         </button>
@@ -164,32 +203,41 @@ const MaterialStockReport = () => {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 bg-[#FAF7F2] p-4 md:p-6">
       <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4">
-        <h1 className="text-3xl font-bold text-gray-800">Packing Materials Stock Report</h1>
-        <button 
-          onClick={fetchData}
-          className="flex items-center px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors self-end md:self-auto shadow-md hover:shadow-lg"
-        >
-          <FaRedo className="mr-2" />
-          Sync Now
-        </button>
+        <h1 className="text-3xl font-bold text-[#1A1A1A]">Packing Materials Stock Report</h1>
+        <div className="flex space-x-2">
+          <button 
+            onClick={fetchData}
+            className="flex items-center px-4 py-2 bg-[#F2C94C] text-[#1A1A1A] rounded-xl hover:bg-[#e0b840] transition-all shadow-sm hover:shadow-md font-semibold"
+          >
+            <FaRedo className="mr-2" />
+            Sync Now
+          </button>
+          <button 
+            onClick={() => setIsConfigModalOpen(true)}
+            className="flex items-center px-4 py-2 bg-[#6A7F3F] text-white rounded-xl hover:bg-[#5a6d35] transition-all shadow-sm hover:shadow-md font-semibold"
+          >
+            <FaCog className="mr-2" />
+            Configure Times
+          </button>
+        </div>
       </div>
       
       {/* Date Filter */}
-      <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200">
+      <div className="bg-white p-4 rounded-xl shadow-sm border border-[#E7E2D8]">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div className="flex items-center">
-            <label htmlFor="dateFilter" className="mr-2 text-gray-700 font-medium">Date:</label>
+            <label htmlFor="dateFilter" className="mr-2 text-[#1A1A1A] font-medium">Date:</label>
             <input
               type="date"
               id="dateFilter"
               value={selectedDate}
               onChange={(e) => setSelectedDate(e.target.value)}
-              className="border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500"
+              className="border border-[#E7E2D8] rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-[#F2C94C] focus:border-[#F2C94C] bg-white text-[#1A1A1A]"
             />
           </div>
-          <div className="text-sm text-gray-500">
+          <div className="text-sm text-[#6D6A62]">
             Report for: {new Date(selectedDate).toLocaleDateString('en-IN', {
               day: '2-digit',
               month: 'short',
@@ -203,42 +251,30 @@ const MaterialStockReport = () => {
       <div className="flex space-x-4 mb-6">
         <button
           onClick={() => setActiveView('job')}
-          className={`px-6 py-3 rounded-lg font-medium transition-colors ${activeView === 'job' ? 'bg-blue-600 text-white shadow-md' : 'bg-white text-blue-600 border border-blue-200 hover:bg-blue-50'}`}
+          className={`px-6 py-3 rounded-xl font-semibold transition-all ${activeView === 'job' ? 'bg-[#F2C94C] text-[#1A1A1A] shadow-md' : 'bg-white text-[#1A1A1A] border border-[#E7E2D8] hover:bg-[#FAF7F2]'}`}
         >
           Job Stock Report
         </button>
         <button
           onClick={() => setActiveView('ownUnit')}
-          className={`px-6 py-3 rounded-lg font-medium transition-colors ${activeView === 'ownUnit' ? 'bg-green-600 text-white shadow-md' : 'bg-white text-green-600 border border-green-200 hover:bg-green-50'}`}
+          className={`px-6 py-3 rounded-xl font-semibold transition-all ${activeView === 'ownUnit' ? 'bg-[#F2C94C] text-[#1A1A1A] shadow-md' : 'bg-white text-[#1A1A1A] border border-[#E7E2D8] hover:bg-[#FAF7F2]'}`}
         >
           Own Unit Report
         </button>
         <button
           onClick={() => setActiveView('materialRequests')}
-          className={`px-6 py-3 rounded-lg font-medium transition-colors ${activeView === 'materialRequests' ? 'bg-purple-600 text-white shadow-md' : 'bg-white text-purple-600 border border-purple-200 hover:bg-purple-50'}`}
+          className={`px-6 py-3 rounded-xl font-semibold transition-all ${activeView === 'materialRequests' ? 'bg-[#F2C94C] text-[#1A1A1A] shadow-md' : 'bg-white text-[#1A1A1A] border border-[#E7E2D8] hover:bg-[#FAF7F2]'}`}
         >
           Material Requests
-        </button>
-        <button
-          onClick={() => setActiveView('openingClosing')}
-          className={`px-6 py-3 rounded-lg font-medium transition-colors ${activeView === 'openingClosing' ? 'bg-indigo-600 text-white shadow-md' : 'bg-white text-indigo-600 border border-indigo-200 hover:bg-indigo-50'}`}
-        >
-          Opening/Closing Report
-        </button>
-        <button
-          onClick={() => setActiveView('config')}
-          className={`px-6 py-3 rounded-lg font-medium transition-colors ${activeView === 'config' ? 'bg-yellow-600 text-white shadow-md' : 'bg-white text-yellow-600 border border-yellow-200 hover:bg-yellow-50'}`}
-        >
-          Configuration
         </button>
       </div>
       
       {activeView === '' && (
-        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-4 border border-blue-100 shadow-sm">
-          <p className="text-gray-600 text-sm">
+        <div className="bg-[#FAF7F2] rounded-xl p-4 border border-[#E7E2D8] shadow-sm">
+          <p className="text-[#6D6A62] text-sm">
             Real-time tracking of packing material stock movements between PM Store, Own Unit WIP, and Job work WIP based on created Delivery Challans.
           </p>
-          <p className="text-gray-600 text-sm mt-2">
+          <p className="text-[#6D6A62] text-sm mt-2">
             Select "Job Stock Report" or "Own Unit Report" to view detailed delivery information.
           </p>
         </div>
@@ -251,57 +287,62 @@ const MaterialStockReport = () => {
             title="Total Materials" 
             value={summaryTotals.totalMaterials} 
             icon={FaBox} 
-            bgColor="bg-gradient-to-r from-indigo-500 to-indigo-600" 
-            textColor="text-white"
+            bgColor="bg-white" 
+            textColor="text-[#1A1A1A]"
             tooltip="Total number of packing materials"
+            className="rounded-xl border border-[#E7E2D8] shadow-sm hover:shadow-md transition-all"
           />
           <StockSummaryCard 
             title="PM Store" 
             value={summaryTotals.ourStock} 
             icon={FaBox} 
-            bgColor="bg-gradient-to-r from-teal-500 to-teal-600" 
-            textColor="text-white"
+            bgColor="bg-white" 
+            textColor="text-[#1A1A1A]"
             tooltip="Current available quantity in factory store"
+            className="rounded-xl border border-[#E7E2D8] shadow-sm hover:shadow-md transition-all"
           />
           <StockSummaryCard 
             title="Own Unit WIP" 
             value={summaryTotals.ownUnitStock} 
             icon={FaIndustry} 
-            bgColor="bg-gradient-to-r from-blue-500 to-blue-600" 
-            textColor="text-white"
+            bgColor="bg-white" 
+            textColor="text-[#1A1A1A]"
             tooltip="Work in progress issued to Own Unit via DC"
+            className="rounded-xl border border-[#E7E2D8] shadow-sm hover:shadow-md transition-all"
           />
           <StockSummaryCard 
             title="Job work WIP" 
             value={summaryTotals.jobberStock} 
             icon={FaUser} 
-            bgColor="bg-gradient-to-r from-green-500 to-green-600" 
-            textColor="text-white"
+            bgColor="bg-white" 
+            textColor="text-[#1A1A1A]"
             tooltip="Work in progress issued to Jobber via DC"
+            className="rounded-xl border border-[#E7E2D8] shadow-sm hover:shadow-md transition-all"
           />
           <StockSummaryCard 
             title="Total Material Value" 
             value={formatCurrency(summaryTotals.totalValue)} 
             icon={FaMoneyBill} 
-            bgColor="bg-gradient-to-r from-purple-500 to-purple-600" 
-            textColor="text-white"
+            bgColor="bg-white" 
+            textColor="text-[#1A1A1A]"
             tooltip="Total value of all materials"
+            className="rounded-xl border border-[#E7E2D8] shadow-sm hover:shadow-md transition-all"
           />
         </div>
       )}
       
       {/* Search Bar */}
       {activeView !== '' && (
-        <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200">
+        <div className="bg-white p-4 rounded-xl shadow-sm border border-[#E7E2D8]">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
             <div className="relative flex-1 max-w-md">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <FaSearch className="text-gray-400" />
+                <FaSearch className="text-[#6D6A62]" />
               </div>
               <input
                 type="text"
                 placeholder="Search..."
-                className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 shadow-sm"
+                className="block w-full pl-10 pr-3 py-2 border border-[#E7E2D8] rounded-lg leading-5 bg-white placeholder-[#6D6A62] focus:outline-none focus:placeholder-[#1A1A1A] focus:ring-1 focus:ring-[#F2C94C] focus:border-[#F2C94C] shadow-sm"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
@@ -330,41 +371,81 @@ const MaterialStockReport = () => {
         />
       )}
       
-      {/* Opening/Closing Stock Report */}
-      {activeView === 'openingClosing' && (
-        <PackingMaterialStockReport />
-      )}
-      
-      {/* Stock Capture Configuration */}
-      {activeView === 'config' && (
-        <StockCaptureConfig />
-      )}
-      
       {/* Material Stock Table (default view) */}
       {activeView === '' && (
-        <div className="bg-white rounded-xl shadow-md border border-gray-200 overflow-hidden">
+        <div className="bg-white rounded-xl shadow-sm border border-[#E7E2D8] overflow-hidden">
+          {/* Configuration Modal - Updated to use shared Modal component */}
+          <Modal 
+            isOpen={isConfigModalOpen} 
+            onClose={() => setIsConfigModalOpen(false)} 
+            title="Configure Stock Capture Times"
+          >
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-[#1A1A1A] mb-1">
+                  Opening Stock Capture Time
+                </label>
+                <input
+                  type="time"
+                  value={newConfig.openingTime}
+                  onChange={(e) => setNewConfig({...newConfig, openingTime: e.target.value})}
+                  className="block w-full border border-[#E7E2D8] rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-[#F2C94C] focus:border-[#F2C94C] bg-white text-[#1A1A1A]"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-[#1A1A1A] mb-1">
+                  Closing Stock Capture Time
+                </label>
+                <input
+                  type="time"
+                  value={newConfig.closingTime}
+                  onChange={(e) => setNewConfig({...newConfig, closingTime: e.target.value})}
+                  className="block w-full border border-[#E7E2D8] rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-[#F2C94C] focus:border-[#F2C94C] bg-white text-[#1A1A1A]"
+                />
+              </div>
+            </div>
+            
+            <div className="mt-6 flex justify-end space-x-3">
+              <button
+                onClick={() => setIsConfigModalOpen(false)}
+                className="px-4 py-2 border border-[#E7E2D8] rounded-xl text-sm font-medium text-[#1A1A1A] hover:bg-[#FAF7F2]"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSaveConfig}
+                className="px-4 py-2 bg-[#F2C94C] text-[#1A1A1A] rounded-xl text-sm font-medium hover:bg-[#e0b840]"
+              >
+                Save
+              </button>
+            </div>
+          </Modal>
+          
           <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-100">
+            <table className="min-w-full divide-y divide-[#E7E2D8]">
+              <thead className="bg-[#FAF7F2]">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-red-600 uppercase tracking-wider" style={{ width: '25%' }}>Material Name</th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-red-600 uppercase tracking-wider">Opening Stock</th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-red-600 uppercase tracking-wider">PM Store</th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-red-600 uppercase tracking-wider">PM Value (₹)</th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-red-600 uppercase tracking-wider">Own Unit WIP</th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-red-600 uppercase tracking-wider">Own Unit WIP Value (₹)</th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-red-600 uppercase tracking-wider">Job work WIP</th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-red-600 uppercase tracking-wider">Job work WIP Value (₹)</th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-red-600 uppercase tracking-wider">Closing Stock</th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-red-600 uppercase tracking-wider">Total Qty</th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-red-600 uppercase tracking-wider">Total Value (₹)</th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-red-600 uppercase tracking-wider">Last Updated</th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-[#1A1A1A] uppercase tracking-wider" style={{ width: '25%' }}>Material Name</th>
+                  <th className="px-6 py-3 text-right text-xs font-semibold text-[#1A1A1A] uppercase tracking-wider">Opening Stock</th>
+                  <th className="px-6 py-3 text-right text-xs font-semibold text-[#1A1A1A] uppercase tracking-wider">Inward (GRN)</th>
+                  <th className="px-6 py-3 text-right text-xs font-semibold text-[#1A1A1A] uppercase tracking-wider">Outward (DC)</th>
+                  <th className="px-6 py-3 text-right text-xs font-semibold text-[#1A1A1A] uppercase tracking-wider">PM Store</th>
+                  <th className="px-6 py-3 text-right text-xs font-semibold text-[#1A1A1A] uppercase tracking-wider">PM Value (₹)</th>
+                  <th className="px-6 py-3 text-right text-xs font-semibold text-[#1A1A1A] uppercase tracking-wider">Own Unit WIP</th>
+                  <th className="px-6 py-3 text-right text-xs font-semibold text-[#1A1A1A] uppercase tracking-wider">Own Unit WIP Value (₹)</th>
+                  <th className="px-6 py-3 text-right text-xs font-semibold text-[#1A1A1A] uppercase tracking-wider">Job work WIP</th>
+                  <th className="px-6 py-3 text-right text-xs font-semibold text-[#1A1A1A] uppercase tracking-wider">Job work WIP Value (₹)</th>
+                  <th className="px-6 py-3 text-right text-xs font-semibold text-[#1A1A1A] uppercase tracking-wider">Closing Stock</th>
+                  <th className="px-6 py-3 text-right text-xs font-semibold text-[#1A1A1A] uppercase tracking-wider">Total Qty</th>
+                  <th className="px-6 py-3 text-right text-xs font-semibold text-[#1A1A1A] uppercase tracking-wider">Total Value (₹)</th>
+                  <th className="px-6 py-3 text-right text-xs font-semibold text-[#1A1A1A] uppercase tracking-wider">Last Updated</th>
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
+              <tbody className="bg-white divide-y divide-[#E7E2D8]">
                 {filteredMaterials.length === 0 ? (
                   <tr>
-                    <td colSpan="12" className="px-6 py-4 text-center text-gray-500">
+                    <td colSpan="12" className="px-6 py-4 text-center text-[#6D6A62]">
                       No materials found.
                     </td>
                   </tr>
@@ -372,44 +453,50 @@ const MaterialStockReport = () => {
                   filteredMaterials.map((material, index) => (
                     <tr 
                       key={material.materialName} 
-                      className={index % 2 === 0 ? 'bg-white hover:bg-blue-50' : 'bg-gray-50 hover:bg-blue-50'}
+                      className={index % 2 === 0 ? 'bg-white hover:bg-[#FAF7F2]' : 'bg-[#FAF7F2] hover:bg-white'}
                     >
-                      <td className="px-6 py-4 text-sm font-medium text-gray-900 max-w-xs truncate" title={material.materialName}>
+                      <td className="px-6 py-4 text-sm font-medium text-[#1A1A1A] max-w-xs truncate" title={material.materialName}>
                         <div className="truncate" title={material.materialName}>
                           {material.materialName}
                         </div>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700 text-right font-medium">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-[#1A1A1A] text-right font-medium">
                         {material.openingStock} {material.unit || 'pcs'}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700 text-right font-medium">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-[#1A1A1A] text-right font-medium">
+                        {material.inward} {material.unit || 'pcs'}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-[#1A1A1A] text-right font-medium">
+                        {material.outward} {material.unit || 'pcs'}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-[#1A1A1A] text-right font-medium">
                         {material.ourStock} {material.unit || 'pcs'}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700 text-right font-medium">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-[#1A1A1A] text-right font-medium">
                         {formatCurrency(material.ourStockValue)}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700 text-right font-medium">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-[#1A1A1A] text-right font-medium">
                         {material.ownUnitStock} {material.unit || 'pcs'}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700 text-right font-medium">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-[#1A1A1A] text-right font-medium">
                         {formatCurrency(material.ownUnitValue)}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700 text-right font-medium">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-[#1A1A1A] text-right font-medium">
                         {material.jobberStock} {material.unit || 'pcs'}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700 text-right font-medium">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-[#1A1A1A] text-right font-medium">
                         {formatCurrency(material.jobberValue)}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700 text-right font-medium">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-[#1A1A1A] text-right font-medium">
                         {material.closingStock} {material.unit || 'pcs'}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-right font-bold">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-[#1A1A1A] text-right font-bold">
                         {material.totalQty} {material.unit || 'pcs'}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-right font-bold">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-[#1A1A1A] text-right font-bold">
                         {formatCurrency(material.totalValue)}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-right">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-[#6D6A62] text-right">
                         {formatDate(material.lastUpdated)}
                       </td>
                     </tr>
@@ -418,11 +505,11 @@ const MaterialStockReport = () => {
               </tbody>
             </table>
           </div>
-          <div className="px-6 py-3 bg-gray-50 border-t border-gray-200 flex items-center justify-between">
-            <div className="text-sm text-gray-700">
+          <div className="px-6 py-3 bg-[#FAF7F2] border-t border-[#E7E2D8] flex items-center justify-between">
+            <div className="text-sm text-[#1A1A1A]">
               Showing {filteredMaterials.length} of {materialStocks.length} materials
             </div>
-            <div className="text-sm text-gray-500">
+            <div className="text-sm text-[#6D6A62]">
               Total Items: {materialStocks.length}
             </div>
           </div>
@@ -516,11 +603,11 @@ const JobStockReport = ({ deliveryChallans, onBack }) => {
   const [selectedJobber, setSelectedJobber] = useState(null);
   
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 bg-[#FAF7F2] p-4 md:p-6">
       {/* Back Button */}
       <button 
         onClick={onBack}
-        className="flex items-center px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 transition-colors"
+        className="flex items-center px-4 py-2 bg-[#6A7F3F] text-white rounded-xl hover:bg-[#5a6d35] transition-all shadow-sm hover:shadow-md font-semibold"
       >
         <FaArrowLeft className="mr-2" />
         ← Back to Stock Report
@@ -529,16 +616,16 @@ const JobStockReport = ({ deliveryChallans, onBack }) => {
       {!selectedJobber ? (
         <div className="space-y-4">
           {/* Search Bar */}
-          <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200">
+          <div className="bg-white p-4 rounded-xl shadow-sm border border-[#E7E2D8]">
             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
               <div className="relative flex-1 max-w-md">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <FaSearch className="text-gray-400" />
+                  <FaSearch className="text-[#6D6A62]" />
                 </div>
                 <input
                   type="text"
                   placeholder="Search by jobber name, DC number, or material..."
-                  className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 shadow-sm"
+                  className="block w-full pl-10 pr-3 py-2 border border-[#E7E2D8] rounded-lg leading-5 bg-white placeholder-[#6D6A62] focus:outline-none focus:placeholder-[#1A1A1A] focus:ring-1 focus:ring-[#F2C94C] focus:border-[#F2C94C] shadow-sm"
                   value={searchTerm}
                   onChange={(e) => {
                     setSearchTerm(e.target.value);
@@ -549,22 +636,22 @@ const JobStockReport = ({ deliveryChallans, onBack }) => {
             </div>
           </div>
           
-          <div className="bg-white rounded-xl shadow-md border border-gray-200 overflow-hidden">
+          <div className="bg-white rounded-xl shadow-sm border border-[#E7E2D8] overflow-hidden">
             <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-100">
+              <table className="min-w-full divide-y divide-[#E7E2D8]">
+                <thead className="bg-[#FAF7F2]">
                   <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-red-600 uppercase tracking-wider">Jobber Name</th>
-                    <th className="px-6 py-3 text-right text-xs font-medium text-red-600 uppercase tracking-wider">Total DC Sent</th>
-                    <th className="px-6 py-3 text-right text-xs font-medium text-red-600 uppercase tracking-wider">Total Material Qty</th>
-                    <th className="px-6 py-3 text-right text-xs font-medium text-red-600 uppercase tracking-wider">Total Carton Qty</th>
-                    <th className="px-6 py-3 text-right text-xs font-medium text-red-600 uppercase tracking-wider">View Details</th>
+                    <th className="px-6 py-3 text-left text-xs font-semibold text-[#1A1A1A] uppercase tracking-wider">Jobber Name</th>
+                    <th className="px-6 py-3 text-right text-xs font-semibold text-[#1A1A1A] uppercase tracking-wider">Total DC Sent</th>
+                    <th className="px-6 py-3 text-right text-xs font-semibold text-[#1A1A1A] uppercase tracking-wider">Total Material Qty</th>
+                    <th className="px-6 py-3 text-right text-xs font-semibold text-[#1A1A1A] uppercase tracking-wider">Total Carton Qty</th>
+                    <th className="px-6 py-3 text-right text-xs font-semibold text-[#1A1A1A] uppercase tracking-wider">View Details</th>
                   </tr>
                 </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
+                <tbody className="bg-white divide-y divide-[#E7E2D8]">
                   {paginatedJobberList.length === 0 ? (
                     <tr>
-                      <td colSpan="5" className="px-6 py-4 text-center text-gray-500">
+                      <td colSpan="5" className="px-6 py-4 text-center text-[#6D6A62]">
                         No jobber delivery challans found.
                       </td>
                     </tr>
@@ -572,24 +659,24 @@ const JobStockReport = ({ deliveryChallans, onBack }) => {
                     paginatedJobberList.map((jobber, index) => (
                       <tr 
                         key={jobber.jobberName} 
-                        className={index % 2 === 0 ? 'bg-white hover:bg-blue-50' : 'bg-gray-50 hover:bg-blue-50'}
+                        className={index % 2 === 0 ? 'bg-white hover:bg-[#FAF7F2]' : 'bg-[#FAF7F2] hover:bg-white'}
                       >
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-[#1A1A1A]">
                           {jobber.jobberName}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700 text-right font-medium">
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-[#1A1A1A] text-right font-medium">
                           {jobber.totalDCs}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700 text-right font-medium">
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-[#1A1A1A] text-right font-medium">
                           {jobber.totalMaterialQty}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700 text-right font-medium">
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-[#1A1A1A] text-right font-medium">
                           {jobber.totalCartonQty}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-right">
                           <button 
                             onClick={() => setSelectedJobber(jobber)}
-                            className="text-blue-600 hover:text-blue-900 font-medium"
+                            className="text-[#F2C94C] hover:text-[#1A1A1A] font-semibold"
                           >
                             View Details
                           </button>
@@ -603,25 +690,25 @@ const JobStockReport = ({ deliveryChallans, onBack }) => {
             
             {/* Pagination */}
             {totalPages > 1 && (
-              <div className="px-6 py-3 bg-gray-50 border-t border-gray-200 flex items-center justify-between">
-                <div className="text-sm text-gray-700">
+              <div className="px-6 py-3 bg-[#FAF7F2] border-t border-[#E7E2D8] flex items-center justify-between">
+                <div className="text-sm text-[#1A1A1A]">
                   Showing {startIndex + 1} to {Math.min(startIndex + itemsPerPage, jobberList.length)} of {jobberList.length} jobbers
                 </div>
                 <div className="flex space-x-2">
                   <button
                     onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
                     disabled={currentPage === 1}
-                    className={`px-3 py-1 rounded-md ${currentPage === 1 ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'}`}
+                    className={`px-3 py-1 rounded-lg ${currentPage === 1 ? 'bg-[#FAF7F2] text-[#6D6A62] cursor-not-allowed' : 'bg-white text-[#1A1A1A] border border-[#E7E2D8] hover:bg-[#FAF7F2]'}`}
                   >
                     Previous
                   </button>
-                  <span className="px-3 py-1 text-gray-700">
+                  <span className="px-3 py-1 text-[#1A1A1A]">
                     Page {currentPage} of {totalPages}
                   </span>
                   <button
                     onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
                     disabled={currentPage === totalPages}
-                    className={`px-3 py-1 rounded-md ${currentPage === totalPages ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'}`}
+                    className={`px-3 py-1 rounded-lg ${currentPage === totalPages ? 'bg-[#FAF7F2] text-[#6D6A62] cursor-not-allowed' : 'bg-white text-[#1A1A1A] border border-[#E7E2D8] hover:bg-[#FAF7F2]'}`}
                   >
                     Next
                   </button>
@@ -634,32 +721,32 @@ const JobStockReport = ({ deliveryChallans, onBack }) => {
         <div className="space-y-4">
           <button 
             onClick={() => setSelectedJobber(null)}
-            className="flex items-center px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 transition-colors"
+            className="flex items-center px-4 py-2 bg-[#6A7F3F] text-white rounded-xl hover:bg-[#5a6d35] transition-all shadow-sm hover:shadow-md font-semibold"
           >
             <FaArrowLeft className="mr-2" />
             Back to Jobber Summary
           </button>
           
-          <div className="bg-white rounded-xl shadow-md border border-gray-200 overflow-hidden">
-            <div className="px-6 py-4 border-b border-gray-200">
-              <h3 className="text-lg font-medium text-gray-900">Delivery Challans for {selectedJobber.jobberName}</h3>
+          <div className="bg-white rounded-xl shadow-sm border border-[#E7E2D8] overflow-hidden">
+            <div className="px-6 py-4 border-b border-[#E7E2D8]">
+              <h3 className="text-lg font-medium text-[#1A1A1A]">Delivery Challans for {selectedJobber.jobberName}</h3>
             </div>
             <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-100">
+              <table className="min-w-full divide-y divide-[#E7E2D8]">
+                <thead className="bg-[#FAF7F2]">
                   <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-red-600 uppercase tracking-wider">DC No</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-red-600 uppercase tracking-wider">DC Date</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-red-600 uppercase tracking-wider" style={{ width: '25%' }}>Material Name</th>
-                    <th className="px-6 py-3 text-right text-xs font-medium text-red-600 uppercase tracking-wider">Qty</th>
-                    <th className="px-6 py-3 text-right text-xs font-medium text-red-600 uppercase tracking-wider">Carton Qty</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-red-600 uppercase tracking-wider">Status</th>
+                    <th className="px-6 py-3 text-left text-xs font-semibold text-[#1A1A1A] uppercase tracking-wider">DC No</th>
+                    <th className="px-6 py-3 text-left text-xs font-semibold text-[#1A1A1A] uppercase tracking-wider">DC Date</th>
+                    <th className="px-6 py-3 text-left text-xs font-semibold text-[#1A1A1A] uppercase tracking-wider" style={{ width: '25%' }}>Material Name</th>
+                    <th className="px-6 py-3 text-right text-xs font-semibold text-[#1A1A1A] uppercase tracking-wider">Qty</th>
+                    <th className="px-6 py-3 text-right text-xs font-semibold text-[#1A1A1A] uppercase tracking-wider">Carton Qty</th>
+                    <th className="px-6 py-3 text-left text-xs font-semibold text-[#1A1A1A] uppercase tracking-wider">Status</th>
                   </tr>
                 </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
+                <tbody className="bg-white divide-y divide-[#E7E2D8]">
                   {selectedJobber.dcs.length === 0 ? (
                     <tr>
-                      <td colSpan="6" className="px-6 py-4 text-center text-gray-500">
+                      <td colSpan="6" className="px-6 py-4 text-center text-[#6D6A62]">
                         No delivery challans found.
                       </td>
                     </tr>
@@ -669,23 +756,23 @@ const JobStockReport = ({ deliveryChallans, onBack }) => {
                         (product.materials || []).map((material, index) => (
                           <tr 
                             key={`${dc._id}-${index}`} 
-                            className={index % 2 === 0 ? 'bg-white hover:bg-blue-50' : 'bg-gray-50 hover:bg-blue-50'}
+                            className={index % 2 === 0 ? 'bg-white hover:bg-[#FAF7F2]' : 'bg-[#FAF7F2] hover:bg-white'}
                           >
-                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-[#1A1A1A]">
                               {dc.dc_no}
                             </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-[#1A1A1A]">
                               {formatDate(dc.date)}
                             </td>
-                            <td className="px-6 py-4 text-sm text-gray-700 max-w-xs truncate" title={material.material_name}>
+                            <td className="px-6 py-4 text-sm text-[#1A1A1A] max-w-xs truncate" title={material.material_name}>
                               <div className="truncate" title={material.material_name}>
                                 {material.material_name}
                               </div>
                             </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700 text-right font-medium">
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-[#1A1A1A] text-right font-medium">
                               {material.total_qty}
                             </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700 text-right font-medium">
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-[#1A1A1A] text-right font-medium">
                               {(dc.products || []).reduce((sum, product) => sum + (product.carton_qty || 0), 0)}
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm">
@@ -761,27 +848,27 @@ const OwnUnitReport = ({ deliveryChallans, onBack }) => {
   };
   
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 bg-[#FAF7F2] p-4 md:p-6">
       {/* Back Button */}
       <button 
         onClick={onBack}
-        className="flex items-center px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 transition-colors"
+        className="flex items-center px-4 py-2 bg-[#6A7F3F] text-white rounded-xl hover:bg-[#5a6d35] transition-all shadow-sm hover:shadow-md font-semibold"
       >
         <FaArrowLeft className="mr-2" />
         ← Back to Stock Report
       </button>
       
       {/* Search Bar */}
-      <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200">
+      <div className="bg-white p-4 rounded-xl shadow-sm border border-[#E7E2D8]">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div className="relative flex-1 max-w-md">
             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <FaSearch className="text-gray-400" />
+              <FaSearch className="text-[#6D6A62]" />
             </div>
             <input
               type="text"
               placeholder="Search by person name, DC number, or material..."
-              className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 shadow-sm"
+              className="block w-full pl-10 pr-3 py-2 border border-[#E7E2D8] rounded-lg leading-5 bg-white placeholder-[#6D6A62] focus:outline-none focus:placeholder-[#1A1A1A] focus:ring-1 focus:ring-[#F2C94C] focus:border-[#F2C94C] shadow-sm"
               value={searchTerm}
               onChange={(e) => {
                 setSearchTerm(e.target.value);
@@ -792,23 +879,23 @@ const OwnUnitReport = ({ deliveryChallans, onBack }) => {
         </div>
       </div>
       
-      <div className="bg-white rounded-xl shadow-md border border-gray-200 overflow-hidden">
+      <div className="bg-white rounded-xl shadow-sm border border-[#E7E2D8] overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-100">
+          <table className="min-w-full divide-y divide-[#E7E2D8]">
+            <thead className="bg-[#FAF7F2]">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-red-600 uppercase tracking-wider">Person / Unit Name</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-red-600 uppercase tracking-wider" style={{ width: '25%' }}>Material Name</th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-red-600 uppercase tracking-wider">Qty</th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-red-600 uppercase tracking-wider">Carton Qty</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-red-600 uppercase tracking-wider">Updated On</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-red-600 uppercase tracking-wider">Status</th>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-[#1A1A1A] uppercase tracking-wider">Person / Unit Name</th>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-[#1A1A1A] uppercase tracking-wider" style={{ width: '25%' }}>Material Name</th>
+                <th className="px-6 py-3 text-right text-xs font-semibold text-[#1A1A1A] uppercase tracking-wider">Qty</th>
+                <th className="px-6 py-3 text-right text-xs font-semibold text-[#1A1A1A] uppercase tracking-wider">Carton Qty</th>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-[#1A1A1A] uppercase tracking-wider">Updated On</th>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-[#1A1A1A] uppercase tracking-wider">Status</th>
               </tr>
             </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
+            <tbody className="bg-white divide-y divide-[#E7E2D8]">
               {paginatedOwnUnitData.length === 0 ? (
                 <tr>
-                  <td colSpan="6" className="px-6 py-4 text-center text-gray-500">
+                  <td colSpan="6" className="px-6 py-4 text-center text-[#6D6A62]">
                     No own unit delivery challans found.
                   </td>
                 </tr>
@@ -816,23 +903,23 @@ const OwnUnitReport = ({ deliveryChallans, onBack }) => {
                 paginatedOwnUnitData.map((item, index) => (
                   <tr 
                     key={`${item.dcId}-${index}`} 
-                    className={index % 2 === 0 ? 'bg-white hover:bg-blue-50' : 'bg-gray-50 hover:bg-blue-50'}
+                    className={index % 2 === 0 ? 'bg-white hover:bg-[#FAF7F2]' : 'bg-[#FAF7F2] hover:bg-white'}
                   >
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-[#1A1A1A]">
                       {item.personName}
                     </td>
-                    <td className="px-6 py-4 text-sm text-gray-700 max-w-xs truncate" title={item.materialName}>
+                    <td className="px-6 py-4 text-sm text-[#1A1A1A] max-w-xs truncate" title={item.materialName}>
                       <div className="truncate" title={item.materialName}>
                         {item.materialName}
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700 text-right font-medium">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-[#1A1A1A] text-right font-medium">
                       {item.qty}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700 text-right font-medium">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-[#1A1A1A] text-right font-medium">
                       {item.cartonQty}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-[#1A1A1A]">
                       {formatDate(item.updatedAt)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm">
@@ -852,25 +939,25 @@ const OwnUnitReport = ({ deliveryChallans, onBack }) => {
         
         {/* Pagination */}
         {totalPages > 1 && (
-          <div className="px-6 py-3 bg-gray-50 border-t border-gray-200 flex items-center justify-between">
-            <div className="text-sm text-gray-700">
+          <div className="px-6 py-3 bg-[#FAF7F2] border-t border-[#E7E2D8] flex items-center justify-between">
+            <div className="text-sm text-[#1A1A1A]">
               Showing {startIndex + 1} to {Math.min(startIndex + itemsPerPage, filteredOwnUnitData.length)} of {filteredOwnUnitData.length} records
             </div>
             <div className="flex space-x-2">
               <button
                 onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
                 disabled={currentPage === 1}
-                className={`px-3 py-1 rounded-md ${currentPage === 1 ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'}`}
+                className={`px-3 py-1 rounded-lg ${currentPage === 1 ? 'bg-[#FAF7F2] text-[#6D6A62] cursor-not-allowed' : 'bg-white text-[#1A1A1A] border border-[#E7E2D8] hover:bg-[#FAF7F2]'}`}
               >
                 Previous
               </button>
-              <span className="px-3 py-1 text-gray-700">
+              <span className="px-3 py-1 text-[#1A1A1A]">
                 Page {currentPage} of {totalPages}
               </span>
               <button
                 onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
                 disabled={currentPage === totalPages}
-                className={`px-3 py-1 rounded-md ${currentPage === totalPages ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'}`}
+                className={`px-3 py-1 rounded-lg ${currentPage === totalPages ? 'bg-[#FAF7F2] text-[#6D6A62] cursor-not-allowed' : 'bg-white text-[#1A1A1A] border border-[#E7E2D8] hover:bg-[#FAF7F2]'}`}
               >
                 Next
               </button>
@@ -917,27 +1004,27 @@ const MaterialRequestsView = ({ requests, loading, onBack, onRefresh }) => {
   
   if (loading) {
     return (
-      <div className="flex justify-center items-center h-64">
-        <FaSpinner className="animate-spin text-indigo-600" size={48} />
-        <span className="ml-4 text-lg text-gray-600">Loading material requests...</span>
+      <div className="flex justify-center items-center h-64 bg-[#FAF7F2]">
+        <FaSpinner className="animate-spin text-[#F2C94C]" size={48} />
+        <span className="ml-4 text-lg text-[#6D6A62]">Loading material requests...</span>
       </div>
     );
   }
   
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 bg-[#FAF7F2] p-4 md:p-6">
       {/* Back Button */}
       <div className="flex justify-between items-center">
         <button 
           onClick={onBack}
-          className="flex items-center px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 transition-colors"
+          className="flex items-center px-4 py-2 bg-[#6A7F3F] text-white rounded-xl hover:bg-[#5a6d35] transition-all shadow-sm hover:shadow-md font-semibold"
         >
           <FaArrowLeft className="mr-2" />
           ← Back to Stock Report
         </button>
         <button 
           onClick={onRefresh}
-          className="flex items-center px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors"
+          className="flex items-center px-4 py-2 bg-[#F2C94C] text-[#1A1A1A] rounded-xl hover:bg-[#e0b840] transition-all shadow-sm hover:shadow-md font-semibold"
         >
           <FaRedo className="mr-2" />
           Refresh
@@ -945,16 +1032,16 @@ const MaterialRequestsView = ({ requests, loading, onBack, onRefresh }) => {
       </div>
       
       {/* Search Bar */}
-      <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200">
+      <div className="bg-white p-4 rounded-xl shadow-sm border border-[#E7E2D8]">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div className="relative flex-1 max-w-md">
             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <FaSearch className="text-gray-400" />
+              <FaSearch className="text-[#6D6A62]" />
             </div>
             <input
               type="text"
               placeholder="Search by product, requester, or request ID..."
-              className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 shadow-sm"
+              className="block w-full pl-10 pr-3 py-2 border border-[#E7E2D8] rounded-lg leading-5 bg-white placeholder-[#6D6A62] focus:outline-none focus:placeholder-[#1A1A1A] focus:ring-1 focus:ring-[#F2C94C] focus:border-[#F2C94C] shadow-sm"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
@@ -963,27 +1050,27 @@ const MaterialRequestsView = ({ requests, loading, onBack, onRefresh }) => {
       </div>
       
       {/* Material Requests Table */}
-      <div className="bg-white rounded-xl shadow-md border border-gray-200 overflow-hidden">
-        <div className="px-6 py-4 border-b border-gray-200">
-          <h3 className="text-lg font-medium text-gray-900">Material Requests</h3>
+      <div className="bg-white rounded-xl shadow-sm border border-[#E7E2D8] overflow-hidden">
+        <div className="px-6 py-4 border-b border-[#E7E2D8]">
+          <h3 className="text-lg font-medium text-[#1A1A1A]">Material Requests</h3>
         </div>
         <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-100">
+          <table className="min-w-full divide-y divide-[#E7E2D8]">
+            <thead className="bg-[#FAF7F2]">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-red-600 uppercase tracking-wider">Product</th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-red-600 uppercase tracking-wider">Required Qty</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-red-600 uppercase tracking-wider">Requested By</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-red-600 uppercase tracking-wider">Priority</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-red-600 uppercase tracking-wider">Status</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-red-600 uppercase tracking-wider">Date</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-red-600 uppercase tracking-wider">Actions</th>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-[#1A1A1A] uppercase tracking-wider">Product</th>
+                <th className="px-6 py-3 text-right text-xs font-semibold text-[#1A1A1A] uppercase tracking-wider">Required Qty</th>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-[#1A1A1A] uppercase tracking-wider">Requested By</th>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-[#1A1A1A] uppercase tracking-wider">Priority</th>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-[#1A1A1A] uppercase tracking-wider">Status</th>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-[#1A1A1A] uppercase tracking-wider">Date</th>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-[#1A1A1A] uppercase tracking-wider">Actions</th>
               </tr>
             </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
+            <tbody className="bg-white divide-y divide-[#E7E2D8]">
               {filteredRequests.length === 0 ? (
                 <tr>
-                  <td colSpan="7" className="px-6 py-4 text-center text-gray-500">
+                  <td colSpan="7" className="px-6 py-4 text-center text-[#6D6A62]">
                     No material requests found.
                   </td>
                 </tr>
@@ -991,16 +1078,16 @@ const MaterialRequestsView = ({ requests, loading, onBack, onRefresh }) => {
                 filteredRequests.map((request, index) => (
                   <tr 
                     key={request._id} 
-                    className={index % 2 === 0 ? 'bg-white hover:bg-blue-50' : 'bg-gray-50 hover:bg-blue-50'}
+                    className={index % 2 === 0 ? 'bg-white hover:bg-[#FAF7F2]' : 'bg-[#FAF7F2] hover:bg-white'}
                   >
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-[#1A1A1A]">
                       <div className="font-medium">{request.productName}</div>
-                      <div className="text-xs text-gray-500">{request.requestId}</div>
+                      <div className="text-xs text-[#6D6A62]">{request.requestId}</div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700 text-right font-medium">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-[#1A1A1A] text-right font-medium">
                       {request.requiredQty}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-[#1A1A1A]">
                       {request.requester}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm">
@@ -1020,7 +1107,7 @@ const MaterialRequestsView = ({ requests, loading, onBack, onRefresh }) => {
                         {request.status}
                       </span>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-[#1A1A1A]">
                       {formatDate(request.createdAt)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-right">
@@ -1029,14 +1116,14 @@ const MaterialRequestsView = ({ requests, loading, onBack, onRefresh }) => {
                           <>
                             <button
                               onClick={() => handleStatusUpdate(request._id, 'Approved')}
-                              className="inline-flex items-center px-3 py-1 border border-transparent text-xs font-medium rounded-md shadow-sm text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+                              className="inline-flex items-center px-3 py-1 border border-transparent text-xs font-medium rounded-lg shadow-sm text-[#1A1A1A] bg-[#F2C94C] hover:bg-[#e0b840]"
                             >
                               <FaCheck className="mr-1" size={12} />
                               Approve
                             </button>
                             <button
                               onClick={() => handleStatusUpdate(request._id, 'Rejected')}
-                              className="inline-flex items-center px-3 py-1 border border-transparent text-xs font-medium rounded-md shadow-sm text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+                              className="inline-flex items-center px-3 py-1 border border-transparent text-xs font-medium rounded-lg shadow-sm text-white bg-red-500 hover:bg-red-600"
                             >
                               <FaTimes className="mr-1" size={12} />
                               Reject
@@ -1046,7 +1133,7 @@ const MaterialRequestsView = ({ requests, loading, onBack, onRefresh }) => {
                         {request.status === 'Approved' && (
                           <button
                             onClick={() => handleStatusUpdate(request._id, 'Completed')}
-                            className="inline-flex items-center px-3 py-1 border border-transparent text-xs font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                            className="inline-flex items-center px-3 py-1 border border-transparent text-xs font-medium rounded-lg shadow-sm text-white bg-blue-500 hover:bg-blue-600"
                           >
                             <FaTruck className="mr-1" size={12} />
                             Mark Completed
@@ -1057,7 +1144,7 @@ const MaterialRequestsView = ({ requests, loading, onBack, onRefresh }) => {
                             // In a real implementation, this would show request details
                             console.log('View details for request:', request);
                           }}
-                          className="inline-flex items-center px-3 py-1 border border-gray-300 text-xs font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                          className="inline-flex items-center px-3 py-1 border border-[#E7E2D8] text-xs font-medium rounded-lg text-[#1A1A1A] bg-white hover:bg-[#FAF7F2]"
                         >
                           View
                         </button>
@@ -1069,8 +1156,8 @@ const MaterialRequestsView = ({ requests, loading, onBack, onRefresh }) => {
             </tbody>
           </table>
         </div>
-        <div className="px-6 py-3 bg-gray-50 border-t border-gray-200">
-          <div className="text-sm text-gray-700">
+        <div className="px-6 py-3 bg-[#FAF7F2] border-t border-[#E7E2D8]">
+          <div className="text-sm text-[#1A1A1A]">
             Showing {filteredRequests.length} of {requests.length} requests
           </div>
         </div>

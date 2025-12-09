@@ -452,9 +452,6 @@ const getPackingMaterialStockReport = async (req, res) => {
             const ownUnitStock = material.ownUnitWIP || 0;
             const jobberStock = material.jobberWIP || 0;
             
-            // Our stock is the current quantity in PM Store
-            const ourStock = material.quantity;
-            
             // Calculate opening stock (previous day's closing stock)
             const yesterday = new Date(selectedDate);
             yesterday.setDate(yesterday.getDate() - 1);
@@ -469,61 +466,73 @@ const getPackingMaterialStockReport = async (req, res) => {
             // Calculate inward stock from GRNs for the selected date
             let inward = 0;
             grns.forEach(grn => {
-                const grnDate = new Date(grn.dateReceived);
-                grnDate.setHours(0, 0, 0, 0);
-                
-                if (grnDate.getTime() === selectedDate.getTime()) {
-                    grn.items.forEach(item => {
-                        // Handle both string and object formats for material
-                        const materialName = typeof item.material === 'string' ? item.material : item.material.name;
-                        if (materialName === material.name) {
-                            inward += item.receivedQuantity || 0;
-                        }
-                    });
-                }
+              const grnDate = new Date(grn.dateReceived);
+              grnDate.setHours(0, 0, 0, 0);
+              
+              // Count all GRNs except those marked as Draft or Cancelled
+              // This ensures real-time stock addition when GRN is submitted, not just when completed
+              if (!['Draft', 'Cancelled'].includes(grn.status) && grnDate.getTime() === selectedDate.getTime()) {
+                grn.items.forEach(item => {
+                  // Handle both string and object formats for material
+                  const materialId = typeof item.material === 'string' ? item.material : item.material._id;
+                  if (materialId.toString() === material._id.toString()) {
+                    inward += item.receivedQuantity || 0;
+                  }
+                });
+              }
             });
-            
+
             // Calculate outward stock from Delivery Challans for the selected date
             let outward = 0;
             deliveryChallans.forEach(dc => {
-                const dcDate = new Date(dc.date);
-                dcDate.setHours(0, 0, 0, 0);
-                
-                if (dcDate.getTime() === selectedDate.getTime()) {
-                    // Handle multiple products in DC
-                    if (dc.products && Array.isArray(dc.products)) {
-                        dc.products.forEach(product => {
-                            if (product.materials) {
-                                product.materials.forEach(dcMaterial => {
-                                    if (dcMaterial.material_name === material.name) {
-                                        outward += dcMaterial.total_qty;
-                                    }
-                                });
-                            }
-                        });
-                    } else if (dc.materials) {
-                        // For old single product DCs
-                        dc.materials.forEach(dcMaterial => {
-                            if (dcMaterial.material_name === material.name) {
-                                outward += dcMaterial.total_qty;
-                            }
-                        });
+              const dcDate = new Date(dc.date);
+              dcDate.setHours(0, 0, 0, 0);
+              
+              // Count all DCs except those marked as Draft or Cancelled
+              // This ensures real-time stock deduction when DC is created, not just when completed
+              if (!['Draft', 'Cancelled'].includes(dc.status) && dcDate.getTime() === selectedDate.getTime()) {
+                // Handle multiple products in DC
+                if (dc.products && Array.isArray(dc.products)) {
+                  dc.products.forEach(product => {
+                    if (product.materials) {
+                      product.materials.forEach(dcMaterial => {
+                        if (dcMaterial.material_name === material.name) {
+                          outward += dcMaterial.total_qty;
+                        }
+                      });
                     }
+                  });
+                } else if (dc.materials) {
+                  // For old single product DCs
+                  dc.materials.forEach(dcMaterial => {
+                    if (dcMaterial.material_name === material.name) {
+                      outward += dcMaterial.total_qty;
+                    }
+                  });
                 }
+              }
             });
             
             // Calculate closing stock using the correct formula
             // ClosingStock = OpeningStock + Today's GRN - Today's Delivery Challan
             let closingStock = openingStock + inward - outward;
-            
+
             // Ensure closing stock is never negative
             if (closingStock < 0) {
-                closingStock = 0;
+              closingStock = 0;
             }
-            
+
+            // Calculate PM Store stock (pmStoreStock) as opening stock + inward - outward
+            // PM Store should NOT subtract Own Unit WIP or Job Work WIP
+            let pmStoreStock = openingStock + inward - outward;
+            // Ensure pmStoreStock is never negative
+            if (pmStoreStock < 0) {
+              pmStoreStock = 0;
+            }
+
             // Calculate total quantity and value
-            const totalQty = ourStock + ownUnitStock + jobberStock;
-            const ourStockValue = ourStock * material.perQuantityPrice;
+            const totalQty = closingStock;
+            const ourStockValue = pmStoreStock * material.perQuantityPrice;
             const ownUnitValue = ownUnitStock * material.perQuantityPrice;
             const jobberValue = jobberStock * material.perQuantityPrice;
             const totalValue = ourStockValue + ownUnitValue + jobberValue;
@@ -572,7 +581,7 @@ const getPackingMaterialStockReport = async (req, res) => {
                 materialName: material.name,
                 unit: material.unit || 'pcs',
                 openingStock: openingStock,
-                ourStock,
+                ourStock: pmStoreStock,
                 ownUnitStock,
                 jobberStock,
                 ourStockValue,

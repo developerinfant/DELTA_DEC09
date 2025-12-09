@@ -4,7 +4,8 @@ const {
     getFGStockAlerts,
     getFGStockReport,
     updateFGStock,
-    getFGStockRecord
+    configureFGStockCaptureTimes,
+    getFGStockCaptureConfig
 } = require('../controllers/fgStockController');
 const { protect } = require('../middleware/authMiddleware');
 
@@ -20,16 +21,22 @@ router.route('/stock-alerts')
 router.route('/stock-report')
     .get(protect, getFGStockReport);
 
-// @desc    Get FG stock record with date range
-// @route   GET /api/fg/stock-record
-// @access  Private
-router.route('/stock-record')
-    .get(protect, getFGStockRecord);
-
 // @desc    Update FG product HSN code and alert threshold
 // @route   PUT /api/fg/stock/:id
 // @access  Private
 router.route('/stock/:id')
     .put(protect, updateFGStock);
+
+// @desc    Configure FG stock capture times
+// @route   POST /api/fg/configure-stock-times
+// @access  Private (Admin)
+router.route('/configure-stock-times')
+    .post(protect, configureFGStockCaptureTimes);
+
+// @desc    Get FG stock capture configuration
+// @route   GET /api/fg/stock-config
+// @access  Private (Admin)
+router.route('/stock-config')
+    .get(protect, getFGStockCaptureConfig);
 
 module.exports = router;

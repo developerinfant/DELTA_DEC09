@@ -2,6 +2,8 @@ const ProductStock = require('../models/ProductStock');
 const GRN = require('../models/GRN');
 const FinishedGoodsDC = require('../models/FinishedGoodsDC');
 const ProductMaterialMapping = require('../models/ProductMaterialMapping');
+const ProductStockRecord = require('../models/ProductStockRecord');
+const FGStockCaptureConfig = require('../models/FGStockCaptureConfig');
 const mongoose = require('mongoose');
 
 /**
@@ -45,16 +47,18 @@ const getFGStockAlerts = async (req, res) => {
  */
 const getFGStockReport = async (req, res) => {
     try {
+        // Get date filter from query params, default to today
+        const selectedDate = req.query.date ? new Date(req.query.date) : new Date();
+        // Set to start of day for consistent comparison
+        selectedDate.setHours(0, 0, 0, 0);
+        
         // Get all product stocks
         const productStocks = await ProductStock.find({});
         
-        // For each product, calculate:
-        // 1. Total inward (from completed GRNs)
-        // 2. Total outward (from all DCs)
-        // 3. Available stock (current stock)
-        // 4. Last updated date
+        // Process products to calculate stock distribution
+        const reportData = [];
         
-        const reportData = await Promise.all(productStocks.map(async (product) => {
+        for (const product of productStocks) {
             // Get units per carton from product mapping
             let unitsPerCarton = 1; // Default value
             try {
@@ -66,30 +70,52 @@ const getFGStockReport = async (req, res) => {
                 console.error(`Error fetching product mapping for ${product.productName}:`, error.message);
             }
             
-            // Calculate total inward from completed GRNs
-            // First, get GRNs that directly reference this product by productName
+            // Calculate opening stock (previous day's closing stock)
+            const yesterday = new Date(selectedDate);
+            yesterday.setDate(yesterday.getDate() - 1);
+            
+            const previousStockRecord = await ProductStockRecord.findOne({
+                product: product._id,
+                date: yesterday
+            });
+            
+            const openingStock = previousStockRecord ? previousStockRecord.closingStock : 0;
+            
+            // Calculate inward stock from GRNs for the selected date
+            let inward = 0;
+            
+            // Get GRNs that directly reference this product by productName for the selected date
             const directGRNs = await GRN.find({
                 sourceType: 'jobber',
-                status: 'Completed',
+                status: { $nin: ['Draft', 'Cancelled'] }, // Count all except Draft and Cancelled
                 productName: product.productName
             });
             
-            let totalInward = directGRNs.reduce((total, grn) => {
-                return total + (grn.cartonsReturned || 0);
-            }, 0);
+            directGRNs.forEach(grn => {
+                const grnDate = new Date(grn.dateReceived);
+                grnDate.setHours(0, 0, 0, 0);
+                
+                // Count all GRNs except those marked as Draft or Cancelled
+                // This ensures real-time stock addition when GRN is submitted, not just when completed
+                if (grnDate.getTime() === selectedDate.getTime()) {
+                    inward += grn.cartonsReturned || 0;
+                }
+            });
             
-            // Additionally, get GRNs that reference Delivery Challans with multiple products
-            // We need to find GRNs that reference DCs containing this product
+            // Additionally, get GRNs that reference Delivery Challans with multiple products for the selected date
             const dcGRNs = await GRN.find({
                 sourceType: 'jobber',
-                status: 'Completed',
+                status: { $nin: ['Draft', 'Cancelled'] }, // Count all except Draft and Cancelled
                 deliveryChallan: { $exists: true, $ne: null },
                 productName: { $ne: product.productName } // Exclude GRNs that already directly reference this product
             }).populate('deliveryChallan');
             
             // For each of these GRNs, check if the referenced DC contains this product
             for (const grn of dcGRNs) {
-                if (grn.deliveryChallan) {
+                const grnDate = new Date(grn.dateReceived);
+                grnDate.setHours(0, 0, 0, 0);
+                
+                if (grnDate.getTime() === selectedDate.getTime() && grn.deliveryChallan) {
                     // Check if this DC contains the product we're looking for
                     if (grn.deliveryChallan.products && Array.isArray(grn.deliveryChallan.products)) {
                         const productInDC = grn.deliveryChallan.products.find(p => p.product_name === product.productName);
@@ -110,51 +136,114 @@ const getFGStockReport = async (req, res) => {
                                     productCartons = (grn.cartonsReturned || 0) * (productInDC.carton_qty / totalCartonsInDC);
                                 }
                             }
-                            totalInward += productCartons;
+                            inward += productCartons;
                         }
                     }
                 }
             }
             
-            // Calculate total outward from all DCs
+            // Calculate outward stock (cartons and pieces) from Delivery Challans for the selected date
+            let outwardCartons = 0;
+            let outwardPieces = 0;
+            
             const deliveryChallans = await FinishedGoodsDC.find({
                 product_name: product.productName
             });
             
-            const totalOutward = deliveryChallans.reduce((total, dc) => {
-                // Only count dispatched DCs
-                if (dc.status === 'Dispatched') {
-                    // For "Both" issue type, we need to consider both carton and piece quantities
+            deliveryChallans.forEach(dc => {
+                const dcDate = new Date(dc.date);
+                dcDate.setHours(0, 0, 0, 0);
+                
+                // Count all DCs except those marked as Draft or Cancelled
+                // This ensures real-time stock deduction when DC is created, not just when completed
+                if (!['Draft', 'Cancelled'].includes(dc.status) && dcDate.getTime() === selectedDate.getTime()) {
+                    // Calculate outward cartons and pieces based on issue type
                     if (dc.issue_type === 'Both') {
-                        // Convert cartons to pieces and add piece quantity
-                        return total + (dc.carton_quantity * unitsPerCarton) + (dc.piece_quantity || 0);
+                        // Both cartons and pieces issued
+                        outwardCartons += dc.carton_quantity || 0;
+                        outwardPieces += dc.piece_quantity || 0;
                     } else if (dc.issue_type === 'Carton') {
-                        // For Carton issue type, quantity is in cartons, so convert to pieces
-                        return total + ((dc.quantity || 0) * unitsPerCarton);
+                        // Only cartons issued
+                        outwardCartons += dc.quantity || 0;
                     } else {
-                        // For Pieces issue type, quantity is already in pieces
-                        return total + (dc.quantity || 0);
+                        // Only pieces issued
+                        outwardPieces += dc.quantity || 0;
                     }
                 }
-                return total;
-            }, 0);
+            });
             
-            return {
+            // Calculate total outward in carton equivalent
+            const totalOutward = (outwardCartons * unitsPerCarton) + outwardPieces;
+            
+            // Calculate closing stock using the correct formula
+            // ClosingStock = OpeningStock + Today's GRN - Today's Delivery Challan
+            let closingStock = openingStock + inward - totalOutward;
+            
+            // Ensure closing stock is never negative
+            if (closingStock < 0) {
+                closingStock = 0;
+            }
+            
+            // Save or update the stock record for the selected date
+            await ProductStockRecord.findOneAndUpdate(
+                {
+                    product: product._id,
+                    date: selectedDate
+                },
+                {
+                    productName: product.productName,
+                    openingStock: openingStock,
+                    closingStock: closingStock,
+                    inward: inward,
+                    outward: totalOutward,
+                    outwardCartons: outwardCartons,
+                    outwardPieces: outwardPieces,
+                    unit: 'cartons'
+                },
+                {
+                    upsert: true,
+                    new: true
+                }
+            );
+            
+            // Determine last updated timestamp
+            let lastUpdated = product.updatedAt || product.createdAt || new Date();
+            
+            // Check if there were any transactions today that might have updated the product
+            const todayTransactions = [...directGRNs, ...deliveryChallans].filter(item => {
+                const itemDate = new Date(item.dateReceived || item.date || item.createdAt);
+                itemDate.setHours(0, 0, 0, 0);
+                return itemDate.getTime() === selectedDate.getTime();
+            });
+            
+            if (todayTransactions.length > 0) {
+                // Find the latest transaction timestamp
+                const latestTransaction = todayTransactions.reduce((latest, current) => {
+                    const currentDate = new Date(current.dateReceived || current.date || current.createdAt);
+                    const latestDate = new Date(latest.dateReceived || latest.date || latest.createdAt);
+                    return currentDate > latestDate ? current : latest;
+                });
+                lastUpdated = latestTransaction.dateReceived || latestTransaction.date || latestTransaction.createdAt;
+            }
+            
+            reportData.push({
                 _id: product._id,
                 productName: product.productName,
-                itemCode: product.itemCode || 'N/A', // Include itemCode
-                totalInward: totalInward,
-                totalOutward: totalOutward,
-                availableStock: product.totalAvailable,
+                itemCode: product.itemCode || 'N/A',
+                openingStock: openingStock,
+                inward: inward,
+                outwardCartons: outwardCartons,
+                outwardPieces: outwardPieces,
+                closingStock: closingStock,
                 available_cartons: product.available_cartons,
                 available_pieces: product.available_pieces,
                 broken_carton_pieces: product.broken_carton_pieces,
-                units_per_carton: unitsPerCarton, // Use the value from product mapping
+                units_per_carton: unitsPerCarton,
                 alertThreshold: product.alertThreshold,
-                hsnCode: product.hsnCode || '', // Include HSN Code
-                lastUpdated: product.lastUpdated
-            };
-        }));
+                hsnCode: product.hsnCode || '',
+                lastUpdated: lastUpdated
+            });
+        }
         
         res.json(reportData);
     } catch (error) {
@@ -206,199 +295,48 @@ const updateFGStock = async (req, res) => {
 };
 
 /**
- * @desc    Get FG stock record with carton and piece breakdown
- * @route   GET /api/fg/stock-record
- * @access  Private
+ * @desc    Configure opening and closing stock capture times for FG
+ * @route   POST /api/fg/configure-stock-times
+ * @access  Private (Admin)
  */
-const getFGStockRecord = async (req, res) => {
+const configureFGStockCaptureTimes = async (req, res) => {
     try {
-        const { from, to } = req.query;
+        const { openingTime, closingTime } = req.body;
         
-        // Validate date parameters
-        if (!from || !to) {
-            return res.status(400).json({ message: 'Both from and to date parameters are required' });
+        // Validate input
+        if (!openingTime || !closingTime) {
+            return res.status(400).json({ message: 'Both openingTime and closingTime are required' });
         }
         
-        // Parse dates - expecting DD-MM-YYYY format
-        const fromDate = new Date(from.split('-').reverse().join('-')); // DD-MM-YYYY to YYYY-MM-DD
-        const toDate = new Date(to.split('-').reverse().join('-'));     // DD-MM-YYYY to YYYY-MM-DD
+        // Update configuration
+        let config = await FGStockCaptureConfig.getConfig();
+        config.openingTime = openingTime;
+        config.closingTime = closingTime;
+        await config.save();
         
-        if (isNaN(fromDate.getTime()) || isNaN(toDate.getTime())) {
-            return res.status(400).json({ message: 'Invalid date format. Use DD-MM-YYYY' });
-        }
-        
-        // Set proper date ranges
-        // From date: start of day (00:00:00)
-        fromDate.setHours(0, 0, 0, 0);
-        // To date: end of day (23:59:59)
-        toDate.setHours(23, 59, 59, 999);
-        
-        // Calculate opening date (day before from date) - end of that day
-        const openingDate = new Date(fromDate);
-        openingDate.setDate(openingDate.getDate() - 1);
-        openingDate.setHours(23, 59, 59, 999);
-        
-        // Get all product stocks (item master)
-        const productStocks = await ProductStock.find({});
-        
-        const records = [];
-        let totals = {
-            openingCartons: 0,
-            openingPieces: 0,
-            inwardCartons: 0,
-            inwardPieces: 0,
-            outwardCartons: 0,
-            outwardPieces: 0,
-            closingCartons: 0,
-            closingPieces: 0
-        };
-        
-        // Process each product
-        for (const product of productStocks) {
-            // Initialize all quantities
-            let openingCartons = 0;
-            let openingPieces = 0;
-            let inwardCartons = 0;
-            let inwardPieces = 0;
-            let outwardCartons = 0;
-            let outwardPieces = 0;
-            
-            // 1. Calculate opening stock (before from date)
-            // GRN inward before from date - cartons and pieces
-            const openingGRNs = await GRN.find({
-                sourceType: 'jobber',
-                status: 'Completed',
-                productName: product.productName,
-                createdAt: { $lte: openingDate }
-            });
-            
-            let openingInwardCartons = 0;
-            let openingInwardPieces = 0;
-            
-            openingGRNs.forEach(grn => {
-                openingInwardCartons += (grn.cartonsReturned || 0);
-                openingInwardPieces += (grn.broken_carton_pieces || 0);
-            });
-            
-            // DC outward before from date - cartons and pieces
-            const openingDCs = await FinishedGoodsDC.find({
-                product_name: product.productName,
-                status: 'Dispatched',
-                createdAt: { $lte: openingDate }
-            });
-            
-            let openingOutwardCartons = 0;
-            let openingOutwardPieces = 0;
-            
-            openingDCs.forEach(dc => {
-                openingOutwardCartons += (dc.carton_quantity || 0);
-                openingOutwardPieces += (dc.piece_quantity || 0);
-            });
-            
-            // Invoice outward before from date - cartons and pieces
-            const openingInvoices = await mongoose.model('FGInvoice').find({
-                'items.product': product.productName,
-                status: 'Generated',
-                invoiceDate: { $lte: openingDate }
-            });
-            
-            openingInvoices.forEach(invoice => {
-                const productItems = invoice.items.filter(item => item.product === product.productName);
-                productItems.forEach(item => {
-                    if (item.uom === 'Cartons') {
-                        openingOutwardCartons += (item.qty || 0);
-                    } else if (item.uom === 'Pieces') {
-                        openingOutwardPieces += (item.qty || 0);
-                    }
-                });
-            });
-            
-            openingCartons = openingInwardCartons - openingOutwardCartons;
-            openingPieces = openingInwardPieces - openingOutwardPieces;
-            
-            if (openingCartons < 0) openingCartons = 0;
-            if (openingPieces < 0) openingPieces = 0;
-            
-            // 2. Calculate inward quantity (GRN within date range) - cartons and pieces
-            const inwardGRNs = await GRN.find({
-                sourceType: 'jobber',
-                status: 'Completed',
-                productName: product.productName,
-                createdAt: { $gte: fromDate, $lte: toDate }
-            });
-            
-            inwardGRNs.forEach(grn => {
-                inwardCartons += (grn.cartonsReturned || 0);
-                inwardPieces += (grn.broken_carton_pieces || 0);
-            });
-            
-            // 3. Calculate outward quantity (DC + Invoice within date range) - cartons and pieces
-            // DC outward within date range - cartons and pieces
-            const outwardDCs = await FinishedGoodsDC.find({
-                product_name: product.productName,
-                status: 'Dispatched',
-                createdAt: { $gte: fromDate, $lte: toDate }
-            });
-            
-            outwardDCs.forEach(dc => {
-                outwardCartons += (dc.carton_quantity || 0);
-                outwardPieces += (dc.piece_quantity || 0);
-            });
-            
-            // Invoice outward within date range - cartons and pieces
-            const outwardInvoices = await mongoose.model('FGInvoice').find({
-                'items.product': product.productName,
-                status: 'Generated',
-                invoiceDate: { $gte: fromDate, $lte: toDate }
-            });
-            
-            outwardInvoices.forEach(invoice => {
-                const productItems = invoice.items.filter(item => item.product === product.productName);
-                productItems.forEach(item => {
-                    if (item.uom === 'Cartons') {
-                        outwardCartons += (item.qty || 0);
-                    } else if (item.uom === 'Pieces') {
-                        outwardPieces += (item.qty || 0);
-                    }
-                });
-            });
-            
-            // Calculate closing stock
-            const closingCartons = openingCartons + inwardCartons - outwardCartons;
-            const closingPieces = openingPieces + inwardPieces - outwardPieces;
-            
-            // Add to records
-            records.push({
-                itemCode: product.itemCode || 'N/A',
-                productName: product.productName,
-                openingCartons: openingCartons,
-                openingPieces: openingPieces,
-                inwardCartons: inwardCartons,
-                inwardPieces: inwardPieces,
-                outwardCartons: outwardCartons,
-                outwardPieces: outwardPieces,
-                closingCartons: closingCartons,
-                closingPieces: closingPieces
-            });
-            
-            // Update totals
-            totals.openingCartons += openingCartons;
-            totals.openingPieces += openingPieces;
-            totals.inwardCartons += inwardCartons;
-            totals.inwardPieces += inwardPieces;
-            totals.outwardCartons += outwardCartons;
-            totals.outwardPieces += outwardPieces;
-            totals.closingCartons += closingCartons;
-            totals.closingPieces += closingPieces;
-        }
+        res.json({ message: 'Stock capture times configured successfully' });
+    } catch (error) {
+        console.error(`Error configuring FG stock capture times: ${error.message}`);
+        res.status(500).json({ message: 'Server error while configuring FG stock capture times' });
+    }
+};
+
+/**
+ * @desc    Get current FG stock capture configuration
+ * @route   GET /api/fg/stock-config
+ * @access  Private (Admin)
+ */
+const getFGStockCaptureConfig = async (req, res) => {
+    try {
+        const config = await FGStockCaptureConfig.getConfig();
         
         res.json({
-            records,
-            totals
+            openingTime: config.openingTime,
+            closingTime: config.closingTime
         });
     } catch (error) {
-        console.error(`Error fetching FG stock record: ${error.message}`);
-        res.status(500).json({ message: 'Server error while fetching FG stock record' });
+        console.error(`Error fetching FG stock capture configuration: ${error.message}`);
+        res.status(500).json({ message: 'Server error while fetching FG stock capture configuration' });
     }
 };
 
@@ -406,5 +344,6 @@ module.exports = {
     getFGStockAlerts,
     getFGStockReport,
     updateFGStock,
-    getFGStockRecord
+    configureFGStockCaptureTimes,
+    getFGStockCaptureConfig
 };

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../../api';
+import Modal from '../../components/common/Modal'; // Added Modal import
 import { FaSpinner, FaRedo, FaSearch, FaDownload, FaEye, FaTimes } from 'react-icons/fa';
 import { toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
@@ -122,12 +123,7 @@ const DamagedStockMaster = () => {
     setCurrentMaterialName('');
   };
 
-  // Close modal when clicking outside
-  const handleOutsideClick = (e) => {
-    if (e.target.classList.contains('modal-overlay')) {
-      closeHistoryModal();
-    }
-  };
+  // Removed handleOutsideClick since Modal component handles this
 
   if (isLoading) {
     return (
@@ -284,15 +280,13 @@ const DamagedStockMaster = () => {
                     </td>
                     
                     {/* Actions */}
-                    <td className="px-4 py-3 whitespace-nowrap text-right text-sm font-medium overflow-hidden">
-                      <div className="flex items-center justify-end space-x-2">
+                    <td className="px-4 py-3 whitespace-nowrap text-right text-sm font-medium">
+                      <div className="flex justify-end space-x-2">
                         <button
                           onClick={() => handleViewHistory(entry.materialName)}
-                          className="px-2 py-1 bg-blue-500 text-white rounded-full text-xs hover:bg-blue-600 flex items-center truncate"
-                          title="View History"
+                          className="text-indigo-600 hover:text-indigo-900 flex items-center"
                         >
-                          <FaEye className="mr-1 text-xs" />
-                          <span className="truncate hidden md:inline">View</span>
+                          <FaEye className="mr-1" />
                           <span className="truncate md:hidden">View</span>
                         </button>
                       </div>
@@ -305,99 +299,85 @@ const DamagedStockMaster = () => {
         </div>
       </div>
       
-      {/* History Modal - IMPROVED DESIGN */}
-      {showHistoryModal && (
-        <div 
-          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 modal-overlay"
-          onClick={handleOutsideClick}
-        >
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
-            <div className="flex justify-between items-center border-b p-4">
-              <h2 className="text-xl font-bold text-gray-800">
-                Damaged Stock History for {currentMaterialName}
-              </h2>
-              <button 
-                onClick={closeHistoryModal}
-                className="text-gray-500 hover:text-gray-700"
-              >
-                <FaTimes size={20} />
-              </button>
-            </div>
-            
-            {historyLoading ? (
-              <div className="flex justify-center items-center h-64">
-                <FaSpinner className="animate-spin text-indigo-600" size={48} />
-              </div>
-            ) : (
-              <div className="overflow-auto flex-grow">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50 sticky top-0">
-                    <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">DC No</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">GRN No</th>
-                      <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Damaged Qty</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Entered By</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Approved By</th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {historyData.length === 0 ? (
-                      <tr>
-                        <td colSpan="7" className="px-6 py-4 text-center text-gray-500">
-                          No history entries found.
-                        </td>
-                      </tr>
-                    ) : (
-                      historyData.map((entry) => (
-                        <tr key={entry._id} className="hover:bg-gray-50">
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {formatDate(entry.approved_on || entry.entered_on)}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                            {entry.dc_no}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {entry.grn_id ? entry.grn_id.substring(0, 8) : 'N/A'}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-red-600 text-right">
-                            {entry.damaged_qty}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm">
-                            <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                              entry.status === 'Approved' ? 'bg-red-100 text-red-800' : 
-                              entry.status === 'Rejected' ? 'bg-gray-100 text-gray-800' : 
-                              'bg-yellow-100 text-yellow-800'
-                            }`}>
-                              {entry.status}
-                            </span>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {entry.entered_by}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {entry.approved_by || 'N/A'}
-                          </td>
-                        </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            )}
-            
-            <div className="border-t p-4 flex justify-end">
-              <button
-                onClick={closeHistoryModal}
-                className="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300"
-              >
-                Close
-              </button>
-            </div>
+      {/* History Modal - REPLACED WITH SHARED MODAL COMPONENT */}
+      <Modal
+        isOpen={showHistoryModal}
+        onClose={closeHistoryModal}
+        title={`Damaged Stock History for ${currentMaterialName}`}
+        size="large"
+      >
+        {historyLoading ? (
+          <div className="flex justify-center items-center h-64">
+            <FaSpinner className="animate-spin text-indigo-600" size={48} />
           </div>
+        ) : (
+          <div className="overflow-auto flex-grow">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50 sticky top-0">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">DC No</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">GRN No</th>
+                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Damaged Qty</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Entered By</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Approved By</th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {historyData.length === 0 ? (
+                  <tr>
+                    <td colSpan="7" className="px-6 py-4 text-center text-gray-500">
+                      No history entries found.
+                    </td>
+                  </tr>
+                ) : (
+                  historyData.map((entry) => (
+                    <tr key={entry._id} className="hover:bg-gray-50">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {formatDate(entry.approved_on || entry.entered_on)}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                        {entry.dc_no}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {entry.grn_id ? entry.grn_id.substring(0, 8) : 'N/A'}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-red-600 text-right">
+                        {entry.damaged_qty}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm">
+                        <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                          entry.status === 'Approved' ? 'bg-red-100 text-red-800' : 
+                          entry.status === 'Rejected' ? 'bg-gray-100 text-gray-800' : 
+                          'bg-yellow-100 text-yellow-800'
+                        }`}>
+                          {entry.status}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {entry.entered_by}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {entry.approved_by || 'N/A'}
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        )}
+        
+        <div className="border-t p-4 flex justify-end">
+          <button
+            onClick={closeHistoryModal}
+            className="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300"
+          >
+            Close
+          </button>
         </div>
-      )}
+      </Modal>
     </div>
   );
 };

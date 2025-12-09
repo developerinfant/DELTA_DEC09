@@ -92,7 +92,8 @@ const fixMaterialStockRecords = async (material) => {
       const grnDate = new Date(grn.dateReceived);
       grnDate.setHours(0, 0, 0, 0);
       
-      if (grnDate.getTime() === record.date.getTime()) {
+      // Count all GRNs except those marked as Draft or Cancelled
+      if (!['Draft', 'Cancelled'].includes(grn.status) && grnDate.getTime() === record.date.getTime()) {
         grn.items.forEach(item => {
           // Properly match materials
           let isMatchingMaterial = false;

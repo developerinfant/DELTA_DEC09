@@ -1,37 +1,35 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import api from '../../api';
-import { FaSpinner, FaBox, FaTruck, FaClipboardCheck, FaExclamationTriangle, FaRedo, FaSearch, FaEdit } from 'react-icons/fa';
+import { FaSpinner, FaBox, FaTruck, FaClipboardCheck, FaExclamationTriangle, FaRedo, FaSearch, FaEdit, FaCog } from 'react-icons/fa';
 import * as XLSX from 'xlsx';
 import { jsPDF } from 'jspdf';
 import 'jspdf-autotable';
 import { io } from 'socket.io-client';
+import Modal from '../../components/common/Modal';
 
 const FGStockReport = () => {
   const [productStocks, setProductStocks] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
-  const [dateRange, setDateRange] = useState({ start: '', end: '' });
+  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]); // Default to today
   const [socket, setSocket] = useState(null);
   const [updatedProducts, setUpdatedProducts] = useState(new Set());
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
   const [editForm, setEditForm] = useState({ alertThreshold: '', hsnCode: '' });
   const [isSaving, setIsSaving] = useState(false);
-  // New states for stock record functionality
-  const [showStockRecord, setShowStockRecord] = useState(false);
-  const [stockRecordData, setStockRecordData] = useState([]);
-  const [stockRecordLoading, setStockRecordLoading] = useState(false);
-  const [stockRecordError, setStockRecordError] = useState('');
-  const [stockRecordDateRange, setStockRecordDateRange] = useState({ from: '', to: '' });
+  const [isConfigModalOpen, setIsConfigModalOpen] = useState(false); // Add this state for config modal
+  const [config, setConfig] = useState({ openingTime: '09:00', closingTime: '21:00' }); // Add this state for config
+  const [newConfig, setNewConfig] = useState({ openingTime: '09:00', closingTime: '21:00' }); // Add this state for new config
   const updatedProductTimers = useRef({});
 
   // Fetch data
   const fetchData = async () => {
     setIsLoading(true);
     try {
-      // Fetch product stock data
-      const response = await api.get('/fg/stock-report');
+      // Fetch product stock data with date filter
+      const response = await api.get(`/fg/stock-report?date=${selectedDate}`);
       setProductStocks(response.data);
       setError('');
     } catch (err) {
@@ -42,39 +40,24 @@ const FGStockReport = () => {
     }
   };
 
-  // Fetch stock record data
-  const fetchStockRecordData = async () => {
-    if (!stockRecordDateRange.from || !stockRecordDateRange.to) {
-      setStockRecordError('Please select both from and to dates');
-      return;
-    }
-
-    // Convert date format from YYYY-MM-DD to DD-MM-YYYY
-    const formatDate = (dateString) => {
-      const parts = dateString.split('-');
-      return `${parts[2]}-${parts[1]}-${parts[0]}`;
-    };
-
-    setStockRecordLoading(true);
-    setStockRecordError('');
-    try {
-      const response = await api.get('/fg/stock-record', {
-        params: {
-          from: formatDate(stockRecordDateRange.from),
-          to: formatDate(stockRecordDateRange.to)
-        }
-      });
-      setStockRecordData(response.data.records || []);
-    } catch (err) {
-      setStockRecordError('Failed to load stock record data. Please try again.');
-      console.error('Error fetching stock record data:', err);
-    } finally {
-      setStockRecordLoading(false);
-    }
-  };
-
   useEffect(() => {
     fetchData();
+    
+    // Fetch stock configuration
+    const fetchConfig = async () => {
+      try {
+        const response = await api.get('/fg/stock-config');
+        setConfig(response.data);
+        setNewConfig(response.data);
+      } catch (err) {
+        console.error('Error fetching stock configuration:', err);
+        // Set default config if fetch fails
+        setConfig({ openingTime: '09:00', closingTime: '21:00' });
+        setNewConfig({ openingTime: '09:00', closingTime: '21:00' });
+      }
+    };
+    
+    fetchConfig();
     
     // Initialize socket connection
     const newSocket = io();
@@ -112,7 +95,7 @@ const FGStockReport = () => {
       newSocket.close();
       Object.values(updatedProductTimers.current).forEach(timer => clearTimeout(timer));
     };
-  }, []);
+  }, [selectedDate]);
 
   // Filter and search products
   const filteredProducts = useMemo(() => {
@@ -122,62 +105,37 @@ const FGStockReport = () => {
         product.productName.toLowerCase().includes(searchTerm.toLowerCase()) ||
         (product.itemCode && product.itemCode.toLowerCase().includes(searchTerm.toLowerCase())); // Add itemCode to search
       
-      // Date range filter
-      let matchesDate = true;
-      if (dateRange.start && dateRange.end) {
-        const productDate = new Date(product.lastUpdated);
-        const startDate = new Date(dateRange.start);
-        const endDate = new Date(dateRange.end);
-        matchesDate = productDate >= startDate && productDate <= endDate;
-      }
+      // NOTE: We intentionally do NOT filter by date here to show ALL products
+      // This matches the behavior of the Packing Materials Stock Report
+      // The date selection is used only for calculating the stock values, not for filtering which products to show
       
-      return matchesSearch && matchesDate;
+      return matchesSearch;
     });
-  }, [productStocks, searchTerm, dateRange]);
+  }, [productStocks, searchTerm]);
 
   // Calculate summary totals
   const summaryTotals = useMemo(() => {
     return filteredProducts.reduce((totals, product) => {
       totals.totalProducts += 1;
-      totals.totalInward += product.totalInward || 0;
-      totals.totalOutward += product.totalOutward || 0;
-      totals.availableStock += product.availableStock || 0;
       totals.totalCartons += product.available_cartons || 0;
       totals.totalPieces += product.broken_carton_pieces || 0;
+      totals.availableStock += product.totalAvailable || 0;
+      totals.totalOpeningStock += product.openingStock || 0;
+      totals.totalInward += product.inward || 0;
+      totals.totalOutwardCartons += product.outwardCartons || 0;
+      totals.totalOutwardPieces += product.outwardPieces || 0;
       return totals;
     }, {
       totalProducts: 0,
-      totalInward: 0,
-      totalOutward: 0,
-      availableStock: 0,
       totalCartons: 0,
-      totalPieces: 0
+      totalPieces: 0,
+      availableStock: 0,
+      totalOpeningStock: 0,
+      totalInward: 0,
+      totalOutwardCartons: 0,
+      totalOutwardPieces: 0
     });
   }, [filteredProducts]);
-
-  // Calculate stock record totals
-  const stockRecordTotals = useMemo(() => {
-    return stockRecordData.reduce((totals, record) => {
-      totals.openingCartons += record.openingCartons || 0;
-      totals.openingPieces += record.openingPieces || 0;
-      totals.inwardCartons += record.inwardCartons || 0;
-      totals.inwardPieces += record.inwardPieces || 0;
-      totals.outwardCartons += record.outwardCartons || 0;
-      totals.outwardPieces += record.outwardPieces || 0;
-      totals.closingCartons += record.closingCartons || 0;
-      totals.closingPieces += record.closingPieces || 0;
-      return totals;
-    }, {
-      openingCartons: 0,
-      openingPieces: 0,
-      inwardCartons: 0,
-      inwardPieces: 0,
-      outwardCartons: 0,
-      outwardPieces: 0,
-      closingCartons: 0,
-      closingPieces: 0
-    });
-  }, [stockRecordData]);
 
   // Handle edit button click
   const handleEditClick = (product) => {
@@ -233,134 +191,33 @@ const FGStockReport = () => {
     setEditingProduct(null);
     setEditForm({ alertThreshold: '', hsnCode: '' });
   };
-
-  // Export stock record to Excel
-  const exportStockRecordToExcel = () => {
-    if (stockRecordData.length === 0) return;
-
-    // Format date for filename - convert from DD-MM-YYYY to YYYY-MM-DD for filename
-    const formatDateForFilename = (dateString) => {
-      const parts = dateString.split('-');
-      return `${parts[2]}-${parts[1]}-${parts[0]}`;
-    };
-
-    const fromDate = formatDateForFilename(stockRecordDateRange.from);
-    const toDate = formatDateForFilename(stockRecordDateRange.to);
-    
-    const worksheet = XLSX.utils.json_to_sheet(stockRecordData.map(record => ({
-      'Item Code': record.itemCode,
-      'Product Name': record.productName,
-      'Opening Cartons': record.openingCartons,
-      'Opening Pieces': record.openingPieces,
-      'Inward Cartons': record.inwardCartons,
-      'Inward Pieces': record.inwardPieces,
-      'Outward Cartons': record.outwardCartons,
-      'Outward Pieces': record.outwardPieces,
-      'Closing Cartons': record.closingCartons,
-      'Closing Pieces': record.closingPieces
-    })));
-    
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, 'FG Stock Record Summary');
-    XLSX.writeFile(workbook, `FG_Stock_Record_Summary_${fromDate}_to_${toDate}.xlsx`);
-  };
-
-  // Export stock record to PDF
-  const exportStockRecordToPDF = () => {
-    if (stockRecordData.length === 0) return;
-
-    // Format date for filename - convert from DD-MM-YYYY to YYYY-MM-DD for filename
-    const formatDateForFilename = (dateString) => {
-      const parts = dateString.split('-');
-      return `${parts[2]}-${parts[1]}-${parts[0]}`;
-    };
-
-    const fromDate = formatDateForFilename(stockRecordDateRange.from);
-    const toDate = formatDateForFilename(stockRecordDateRange.to);
-
-    const doc = new jsPDF('landscape');
-    
-    doc.setFontSize(18);
-    doc.text('FG Stock Record Summary', 14, 22);
-    
-    // Add date range
-    doc.setFontSize(12);
-    doc.text(`Period: ${stockRecordDateRange.from} to ${stockRecordDateRange.to}`, 14, 32);
-    
-    // Add table
-    doc.autoTable({
-      startY: 40,
-      head: [['Item Code', 'Product Name', 'Opening Cartons', 'Opening Pieces', 'Inward Cartons', 'Inward Pieces', 'Outward Cartons', 'Outward Pieces', 'Closing Cartons', 'Closing Pieces']],
-      body: stockRecordData.map(record => [
-        record.itemCode,
-        record.productName,
-        record.openingCartons,
-        record.openingPieces,
-        record.inwardCartons,
-        record.inwardPieces,
-        record.outwardCartons,
-        record.outwardPieces,
-        record.closingCartons,
-        record.closingPieces
-      ]),
-    });
-    
-    doc.save(`FG_Stock_Record_Summary_${fromDate}_to_${toDate}.pdf`);
-  };
-
-  if (isLoading) {
-    return (
-      <div className="flex justify-center items-center h-64">
-        <FaSpinner className="animate-spin text-indigo-600" size={48} />
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="p-4 bg-red-100 text-red-700 rounded-md alert alert-error">
-        {error}
-      </div>
-    );
-  }
-
-  // Define columns for desktop table
-  const tableColumns = [
-    { key: 'itemCode', header: 'Item Code' }, // Add Item Code column
-    { key: 'productName', header: 'Product Name' },
-    { key: 'available_cartons', header: 'Total Cartons' },
-    { key: 'broken_carton_pieces', header: 'Broken Pieces' },
-    { 
-      key: 'lastUpdated', 
-      header: 'Last Updated', 
-      render: (value) => {
-        if (!value) return 'N/A';
-        return new Date(value).toLocaleString();
-      }
+  
+  // Handle saving stock configuration
+  const handleSaveConfig = async () => {
+    try {
+      await api.post('/fg/configure-stock-times', {
+        openingTime: newConfig.openingTime,
+        closingTime: newConfig.closingTime
+      });
+      setConfig(newConfig);
+      setIsConfigModalOpen(false);
+      // Refresh data to reflect new configuration
+      fetchData();
+    } catch (err) {
+      console.error('Error saving stock configuration:', err);
+      alert('Failed to save configuration. Please try again.');
     }
-  ];
-
-  // Define fields for mobile card list
-  const mobileFields = [
-    { key: 'itemCode', label: 'Item Code' }, // Add Item Code field
-    { key: 'productName', label: 'Product', isTitle: true },
-    { key: 'available_cartons', label: 'Cartons' },
-    { key: 'broken_carton_pieces', label: 'Broken Pieces' },
-    { 
-      key: 'lastUpdated', 
-      label: 'Updated', 
-      render: (value) => {
-        if (!value) return 'N/A';
-        return new Date(value).toLocaleDateString();
-      }
-    }
-  ];
+  };
 
   // Export to Excel
   const exportToExcel = () => {
     const worksheet = XLSX.utils.json_to_sheet(filteredProducts.map(product => ({
-      'Item Code': product.itemCode || 'N/A', // Add Item Code to export
+      'Item Code': product.itemCode || 'N/A',
       'Product Name': product.productName,
+      'Opening Stock': product.openingStock,
+      'Inward (GRN)': product.inward,
+      'Outward Cartons': product.outwardCartons,
+      'Outward Pieces': product.outwardPieces,
       'Total Cartons': product.available_cartons,
       'Broken Pieces': product.broken_carton_pieces,
       'Last Updated': product.lastUpdated ? new Date(product.lastUpdated).toLocaleString() : 'N/A'
@@ -387,10 +244,14 @@ const FGStockReport = () => {
     // Add table
     doc.autoTable({
       startY: 55,
-      head: [['Item Code', 'Product Name', 'Total Cartons', 'Broken Pieces', 'Last Updated']], // Add Item Code to PDF header
+      head: [['Item Code', 'Product Name', 'Opening Stock', 'Inward (GRN)', 'Outward Cartons', 'Outward Pieces', 'Total Cartons', 'Broken Pieces', 'Last Updated']],
       body: filteredProducts.map(product => [
-        product.itemCode || 'N/A', // Add Item Code to PDF
+        product.itemCode || 'N/A',
         product.productName,
+        product.openingStock,
+        product.inward,
+        product.outwardCartons,
+        product.outwardPieces,
         product.available_cartons,
         product.broken_carton_pieces,
         product.lastUpdated ? new Date(product.lastUpdated).toLocaleString() : 'N/A'
@@ -400,273 +261,221 @@ const FGStockReport = () => {
     doc.save('FG_Stock_Report.pdf');
   };
 
+  if (isLoading) {
+    return (
+      <div className="flex justify-center items-center h-64 bg-[#FAF7F2]">
+        <FaSpinner className="animate-spin text-[#F2C94C]" size={48} />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="p-4 bg-red-50 border-l-4 border-red-500 text-red-700 rounded-md alert alert-error">
+        {error}
+      </div>
+    );
+  }
+
+  // Define columns for desktop table
+  const tableColumns = [
+    { key: 'itemCode', header: 'Item Code' }, // Add Item Code column
+    { key: 'productName', header: 'Product Name' },
+    { key: 'openingStock', header: 'Opening Stock' },
+    { key: 'inward', header: 'Inward (GRN)' },
+    { key: 'outwardCartons', header: 'Outward Cartons' },
+    { key: 'outwardPieces', header: 'Outward Pieces' },
+    { key: 'available_cartons', header: 'Total Cartons' },
+    { key: 'broken_carton_pieces', header: 'Broken Pieces' },
+    { 
+      key: 'lastUpdated', 
+      header: 'Last Updated', 
+      render: (value) => {
+        if (!value) return 'N/A';
+        return new Date(value).toLocaleString();
+      }
+    }
+  ];
+
+  // Define fields for mobile card list
+  const mobileFields = [
+    { key: 'itemCode', label: 'Item Code' }, // Add Item Code field
+    { key: 'productName', label: 'Product', isTitle: true },
+    { key: 'openingStock', label: 'Opening Stock' },
+    { key: 'inward', label: 'Inward (GRN)' },
+    { key: 'outwardCartons', label: 'Outward Cartons' },
+    { key: 'outwardPieces', label: 'Outward Pieces' },
+    { key: 'available_cartons', label: 'Cartons' },
+    { key: 'broken_carton_pieces', label: 'Broken Pieces' },
+    { 
+      key: 'lastUpdated', 
+      label: 'Updated', 
+      render: (value) => {
+        if (!value) return 'N/A';
+        return new Date(value).toLocaleDateString();
+      }
+    }
+  ];
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 bg-[#FAF7F2] p-4 md:p-6">
       <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4">
-        <h1 className="text-3xl font-bold text-gray-800">Finished Goods Stock Report</h1>
+        <h1 className="text-3xl font-bold text-[#1A1A1A]">Finished Goods Stock Report</h1>
         <div className="flex space-x-2">
           <button 
-            onClick={() => setShowStockRecord(!showStockRecord)}
-            className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
-          >
-            Stock Record
-          </button>
-          <button 
             onClick={exportToExcel}
-            className="flex items-center px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors"
+            className="flex items-center px-4 py-2 bg-[#6A7F3F] text-white rounded-xl hover:bg-[#5a6d35] transition-all shadow-sm hover:shadow-md font-semibold"
           >
             Export Excel
           </button>
           <button 
             onClick={exportToPDF}
-            className="flex items-center px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors"
+            className="flex items-center px-4 py-2 bg-red-500 text-white rounded-xl hover:bg-red-600 transition-all shadow-sm hover:shadow-md font-semibold"
           >
             Export PDF
           </button>
           <button 
             onClick={fetchData}
-            className="flex items-center px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors"
+            className="flex items-center px-4 py-2 bg-[#F2C94C] text-[#1A1A1A] rounded-xl hover:bg-[#e0b840] transition-all shadow-sm hover:shadow-md font-semibold"
           >
             <FaRedo className="mr-2" />
             Refresh
           </button>
+          <button 
+            onClick={() => setIsConfigModalOpen(true)}
+            className="flex items-center px-4 py-2 bg-[#6A7F3F] text-white rounded-xl hover:bg-[#5a6d35] transition-all shadow-sm hover:shadow-md font-semibold"
+          >
+            <FaCog className="mr-2" />
+            Configure Times
+          </button>
         </div>
       </div>
       
-      {/* Stock Record Section */}
-      {showStockRecord && (
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-          <div className="p-4 border-b border-gray-200">
-            <h2 className="text-xl font-semibold text-gray-800">Stock Record Summary</h2>
+      {/* Date Filter */}
+      <div className="bg-white p-4 rounded-xl shadow-sm border border-[#E7E2D8]">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+          <div className="flex items-center">
+            <label htmlFor="dateFilter" className="mr-2 text-[#1A1A1A] font-medium">Date:</label>
+            <input
+              type="date"
+              id="dateFilter"
+              value={selectedDate}
+              onChange={(e) => setSelectedDate(e.target.value)}
+              className="border border-[#E7E2D8] rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-[#F2C94C] focus:border-[#F2C94C] bg-white text-[#1A1A1A]"
+            />
           </div>
-          
-          {/* Date Range Filter for Stock Record */}
-          <div className="p-4 bg-gray-50 border-b border-gray-200">
-            <div className="flex flex-col md:flex-row md:items-center gap-4">
-              <div className="flex flex-col">
-                <label className="text-sm font-medium text-gray-700 mb-1">From Date</label>
-                <input
-                  type="date"
-                  className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  value={stockRecordDateRange.from}
-                  onChange={(e) => setStockRecordDateRange({...stockRecordDateRange, from: e.target.value})}
-                />
-              </div>
-              <div className="flex flex-col">
-                <label className="text-sm font-medium text-gray-700 mb-1">To Date</label>
-                <input
-                  type="date"
-                  className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  value={stockRecordDateRange.to}
-                  onChange={(e) => setStockRecordDateRange({...stockRecordDateRange, to: e.target.value})}
-                />
-              </div>
-              <div className="flex items-end">
-                <button
-                  onClick={fetchStockRecordData}
-                  disabled={stockRecordLoading}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 transition-colors"
-                >
-                  {stockRecordLoading ? 'Loading...' : 'Apply'}
-                </button>
-              </div>
-              <div className="flex items-end space-x-2">
-                <button
-                  onClick={exportStockRecordToExcel}
-                  disabled={stockRecordData.length === 0}
-                  className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:opacity-50 transition-colors"
-                >
-                  Export Excel
-                </button>
-                <button
-                  onClick={exportStockRecordToPDF}
-                  disabled={stockRecordData.length === 0}
-                  className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 disabled:opacity-50 transition-colors"
-                >
-                  Export PDF
-                </button>
-              </div>
-            </div>
-            {stockRecordError && (
-              <div className="mt-2 text-red-600 text-sm">{stockRecordError}</div>
-            )}
-          </div>
-          
-          {/* Stock Record Table */}
-          <div className="overflow-x-auto">
-            {stockRecordLoading ? (
-              <div className="flex justify-center items-center h-32">
-                <FaSpinner className="animate-spin text-blue-600" size={32} />
-              </div>
-            ) : stockRecordData.length > 0 ? (
-              <>
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-100">
-                    <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-blue-600 uppercase tracking-wider">Item Code</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-blue-600 uppercase tracking-wider">Product Name</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-blue-600 uppercase tracking-wider">Opening Cartons</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-blue-600 uppercase tracking-wider">Opening Pieces</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-blue-600 uppercase tracking-wider">Inward Cartons</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-blue-600 uppercase tracking-wider">Inward Pieces</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-blue-600 uppercase tracking-wider">Outward Cartons</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-blue-600 uppercase tracking-wider">Outward Pieces</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-blue-600 uppercase tracking-wider">Closing Cartons</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-blue-600 uppercase tracking-wider">Closing Pieces</th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {stockRecordData.map((record, index) => (
-                      <tr key={index} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{record.itemCode}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{record.productName}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{record.openingCartons}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{record.openingPieces}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{record.inwardCartons}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{record.inwardPieces}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{record.outwardCartons}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{record.outwardPieces}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{record.closingCartons}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{record.closingPieces}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                  <tfoot className="bg-gray-50 font-bold">
-                    <tr>
-                      <td className="px-6 py-3 text-sm text-gray-700"></td>
-                      <td className="px-6 py-3 text-sm text-gray-700">TOTAL</td>
-                      <td className="px-6 py-3 text-sm text-gray-700">{stockRecordTotals.openingCartons}</td>
-                      <td className="px-6 py-3 text-sm text-gray-700">{stockRecordTotals.openingPieces}</td>
-                      <td className="px-6 py-3 text-sm text-gray-700">{stockRecordTotals.inwardCartons}</td>
-                      <td className="px-6 py-3 text-sm text-gray-700">{stockRecordTotals.inwardPieces}</td>
-                      <td className="px-6 py-3 text-sm text-gray-700">{stockRecordTotals.outwardCartons}</td>
-                      <td className="px-6 py-3 text-sm text-gray-700">{stockRecordTotals.outwardPieces}</td>
-                      <td className="px-6 py-3 text-sm text-gray-700">{stockRecordTotals.closingCartons}</td>
-                      <td className="px-6 py-3 text-sm text-gray-700">{stockRecordTotals.closingPieces}</td>
-                    </tr>
-                  </tfoot>
-                </table>
-                <div className="px-6 py-3 bg-gray-50 border-t border-gray-200 text-sm text-gray-500">
-                  Showing {stockRecordData.length} records
-                </div>
-              </>
-            ) : (
-              <div className="text-center py-8 text-gray-500">
-                No stock record data available. Select a date range and click Apply.
-              </div>
-            )}
+          <div className="text-sm text-[#6D6A62]">
+            Report for: {new Date(selectedDate).toLocaleDateString('en-IN', {
+              day: '2-digit',
+              month: 'short',
+              year: 'numeric'
+            })}
           </div>
         </div>
-      )}
+      </div>
       
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
+        <div className="bg-white p-4 rounded-xl shadow-sm border border-[#E7E2D8]">
           <div className="flex items-center">
-            <div className="p-3 rounded-full bg-indigo-100 text-indigo-600 mr-4">
+            <div className="p-3 rounded-full bg-[#FAF7F2] text-[#F2C94C] mr-4">
               <FaBox />
             </div>
             <div>
-              <p className="text-sm text-gray-500">Total Products</p>
-              <p className="text-2xl font-bold">{summaryTotals.totalProducts}</p>
+              <p className="text-sm text-[#6D6A62]">Total Products</p>
+              <p className="text-2xl font-bold text-[#1A1A1A]">{summaryTotals.totalProducts}</p>
             </div>
           </div>
         </div>
         
-        <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
+        <div className="bg-white p-4 rounded-xl shadow-sm border border-[#E7E2D8]">
           <div className="flex items-center">
-            <div className="p-3 rounded-full bg-blue-100 text-blue-600 mr-4">
+            <div className="p-3 rounded-full bg-[#FAF7F2] text-[#F2C94C] mr-4">
               <FaClipboardCheck />
             </div>
             <div>
-              <p className="text-sm text-gray-500">Total Cartons</p>
-              <p className="text-2xl font-bold">{summaryTotals.totalCartons}</p>
+              <p className="text-sm text-[#6D6A62]">Total Cartons</p>
+              <p className="text-2xl font-bold text-[#1A1A1A]">{summaryTotals.totalCartons}</p>
             </div>
           </div>
         </div>
         
-        <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
+        <div className="bg-white p-4 rounded-xl shadow-sm border border-[#E7E2D8]">
           <div className="flex items-center">
-            <div className="p-3 rounded-full bg-green-100 text-green-600 mr-4">
+            <div className="p-3 rounded-full bg-[#FAF7F2] text-[#6A7F3F] mr-4">
               <FaTruck />
             </div>
             <div>
-              <p className="text-sm text-gray-500">Total Broken Pieces</p>
-              <p className="text-2xl font-bold">{summaryTotals.totalPieces}</p>
+              <p className="text-sm text-[#6D6A62]">Total Broken Pieces</p>
+              <p className="text-2xl font-bold text-[#1A1A1A]">{summaryTotals.totalPieces}</p>
             </div>
           </div>
         </div>
         
-        <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
+        <div className="bg-white p-4 rounded-xl shadow-sm border border-[#E7E2D8]">
           <div className="flex items-center">
-            <div className="p-3 rounded-full bg-purple-100 text-purple-600 mr-4">
+            <div className="p-3 rounded-full bg-[#FAF7F2] text-[#F2C94C] mr-4">
               <FaClipboardCheck />
             </div>
             <div>
-              <p className="text-sm text-gray-500">Available Stock</p>
-              <p className="text-2xl font-bold">{summaryTotals.availableStock}</p>
+              <p className="text-sm text-[#6D6A62]">Available Stock</p>
+              <p className="text-2xl font-bold text-[#1A1A1A]">{summaryTotals.availableStock}</p>
             </div>
           </div>
         </div>
       </div>
       
       {/* Search and Filter Bar */}
-      <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200">
+      <div className="bg-white p-4 rounded-xl shadow-sm border border-[#E7E2D8]">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div className="relative flex-1 max-w-md">
             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <FaSearch className="text-gray-400" />
+              <FaSearch className="text-[#6D6A62]" />
             </div>
             <input
               type="text"
               placeholder="Search by product name or item code..."
-              className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500"
+              className="block w-full pl-10 pr-3 py-2 border border-[#E7E2D8] rounded-lg leading-5 bg-white placeholder-[#6D6A62] focus:outline-none focus:placeholder-[#1A1A1A] focus:ring-1 focus:ring-[#F2C94C] focus:border-[#F2C94C]"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
-          <div className="flex space-x-2">
+          <div className="flex items-center">
+            <label htmlFor="dateFilter" className="mr-2 text-[#1A1A1A] font-medium">Date:</label>
             <input
               type="date"
-              placeholder="Start Date"
-              className="block w-full md:w-auto pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"
-              value={dateRange.start}
-              onChange={(e) => setDateRange({...dateRange, start: e.target.value})}
-            />
-            <input
-              type="date"
-              placeholder="End Date"
-              className="block w-full md:w-auto pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"
-              value={dateRange.end}
-              onChange={(e) => setDateRange({...dateRange, end: e.target.value})}
+              id="dateFilter"
+              value={selectedDate}
+              onChange={(e) => setSelectedDate(e.target.value)}
+              className="border border-[#E7E2D8] rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-[#F2C94C] focus:border-[#F2C94C] bg-white text-[#1A1A1A]"
             />
           </div>
         </div>
       </div>
       
       {/* Responsive Table */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+      <div className="bg-white rounded-xl shadow-sm border border-[#E7E2D8] overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-100">
+          <table className="min-w-full divide-y divide-[#E7E2D8]">
+            <thead className="bg-[#FAF7F2]">
               <tr>
                 {tableColumns.map(column => (
                   <th 
                     key={column.key} 
-                    className="px-6 py-3 text-left text-xs font-medium text-red-600 uppercase tracking-wider"
+                    className="px-6 py-3 text-left text-xs font-semibold text-[#1A1A1A] uppercase tracking-wider"
                   >
                     {column.header}
                   </th>
                 ))}
-                <th className="px-6 py-3 text-left text-xs font-medium text-red-600 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-semibold text-[#1A1A1A] uppercase tracking-wider">
                   Actions
                 </th>
               </tr>
             </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
+            <tbody className="bg-white divide-y divide-[#E7E2D8]">
               {filteredProducts.length === 0 ? (
                 <tr>
-                  <td colSpan={tableColumns.length + 1} className="px-6 py-4 text-center text-gray-500">
+                  <td colSpan={tableColumns.length + 1} className="px-6 py-4 text-center text-[#6D6A62]">
                     No products found.
                   </td>
                 </tr>
@@ -674,24 +483,24 @@ const FGStockReport = () => {
                 filteredProducts.map((product, index) => (
                   <tr 
                     key={product._id} 
-                    className={`${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'} hover:bg-blue-50 ${
-                      updatedProducts.has(product.productName) ? 'bg-green-100 transition-colors duration-1000' : ''
+                    className={`${index % 2 === 0 ? 'bg-white' : 'bg-[#FAF7F2]'} hover:bg-[#FAF7F2] ${
+                      updatedProducts.has(product.productName) ? 'bg-green-50 transition-colors duration-1000' : ''
                     }`}
                   >
                     {tableColumns.map(column => (
                       <td 
                         key={column.key} 
                         className={`px-6 py-4 whitespace-nowrap text-sm ${
-                          column.key === 'productName' ? 'font-medium text-gray-900' : 'text-gray-700'
+                          column.key === 'productName' ? 'font-medium text-[#1A1A1A]' : 'text-[#1A1A1A]'
                         }`}
                       >
                         {column.render ? column.render(product[column.key]) : product[column.key]}
                       </td>
                     ))}
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-[#1A1A1A]">
                       <button
                         onClick={() => handleEditClick(product)}
-                        className="text-indigo-600 hover:text-indigo-900"
+                        className="text-[#F2C94C] hover:text-[#1A1A1A]"
                       >
                         <FaEdit />
                       </button>
@@ -700,140 +509,159 @@ const FGStockReport = () => {
                 ))
               )}
             </tbody>
-            {/* Footer with totals */}
-            <tfoot className="bg-gray-50 font-bold">
+            <tfoot className="bg-[#FAF7F2] font-bold">
               <tr>
-                <td className="px-6 py-3 text-sm text-gray-700"></td> {/* Empty cell for Item Code */}
-                <td className="px-6 py-3 text-sm text-gray-700">TOTAL</td>
-                <td className="px-6 py-3 text-sm text-gray-700">{summaryTotals.totalCartons}</td>
-                <td className="px-6 py-3 text-sm text-gray-700">{summaryTotals.totalPieces}</td>
-                <td className="px-6 py-3 text-sm text-gray-700"></td>
-                <td className="px-6 py-3 text-sm text-gray-700"></td> {/* Empty cell for Actions */}
+                <td className="px-6 py-3 text-sm text-[#1A1A1A]"></td>
+                <td className="px-6 py-3 text-sm text-[#1A1A1A]">TOTAL</td>
+                <td className="px-6 py-3 text-sm text-[#1A1A1A]">{summaryTotals.totalOpeningStock}</td>
+                <td className="px-6 py-3 text-sm text-[#1A1A1A]">{summaryTotals.totalInward}</td>
+                <td className="px-6 py-3 text-sm text-[#1A1A1A]">{summaryTotals.totalOutwardCartons}</td>
+                <td className="px-6 py-3 text-sm text-[#1A1A1A]">{summaryTotals.totalOutwardPieces}</td>
+                <td className="px-6 py-3 text-sm text-[#1A1A1A]">{summaryTotals.totalCartons}</td>
+                <td className="px-6 py-3 text-sm text-[#1A1A1A]">{summaryTotals.totalPieces}</td>
+                <td className="px-6 py-3 text-sm text-[#1A1A1A]"></td>
+                <td className="px-6 py-3 text-sm text-[#1A1A1A]"></td>
               </tr>
             </tfoot>
           </table>
         </div>
-        <div className="px-6 py-3 bg-gray-50 border-t border-gray-200 text-sm text-gray-500">
+        <div className="px-6 py-3 bg-[#FAF7F2] border-t border-[#E7E2D8] text-sm text-[#6D6A62]">
           Showing {filteredProducts.length} of {productStocks.length} products
         </div>
       </div>
 
-      {/* Apple Style Glassmorphism Blur Modal */}
-      {showEditModal && editingProduct && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          {/* Background overlay with blur */}
-          <div 
-            className="fixed inset-0 bg-black bg-opacity-35 backdrop-blur-sm transition-opacity"
-            onClick={handleCancelEdit}
-          ></div>
-          
-          {/* Modal container with glassmorphism effect */}
-          <div className="relative bg-white bg-opacity-35 backdrop-blur-2xl border border-white border-opacity-30 rounded-2xl shadow-2xl transform transition-all sm:max-w-lg w-full animate-fade-in-up">
-            <div className="px-6 py-4 border-b border-white border-opacity-20">
-              <h3 className="text-lg font-medium text-gray-800">Edit Product</h3>
-            </div>
-            <div className="px-6 py-4 space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Product Name</label>
-                <input
-                  type="text"
-                  value={editingProduct.productName}
-                  readOnly
-                  className="mt-1 block w-full px-4 py-3 bg-white bg-opacity-50 border border-white border-opacity-30 rounded-xl shadow-inner backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Item Code</label>
-                <input
-                  type="text"
-                  value={editingProduct.itemCode || 'N/A'}
-                  readOnly
-                  className="mt-1 block w-full px-4 py-3 bg-white bg-opacity-50 border border-white border-opacity-30 rounded-xl shadow-inner backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Total Cartons</label>
-                <input
-                  type="text"
-                  value={editingProduct.available_cartons}
-                  readOnly
-                  className="mt-1 block w-full px-4 py-3 bg-white bg-opacity-50 border border-white border-opacity-30 rounded-xl shadow-inner backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Broken Pieces</label>
-                <input
-                  type="text"
-                  value={editingProduct.broken_carton_pieces}
-                  readOnly
-                  className="mt-1 block w-full px-4 py-3 bg-white bg-opacity-50 border border-white border-opacity-30 rounded-xl shadow-inner backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Alert Threshold</label>
-                <input
-                  type="number"
-                  name="alertThreshold"
-                  value={editForm.alertThreshold}
-                  onChange={handleFormChange}
-                  min="0"
-                  className="mt-1 block w-full px-4 py-3 bg-white bg-opacity-50 border border-white border-opacity-30 rounded-xl shadow-inner backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all hover:shadow-md"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">HSN Code</label>
-                <input
-                  type="text"
-                  name="hsnCode"
-                  value={editForm.hsnCode}
-                  onChange={handleFormChange}
-                  className="mt-1 block w-full px-4 py-3 bg-white bg-opacity-50 border border-white border-opacity-30 rounded-xl shadow-inner backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all hover:shadow-md"
-                />
-              </div>
-            </div>
-            <div className="px-6 py-4 bg-white bg-opacity-20 border-t border-white border-opacity-20 flex justify-end space-x-3 rounded-b-2xl">
-              <button
-                type="button"
-                onClick={handleCancelEdit}
-                className="px-6 py-2 bg-gray-200 bg-opacity-50 border border-gray-300 border-opacity-30 text-gray-700 rounded-full hover:bg-gray-300 hover:bg-opacity-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition-all"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={handleSaveChanges}
-                disabled={isSaving}
-                className="px-6 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-full hover:from-purple-700 hover:to-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 disabled:opacity-50 transition-all shadow-md hover:shadow-lg"
-              >
-                {isSaving ? 'Saving...' : 'Save'}
-              </button>
-            </div>
+      <Modal
+        isOpen={showEditModal}
+        onClose={handleCancelEdit}
+        title="Edit Product"
+        size="default"
+      >
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-[#1A1A1A] mb-1">Product Name</label>
+            <input
+              type="text"
+              value={editingProduct?.productName || ''}
+              readOnly
+              className="mt-1 block w-full px-4 py-3 bg-white border border-[#E7E2D8] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#F2C94C] focus:border-transparent transition-all"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-[#1A1A1A] mb-1">Item Code</label>
+            <input
+              type="text"
+              value={editingProduct?.itemCode || 'N/A'}
+              readOnly
+              className="mt-1 block w-full px-4 py-3 bg-white border border-[#E7E2D8] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#F2C94C] focus:border-transparent transition-all"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-[#1A1A1A] mb-1">Total Cartons</label>
+            <input
+              type="text"
+              value={editingProduct?.available_cartons || ''}
+              readOnly
+              className="mt-1 block w-full px-4 py-3 bg-white border border-[#E7E2D8] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#F2C94C] focus:border-transparent transition-all"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-[#1A1A1A] mb-1">Broken Pieces</label>
+            <input
+              type="text"
+              value={editingProduct?.broken_carton_pieces || ''}
+              readOnly
+              className="mt-1 block w-full px-4 py-3 bg-white border border-[#E7E2D8] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#F2C94C] focus:border-transparent transition-all"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-[#1A1A1A] mb-1">Alert Threshold</label>
+            <input
+              type="number"
+              name="alertThreshold"
+              value={editForm.alertThreshold}
+              onChange={handleFormChange}
+              min="0"
+              className="mt-1 block w-full px-4 py-3 bg-white border border-[#E7E2D8] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#F2C94C] focus:border-transparent transition-all hover:shadow-md"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-[#1A1A1A] mb-1">HSN Code</label>
+            <input
+              type="text"
+              name="hsnCode"
+              value={editForm.hsnCode}
+              onChange={handleFormChange}
+              className="mt-1 block w-full px-4 py-3 bg-white border border-[#E7E2D8] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#F2C94C] focus:border-transparent transition-all hover:shadow-md"
+            />
           </div>
         </div>
-      )}
+        <div className="mt-6 flex justify-end space-x-3">
+          <button
+            type="button"
+            onClick={handleCancelEdit}
+            className="px-6 py-2 bg-[#FAF7F2] border border-[#E7E2D8] text-[#1A1A1A] rounded-xl hover:bg-[#E7E2D8] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#6D6A62] transition-all"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={handleSaveChanges}
+            disabled={isSaving}
+            className="px-6 py-2 bg-[#F2C94C] text-[#1A1A1A] rounded-xl hover:bg-[#e0b840] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#F2C94C] disabled:opacity-50 transition-all shadow-md hover:shadow-lg"
+          >
+            {isSaving ? 'Saving...' : 'Save'}
+          </button>
+        </div>
+      </Modal>
       
-      {/* Add animation styles */}
-      <style jsx>{`
-        @keyframes fade-in-up {
-          0% {
-            opacity: 0;
-            transform: translateY(20px) scale(0.95);
-          }
-          100% {
-            opacity: 1;
-            transform: translateY(0) scale(1);
-          }
-        }
-        .animate-fade-in-up {
-          animation: fade-in-up 0.3s ease-out forwards;
-        }
-        .backdrop-blur-2xl {
-          backdrop-filter: blur(20px);
-        }
-        .backdrop-blur-sm {
-          backdrop-filter: blur(6px);
-        }
-      `}</style>
+      {/* Configuration Modal */}
+      <Modal 
+        isOpen={isConfigModalOpen} 
+        onClose={() => setIsConfigModalOpen(false)} 
+        title="Configure Stock Capture Times"
+      >
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-[#1A1A1A] mb-1">
+              Opening Stock Capture Time
+            </label>
+            <input
+              type="time"
+              value={newConfig.openingTime}
+              onChange={(e) => setNewConfig({...newConfig, openingTime: e.target.value})}
+              className="block w-full border border-[#E7E2D8] rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-[#F2C94C] focus:border-[#F2C94C] bg-white text-[#1A1A1A]"
+            />
+          </div>
+          
+          <div>
+            <label className="block text-sm font-medium text-[#1A1A1A] mb-1">
+              Closing Stock Capture Time
+            </label>
+            <input
+              type="time"
+              value={newConfig.closingTime}
+              onChange={(e) => setNewConfig({...newConfig, closingTime: e.target.value})}
+              className="block w-full border border-[#E7E2D8] rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-[#F2C94C] focus:border-[#F2C94C] bg-white text-[#1A1A1A]"
+            />
+          </div>
+        </div>
+        
+        <div className="mt-6 flex justify-end space-x-3">
+          <button
+            onClick={() => setIsConfigModalOpen(false)}
+            className="px-4 py-2 border border-[#E7E2D8] rounded-xl text-sm font-medium text-[#1A1A1A] hover:bg-[#FAF7F2]"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleSaveConfig}
+            className="px-4 py-2 bg-[#F2C94C] text-[#1A1A1A] rounded-xl text-sm font-medium hover:bg-[#e0b840]"
+          >
+            Save
+          </button>
+        </div>
+      </Modal>
+      
     </div>
   );
 };

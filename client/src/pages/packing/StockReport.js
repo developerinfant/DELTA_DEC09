@@ -104,15 +104,15 @@ const StockReport = () => {
 
   if (isLoading) {
     return (
-      <div className="flex justify-center items-center h-64">
-        <FaSpinner className="animate-spin text-indigo-600" size={48} />
+      <div className="flex justify-center items-center h-64 bg-[#FAF7F2]">
+        <FaSpinner className="animate-spin text-[#F2C94C]" size={48} />
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="p-4 bg-red-100 text-red-700 rounded-md alert alert-error">
+      <div className="p-4 bg-red-50 border-l-4 border-red-500 text-red-700 rounded-md alert alert-error">
         {error}
       </div>
     );
@@ -183,12 +183,13 @@ const StockReport = () => {
   ];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 bg-[#FAF7F2] p-4 md:p-6">
+      {/* Page Header */}
       <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4">
-        <h1 className="text-3xl font-bold text-gray-800">Stock Report</h1>
+        <h1 className="text-3xl font-bold text-[#1A1A1A]">Stock Report</h1>
         <button 
           onClick={fetchData}
-          className="flex items-center px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors self-end md:self-auto"
+          className="flex items-center px-4 py-2 bg-[#F2C94C] text-[#1A1A1A] rounded-xl hover:bg-[#e0b840] transition-all self-end md:self-auto shadow-sm hover:shadow-md font-semibold"
         >
           <FaRedo className="mr-2" />
           Sync Now
@@ -201,54 +202,58 @@ const StockReport = () => {
           title="Total Products" 
           value={summaryTotals.totalProducts} 
           icon={FaBox} 
-          bgColor="bg-indigo-100" 
-          textColor="text-indigo-600"
+          bgColor="bg-white" 
+          textColor="text-[#1A1A1A]"
           tooltip="Total number of products in inventory"
+          className="rounded-xl border border-[#E7E2D8] shadow-sm hover:shadow-md transition-all"
         />
         <StockSummaryCard 
           title="Own Unit Stock" 
           value={summaryTotals.ownUnitStock} 
           icon={FaClipboardCheck} 
-          bgColor="bg-blue-100" 
-          textColor="text-blue-600"
+          bgColor="bg-white" 
+          textColor="text-[#1A1A1A]"
           tooltip="Stock produced in-house (Own Unit)"
+          className="rounded-xl border border-[#E7E2D8] shadow-sm hover:shadow-md transition-all"
         />
         <StockSummaryCard 
           title="Jobber Stock" 
           value={summaryTotals.jobberStock} 
           icon={FaTruck} 
-          bgColor="bg-green-100" 
-          textColor="text-green-600"
+          bgColor="bg-white" 
+          textColor="text-[#1A1A1A]"
           tooltip="Stock received from external suppliers (Jobber)"
+          className="rounded-xl border border-[#E7E2D8] shadow-sm hover:shadow-md transition-all"
         />
         <StockSummaryCard 
           title="Total Available" 
           value={summaryTotals.totalAvailable} 
           icon={FaClipboardCheck} 
-          bgColor="bg-purple-100" 
-          textColor="text-purple-600"
+          bgColor="bg-white" 
+          textColor="text-[#1A1A1A]"
           tooltip="Total available stock (Own Unit + Jobber)"
+          className="rounded-xl border border-[#E7E2D8] shadow-sm hover:shadow-md transition-all"
         />
       </div>
       
       {/* Search and Filter Bar */}
-      <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200">
+      <div className="bg-white p-4 rounded-xl shadow-sm border border-[#E7E2D8]">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div className="relative flex-1 max-w-md">
             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <FaSearch className="text-gray-400" />
+              <FaSearch className="text-[#6D6A62]" />
             </div>
             <input
               type="text"
               placeholder="Search by product name..."
-              className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500"
+              className="block w-full pl-10 pr-3 py-2 border border-[#E7E2D8] rounded-lg leading-5 bg-white placeholder-[#6D6A62] focus:outline-none focus:placeholder-[#1A1A1A] focus:ring-1 focus:ring-[#F2C94C] focus:border-[#F2C94C]"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
           <div className="flex space-x-2">
             <select
-              className="block w-full md:w-auto pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"
+              className="block w-full md:w-auto pl-3 pr-10 py-2 text-base border-[#E7E2D8] focus:outline-none focus:ring-1 focus:ring-[#F2C94C] focus:border-[#F2C94C] sm:text-sm rounded-lg bg-white text-[#1A1A1A]"
               value={filterSource}
               onChange={(e) => setFilterSource(e.target.value)}
             >
@@ -262,14 +267,14 @@ const StockReport = () => {
       
       {/* Warning for stale data */}
       {filteredProducts.some(item => isStockDataStale(item.lastUpdated)) && (
-        <div className="p-4 bg-yellow-100 text-yellow-800 rounded-md flex items-center">
+        <div className="p-4 bg-yellow-50 border-l-4 border-yellow-500 text-yellow-800 rounded-lg flex items-center">
           <FaExclamationTriangle className="mr-2" />
           <span>Some stock data may be outdated. Last updated more than 24 hours ago.</span>
         </div>
       )}
       
       {/* Responsive Table */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+      <div className="bg-white rounded-xl shadow-sm border border-[#E7E2D8] overflow-hidden">
         <ResponsiveTable
           data={filteredProducts}
           columns={tableColumns}

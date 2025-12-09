@@ -59,7 +59,8 @@ const testStockCalculation = async () => {
       const grnDate = new Date(grn.dateReceived);
       grnDate.setHours(0, 0, 0, 0);
       
-      if (grnDate.getTime() === testDate.getTime()) {
+      // Count all GRNs except those marked as Draft or Cancelled
+      if (!['Draft', 'Cancelled'].includes(grn.status) && grnDate.getTime() === testDate.getTime()) {
         grn.items.forEach(item => {
           if ((item.material && item.material.toString() === material._id.toString()) || 
               (typeof item.material === 'string' && item.material === material.name)) {

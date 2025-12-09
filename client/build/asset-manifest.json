@@ -1,19 +1,19 @@
 {
   "files": {
-    "main.css": "/static/css/main.ed15de8b.css",
-    "main.js": "/static/js/main.6414dbfd.js",
+    "main.css": "/static/css/main.efa01e16.css",
+    "main.js": "/static/js/main.913b7d18.js",
     "static/js/977.23c4c575.chunk.js": "/static/js/977.23c4c575.chunk.js",
     "static/js/455.90ff3bf7.chunk.js": "/static/js/455.90ff3bf7.chunk.js",
     "static/media/logo-po.png": "/static/media/logo-po.f647ff130a7a5d788187.png",
     "static/media/logo.png": "/static/media/logo.9f0b56a86a9eb99a75c2.png",
     "index.html": "/index.html",
-    "main.ed15de8b.css.map": "/static/css/main.ed15de8b.css.map",
-    "main.6414dbfd.js.map": "/static/js/main.6414dbfd.js.map",
+    "main.efa01e16.css.map": "/static/css/main.efa01e16.css.map",
+    "main.913b7d18.js.map": "/static/js/main.913b7d18.js.map",
     "977.23c4c575.chunk.js.map": "/static/js/977.23c4c575.chunk.js.map",
     "455.90ff3bf7.chunk.js.map": "/static/js/455.90ff3bf7.chunk.js.map"
   },
   "entrypoints": [
-    "static/css/main.ed15de8b.css",
-    "static/js/main.6414dbfd.js"
+    "static/css/main.efa01e16.css",
+    "static/js/main.913b7d18.js"
   ]
 }

@@ -39,7 +39,7 @@ const CreateInvoice = () => {
             itemCode: '', 
             product: '', 
             hsn: '', 
-            gstPercent: 5, 
+            gstPercent: 5, // Default to 5% GST (will be updated when buyer is selected)
             scheme: '', 
             uom: 'Cartons',
             qty: 0, 
@@ -102,35 +102,51 @@ const CreateInvoice = () => {
             const selectedBuyer = buyers.find(b => b._id === formData.buyerId);
             if (selectedBuyer) {
                 const address = `${selectedBuyer.address}, ${selectedBuyer.city}, ${selectedBuyer.state} - ${selectedBuyer.pincode}`;
+                
+                // Map buyer payment terms to invoice terms
+                let mappedTermsOfPayment = '';
+                if (selectedBuyer.paymentTerms === 'Net 15' || selectedBuyer.paymentTerms === 'Net 30') {
+                    mappedTermsOfPayment = 'Credit';
+                } else if (selectedBuyer.paymentTerms === 'Advance') {
+                    mappedTermsOfPayment = 'Advance';
+                }
+                
                 setFormData(prev => ({
                     ...prev,
                     billedTo: address,
                     shippedTo: address,
                     transportName: selectedBuyer.transportName || '',
-                    termsOfPayment: selectedBuyer.paymentTerms || '',
+                    termsOfPayment: mappedTermsOfPayment,
                     destination: selectedBuyer.destination || ''
                 }));
                 
                 // Set GST type and percentages based on buyer state
+                let newGstType, newGstPercent;
                 if (selectedBuyer.state && selectedBuyer.state.trim().toLowerCase() === 'tamil nadu') {
-                    setGstType('CGST+SGST');
+                    newGstType = 'CGST+SGST';
+                    newGstPercent = 5; // CGST 2.5% + SGST 2.5% = 5%
+                    setGstType(newGstType);
                     setCgstPercent(2.5);
                     setSgstPercent(2.5);
                     setIgstPercent(0);
-                    setItems(prevItems => prevItems.map(item => ({
-                        ...item,
-                        gstPercent: 5
-                    })));
                 } else {
-                    setGstType('IGST');
+                    newGstType = 'IGST';
+                    newGstPercent = 5; // IGST 5%
+                    setGstType(newGstType);
                     setCgstPercent(0);
                     setSgstPercent(0);
                     setIgstPercent(5);
-                    setItems(prevItems => prevItems.map(item => ({
-                        ...item,
-                        gstPercent: 5
-                    })));
                 }
+                
+                // Update items with the correct GST percentage
+                // Only update if GST type actually changed
+                setItems(prevItems => {
+                    const updatedItems = prevItems.map(item => ({
+                        ...item,
+                        gstPercent: newGstPercent
+                    }));
+                    return updatedItems;
+                });
             }
         }
     }, [formData.buyerId, buyers]);
@@ -138,45 +154,59 @@ const CreateInvoice = () => {
     // Update form data when driver is selected
     const handleDriverChange = (e) => {
         const driverId = e.target.value;
-        setFormData({ ...formData, driverId });
-        
-        if (driverId) {
-            const selectedDriver = drivers.find(d => d._id === driverId);
-            if (selectedDriver) {
+        // Only update if the driverId actually changed
+        if (formData.driverId !== driverId) {
+            setFormData({ ...formData, driverId });
+            
+            if (driverId) {
+                const selectedDriver = drivers.find(d => d._id === driverId);
+                if (selectedDriver) {
+                    setFormData(prev => ({
+                        ...prev,
+                        transportName: selectedDriver.transportName || '',
+                        vehicleNo: selectedDriver.vehicleNo || '',
+                        vehicleType: selectedDriver.vehicleType || '',
+                        driverPhone: selectedDriver.phone || '',
+                        destination: selectedDriver.destination || ''
+                    }));
+                }
+            } else {
+                // Clear driver-related fields when no driver is selected
                 setFormData(prev => ({
                     ...prev,
-                    transportName: selectedDriver.transportName || '',
-                    vehicleNo: selectedDriver.vehicleNo || '',
-                    vehicleType: selectedDriver.vehicleType || '',
-                    driverPhone: selectedDriver.phone || '',
-                    destination: selectedDriver.destination || ''
+                    transportName: '',
+                    vehicleNo: '',
+                    vehicleType: '',
+                    driverPhone: '',
+                    destination: ''
                 }));
             }
-        } else {
-            // Clear driver-related fields when no driver is selected
-            setFormData(prev => ({
-                ...prev,
-                transportName: '',
-                vehicleNo: '',
-                vehicleType: '',
-                driverPhone: '',
-                destination: ''
-            }));
         }
     };
 
-    // Calculate totals when items, scheme discount, or GST type change
+    // Calculate item amounts when items change
     useEffect(() => {
-        // Calculate item amounts
-        const updatedItems = items.map(item => {
-            const amount = (item.qty * item.rate) * (1 - item.discPercent / 100);
-            return { ...item, amount: parseFloat(amount.toFixed(2)) };
+        // We only need to recalculate amounts if they haven't been calculated yet
+        // This prevents infinite loops while still ensuring calculations are correct
+        const itemsNeedCalculation = items.some(item => {
+            const calculatedAmount = (item.qty * item.rate) * (1 - item.discPercent / 100);
+            return Math.abs(item.amount - calculatedAmount) > 0.001; // Allow for floating point precision issues
         });
         
-        setItems(updatedItems);
-        
+        if (itemsNeedCalculation) {
+            const updatedItems = items.map(item => {
+                const amount = (item.qty * item.rate) * (1 - item.discPercent / 100);
+                return { ...item, amount: parseFloat(amount.toFixed(2)) };
+            });
+            
+            setItems(updatedItems);
+        }
+    }, [items]);
+    
+    // Calculate totals when item amounts, scheme discount, or GST type change
+    useEffect(() => {
         // Calculate totals based on GST type
-        const totalAmount = updatedItems.reduce((sum, item) => sum + item.amount, 0);
+        const totalAmount = items.reduce((sum, item) => sum + item.amount, 0);
         const taxable = totalAmount - schemeDiscount;
         
         let cgst = 0;
@@ -257,47 +287,56 @@ const CreateInvoice = () => {
     };
 
     const handleInputChange = (e) => {
-        setFormData({ ...formData, [e.target.name]: e.target.value });
+        const { name, value } = e.target;
+        // Only update if the value actually changed
+        if (formData[name] !== value) {
+            setFormData({ ...formData, [name]: value });
+        }
     };
 
     // Handle item change
     const handleItemChange = (id, field, value) => {
-        setItems(prevItems => 
-            prevItems.map(item => {
-                if (item.id === id) {
-                    const updatedItem = { ...item, [field]: value };
+        setItems(prevItems => {
+            // Check if the item actually changed to prevent unnecessary updates
+            const itemIndex = prevItems.findIndex(item => item.id === id);
+            if (itemIndex === -1) return prevItems;
+            
+            const currentItem = prevItems[itemIndex];
+            if (currentItem[field] === value) return prevItems; // No change, return previous state
+            
+            // Create updated items array
+            const updatedItems = [...prevItems];
+            const updatedItem = { ...currentItem, [field]: value };
+            
+            // If product changes, auto-fill itemCode, HSN, and stock details
+            if (field === 'product') {
+                const selectedProduct = products.find(p => p.productName === value);
+                if (selectedProduct) {
+                    updatedItem.itemCode = selectedProduct.itemCode || '';
+                    updatedItem.hsn = selectedProduct.hsnCode || '';
+                    updatedItem.available_cartons = selectedProduct.available_cartons;
+                    updatedItem.available_pieces = selectedProduct.available_pieces;
+                    updatedItem.broken_carton_pieces = selectedProduct.broken_carton_pieces;
+                    updatedItem.units_per_carton = selectedProduct.units_per_carton || 1;
+                    updatedItem.qty = 0;
                     
-                    // If product changes, auto-fill itemCode, HSN, and stock details
-                    if (field === 'product') {
-                        const selectedProduct = products.find(p => p.productName === value);
-                        if (selectedProduct) {
-                            updatedItem.itemCode = selectedProduct.itemCode || '';
-                            updatedItem.hsn = selectedProduct.hsnCode || '';
-                            updatedItem.available_cartons = selectedProduct.available_cartons;
-                            updatedItem.available_pieces = selectedProduct.available_pieces;
-                            updatedItem.broken_carton_pieces = selectedProduct.broken_carton_pieces;
-                            updatedItem.units_per_carton = selectedProduct.units_per_carton || 1;
-                            updatedItem.qty = 0;
-                            
-                            // Fetch the correct units per carton from product mapping
-                            fetchProductMapping(value, id);
-                        }
-                    }
-                    
-                    // Auto-calculate amount when qty or rate changes
-                    if (field === 'qty' || field === 'rate' || field === 'discPercent') {
-                        const qty = field === 'qty' ? parseFloat(value) || 0 : updatedItem.qty;
-                        const rate = field === 'rate' ? parseFloat(value) || 0 : updatedItem.rate;
-                        const discPercent = field === 'discPercent' ? parseFloat(value) || 0 : updatedItem.discPercent;
-                        const amount = (qty * rate) * (1 - discPercent / 100);
-                        updatedItem.amount = parseFloat(amount.toFixed(2));
-                    }
-                    
-                    return updatedItem;
+                    // Fetch the correct units per carton from product mapping
+                    fetchProductMapping(value, id);
                 }
-                return item;
-            })
-        );
+            }
+            
+            // Auto-calculate amount when qty, rate, or discPercent changes
+            if (field === 'qty' || field === 'rate' || field === 'discPercent') {
+                const qty = field === 'qty' ? parseFloat(value) || 0 : updatedItem.qty;
+                const rate = field === 'rate' ? parseFloat(value) || 0 : updatedItem.rate;
+                const discPercent = field === 'discPercent' ? parseFloat(value) || 0 : updatedItem.discPercent;
+                const amount = (qty * rate) * (1 - discPercent / 100);
+                updatedItem.amount = parseFloat(amount.toFixed(2));
+            }
+            
+            updatedItems[itemIndex] = updatedItem;
+            return updatedItems;
+        });
     };
 
     // Fetch product mapping to get units per carton
@@ -337,7 +376,7 @@ const CreateInvoice = () => {
                 itemCode: '', 
                 product: '', 
                 hsn: '', 
-                gstPercent: gstType === 'IGST' ? 5 : 5,
+                gstPercent: gstType === 'IGST' ? 5 : 5, // This should dynamically reflect the GST type
                 scheme: '', 
                 uom: 'Cartons', 
                 qty: 0, 
@@ -357,10 +396,14 @@ const CreateInvoice = () => {
         if (items.length > 1) {
             setItems(prevItems => {
                 const filteredItems = prevItems.filter(item => item.id !== id);
-                return filteredItems.map((item, index) => ({
-                    ...item,
-                    sn: index + 1
-                }));
+                // Only update serial numbers if items were actually removed
+                if (filteredItems.length !== prevItems.length) {
+                    return filteredItems.map((item, index) => ({
+                        ...item,
+                        sn: index + 1
+                    }));
+                }
+                return prevItems;
             });
         }
     };
@@ -391,21 +434,27 @@ const CreateInvoice = () => {
 
     // Handle quantity validation and auto-correction
     const handleQuantityValidation = (id) => {
-        setItems(prevItems => 
-            prevItems.map(item => {
-                if (item.id === id) {
-                    const errorMessage = validateQuantity(item);
-                    if (errorMessage) {
-                        const match = errorMessage.match(/Maximum available: ([\d.]+)/);
-                        if (match) {
-                            const maxAvailable = parseFloat(match[1]);
-                            return { ...item, qty: maxAvailable };
-                        }
+        setItems(prevItems => {
+            const itemIndex = prevItems.findIndex(item => item.id === id);
+            if (itemIndex === -1) return prevItems;
+            
+            const currentItem = prevItems[itemIndex];
+            const errorMessage = validateQuantity(currentItem);
+            
+            if (errorMessage) {
+                const match = errorMessage.match(/Maximum available: ([\d.]+)/);
+                if (match) {
+                    const maxAvailable = parseFloat(match[1]);
+                    // Only update if the quantity actually needs to change
+                    if (currentItem.qty !== maxAvailable) {
+                        const updatedItems = [...prevItems];
+                        updatedItems[itemIndex] = { ...currentItem, qty: maxAvailable };
+                        return updatedItems;
                     }
                 }
-                return item;
-            })
-        );
+            }
+            return prevItems;
+        });
     };
 
     const handleSubmit = async (e) => {
@@ -466,7 +515,7 @@ const CreateInvoice = () => {
         }
     };
 
-    if (isLoading && items.length === 1 && items[0].product === '') {
+    if (isLoading && items.length === 1 && items[0].product === '' && buyers.length === 0) {
         return (
             <div className="flex justify-center items-center h-64">
                 <FaSpinner className="animate-spin text-3xl text-primary-500" />
@@ -841,7 +890,12 @@ const CreateInvoice = () => {
                             <input
                                 type="number"
                                 value={schemeDiscount}
-                                onChange={(e) => setSchemeDiscount(parseFloat(e.target.value) || 0)}
+                                onChange={(e) => {
+                                    const newValue = parseFloat(e.target.value) || 0;
+                                    if (schemeDiscount !== newValue) {
+                                        setSchemeDiscount(newValue);
+                                    }
+                                }}
                                 className="w-full md:w-1/2 px-4 py-2 text-dark-700 bg-light-200 border border-transparent rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
                                 min="0"
                                 step="0.01"

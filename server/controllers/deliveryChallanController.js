@@ -475,6 +475,15 @@ const updateDeliveryChallan = async (req, res) => {
         }
 
         const updatedDC = await dc.save();
+        
+        // Emit socket event for real-time updates when DC is updated
+        const io = req.app.get('io');
+        if (io) {
+            io.emit('dcUpdated', { 
+                message: 'Delivery Challan updated',
+                dc: updatedDC 
+            });
+        }
 
         res.json(updatedDC);
     } catch (error) {

@@ -218,11 +218,16 @@ const BuyerForm = ({ onSave, initialData = {}, onCancel }) => {
         }
     };
 
-    const commonInputClass = "mt-1 block w-full px-4 py-2.5 text-dark-700 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition";
-    const sectionTitleClass = "text-lg font-semibold text-dark-800 mb-4 pb-2 border-b border-light-300 flex items-center";
+    const commonInputClass = "mt-1 block w-full px-4 py-2.5 text-[#1A1A1A] bg-[#FFFFFF] border border-[#E7E2D8] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#F2C94C] focus:border-transparent transition shadow-sm";
+    const sectionTitleClass = "text-lg font-semibold text-[#1A1A1A] mb-4 pb-2 border-b border-[#E7E2D8] flex items-center";
 
     return (
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <form onSubmit={handleSubmit} className="space-y-6 bg-[#FAF7F2] p-4 rounded-2xl">
+                    {/* Page Header */}
+                    <div className="mb-6">
+                        <h2 className="text-2xl font-bold text-[#1A1A1A] mb-1">{initialData && initialData._id ? `Edit Buyer: ${initialData.name}` : "Add New Buyer"}</h2>
+                        <p className="text-[#6D6A62]">Fill in the buyer details below</p>
+                    </div>
             {/* Basic Information Section */}
             <div className="border border-light-300 rounded-xl p-5 bg-white shadow-sm">
                 <h3 className={sectionTitleClass}>
@@ -240,11 +245,11 @@ const BuyerForm = ({ onSave, initialData = {}, onCancel }) => {
                             id="buyerCode"
                             value={nextBuyerCode}
                             readOnly
-                            className={`${commonInputClass} bg-gray-50 cursor-not-allowed`}
+                            className={`${commonInputClass} bg-[#FAF7F2] cursor-not-allowed`}
                         />
                     </div>
                     <div>
-                        <label htmlFor="name" className="block text-sm font-medium text-dark-700 mb-1">Buyer Name <span className="text-red-500">*</span></label>
+                        <label htmlFor="name" className="block text-sm font-medium text-[#1A1A1A] mb-1">Buyer Name <span className="text-red-500">*</span></label>
                         <input
                             type="text"
                             name="name"
@@ -257,7 +262,7 @@ const BuyerForm = ({ onSave, initialData = {}, onCancel }) => {
                         />
                     </div>
                     <div>
-                        <label htmlFor="contactPerson" className="block text-sm font-medium text-dark-700 mb-1">Contact Person <span className="text-red-500">*</span></label>
+                        <label htmlFor="contactPerson" className="block text-sm font-medium text-[#1A1A1A] mb-1">Contact Person <span className="text-red-500">*</span></label>
                         <input
                             type="text"
                             name="contactPerson"
@@ -270,7 +275,7 @@ const BuyerForm = ({ onSave, initialData = {}, onCancel }) => {
                         />
                     </div>
                     <div>
-                        <label htmlFor="phoneNumber" className="block text-sm font-medium text-dark-700 mb-1">Phone Number <span className="text-red-500">*</span></label>
+                        <label htmlFor="phoneNumber" className="block text-sm font-medium text-[#1A1A1A] mb-1">Phone Number <span className="text-red-500">*</span></label>
                         <input
                             type="tel"
                             name="phoneNumber"
@@ -283,7 +288,7 @@ const BuyerForm = ({ onSave, initialData = {}, onCancel }) => {
                         />
                     </div>
                     <div>
-                        <label htmlFor="email" className="block text-sm font-medium text-dark-700 mb-1">Email <span className="text-red-500">*</span></label>
+                        <label htmlFor="email" className="block text-sm font-medium text-[#1A1A1A] mb-1">Email <span className="text-red-500">*</span></label>
                         <input
                             type="email"
                             name="email"
@@ -296,7 +301,7 @@ const BuyerForm = ({ onSave, initialData = {}, onCancel }) => {
                         />
                     </div>
                     <div className="md:col-span-2">
-                        <label htmlFor="address" className="block text-sm font-medium text-dark-700 mb-1">Address <span className="text-red-500">*</span></label>
+                        <label htmlFor="address" className="block text-sm font-medium text-[#1A1A1A] mb-1">Address <span className="text-red-500">*</span></label>
                         <textarea
                             name="address"
                             id="address"
@@ -309,7 +314,7 @@ const BuyerForm = ({ onSave, initialData = {}, onCancel }) => {
                         />
                     </div>
                     <div>
-                        <label htmlFor="city" className="block text-sm font-medium text-dark-700 mb-1">City <span className="text-red-500">*</span></label>
+                        <label htmlFor="city" className="block text-sm font-medium text-[#1A1A1A] mb-1">City <span className="text-red-500">*</span></label>
                         <input
                             type="text"
                             name="city"
@@ -322,7 +327,7 @@ const BuyerForm = ({ onSave, initialData = {}, onCancel }) => {
                         />
                     </div>
                     <div>
-                        <label htmlFor="state" className="block text-sm font-medium text-dark-700 mb-1">State <span className="text-red-500">*</span></label>
+                        <label htmlFor="state" className="block text-sm font-medium text-[#1A1A1A] mb-1">State <span className="text-red-500">*</span></label>
                         <select
                             name="state"
                             id="state"
@@ -338,7 +343,7 @@ const BuyerForm = ({ onSave, initialData = {}, onCancel }) => {
                         </select>
                     </div>
                     <div>
-                        <label htmlFor="pincode" className="block text-sm font-medium text-dark-700 mb-1">Pincode <span className="text-red-500">*</span></label>
+                        <label htmlFor="pincode" className="block text-sm font-medium text-[#1A1A1A] mb-1">Pincode <span className="text-red-500">*</span></label>
                         <input
                             type="text"
                             name="pincode"
@@ -351,7 +356,7 @@ const BuyerForm = ({ onSave, initialData = {}, onCancel }) => {
                         />
                     </div>
                     <div>
-                        <label htmlFor="country" className="block text-sm font-medium text-dark-700 mb-1">Country</label>
+                        <label htmlFor="country" className="block text-sm font-medium text-[#1A1A1A] mb-1">Country</label>
                         <input
                             type="text"
                             name="country"
@@ -364,13 +369,13 @@ const BuyerForm = ({ onSave, initialData = {}, onCancel }) => {
                     </div>
                     {/* Display GST Type */}
                     <div>
-                        <label className="block text-sm font-medium text-dark-700 mb-1">GST Type (Auto-calculated)</label>
+                        <label className="block text-sm font-medium text-[#1A1A1A] mb-1">GST Type (Auto-calculated)</label>
                         <div className="mt-1 flex items-center">
                             <input
                                 type="text"
                                 value={calculateGstType(formData.state)}
                                 readOnly
-                                className={`${commonInputClass} bg-gray-50 cursor-not-allowed w-full`}
+                                className={`${commonInputClass} bg-[#FAF7F2] cursor-not-allowed w-full`}
                             />
                             <div className="ml-2 text-gray-500" title="Automatically set based on state selection">
                                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
@@ -393,9 +398,9 @@ const BuyerForm = ({ onSave, initialData = {}, onCancel }) => {
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                     <div>
-                        <label htmlFor="gstin" className="block text-sm font-medium text-dark-700 mb-1 flex items-center">
+                        <label htmlFor="gstin" className="block text-sm font-medium text-[#1A1A1A] mb-1 flex items-center">
                             GSTIN
-                            <svg className="w-4 h-4 ml-1 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" title="15-character GST identification number">
+                            <svg className="w-4 h-4 ml-1 text-[#6D6A62]" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" title="15-character GST identification number">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                             </svg>
                         </label>
@@ -411,7 +416,7 @@ const BuyerForm = ({ onSave, initialData = {}, onCancel }) => {
                         />
                     </div>
                     <div>
-                        <label htmlFor="panNumber" className="block text-sm font-medium text-dark-700 mb-1">PAN Number</label>
+                        <label htmlFor="panNumber" className="block text-sm font-medium text-[#1A1A1A] mb-1">PAN Number</label>
                         <input
                             type="text"
                             name="panNumber"
@@ -423,7 +428,7 @@ const BuyerForm = ({ onSave, initialData = {}, onCancel }) => {
                         />
                     </div>
                     <div>
-                        <label htmlFor="businessCategory" className="block text-sm font-medium text-dark-700 mb-1">Business Category</label>
+                        <label htmlFor="businessCategory" className="block text-sm font-medium text-[#1A1A1A] mb-1">Business Category</label>
                         <select
                             name="businessCategory"
                             id="businessCategory"
@@ -451,7 +456,7 @@ const BuyerForm = ({ onSave, initialData = {}, onCancel }) => {
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                     <div>
-                        <label htmlFor="bankName" className="block text-sm font-medium text-dark-700 mb-1">Bank Name</label>
+                        <label htmlFor="bankName" className="block text-sm font-medium text-[#1A1A1A] mb-1">Bank Name</label>
                         <input
                             type="text"
                             name="bankName"
@@ -463,7 +468,7 @@ const BuyerForm = ({ onSave, initialData = {}, onCancel }) => {
                         />
                     </div>
                     <div>
-                        <label htmlFor="branch" className="block text-sm font-medium text-dark-700 mb-1">Branch</label>
+                        <label htmlFor="branch" className="block text-sm font-medium text-[#1A1A1A] mb-1">Branch</label>
                         <input
                             type="text"
                             name="branch"
@@ -475,7 +480,7 @@ const BuyerForm = ({ onSave, initialData = {}, onCancel }) => {
                         />
                     </div>
                     <div>
-                        <label htmlFor="accountNumber" className="block text-sm font-medium text-dark-700 mb-1">Account Number</label>
+                        <label htmlFor="accountNumber" className="block text-sm font-medium text-[#1A1A1A] mb-1">Account Number</label>
                         <input
                             type="text"
                             name="accountNumber"
@@ -487,9 +492,9 @@ const BuyerForm = ({ onSave, initialData = {}, onCancel }) => {
                         />
                     </div>
                     <div>
-                        <label htmlFor="ifscCode" className="block text-sm font-medium text-dark-700 mb-1 flex items-center">
+                        <label htmlFor="ifscCode" className="block text-sm font-medium text-[#1A1A1A] mb-1 flex items-center">
                             IFSC Code
-                            <svg className="w-4 h-4 ml-1 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" title="11-character code: 4 letters + 0 + 6 alphanumeric characters">
+                            <svg className="w-4 h-4 ml-1 text-[#6D6A62]" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" title="11-character code: 4 letters + 0 + 6 alphanumeric characters">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                             </svg>
                         </label>
@@ -505,7 +510,7 @@ const BuyerForm = ({ onSave, initialData = {}, onCancel }) => {
                         />
                     </div>
                     <div>
-                        <label htmlFor="upiId" className="block text-sm font-medium text-dark-700 mb-1">UPI ID</label>
+                        <label htmlFor="upiId" className="block text-sm font-medium text-[#1A1A1A] mb-1">UPI ID</label>
                         <input
                             type="text"
                             name="upiId"
@@ -529,7 +534,7 @@ const BuyerForm = ({ onSave, initialData = {}, onCancel }) => {
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                     <div>
-                        <label htmlFor="transportName" className="block text-sm font-medium text-dark-700 mb-1">Transport Name</label>
+                        <label htmlFor="transportName" className="block text-sm font-medium text-[#1A1A1A] mb-1">Transport Name</label>
                         <input
                             type="text"
                             name="transportName"
@@ -541,7 +546,7 @@ const BuyerForm = ({ onSave, initialData = {}, onCancel }) => {
                         />
                     </div>
                     <div>
-                        <label htmlFor="paymentTerms" className="block text-sm font-medium text-dark-700 mb-1">Payment Terms</label>
+                        <label htmlFor="paymentTerms" className="block text-sm font-medium text-[#1A1A1A] mb-1">Payment Terms</label>
                         <select
                             name="paymentTerms"
                             id="paymentTerms"
@@ -555,7 +560,7 @@ const BuyerForm = ({ onSave, initialData = {}, onCancel }) => {
                         </select>
                     </div>
                     <div>
-                        <label htmlFor="destination" className="block text-sm font-medium text-dark-700 mb-1">Destination</label>
+                        <label htmlFor="destination" className="block text-sm font-medium text-[#1A1A1A] mb-1">Destination</label>
                         <input
                             type="text"
                             name="destination"
@@ -567,7 +572,7 @@ const BuyerForm = ({ onSave, initialData = {}, onCancel }) => {
                         />
                     </div>
                     <div>
-                        <label htmlFor="status" className="block text-sm font-medium text-dark-700 mb-1">Status</label>
+                        <label htmlFor="status" className="block text-sm font-medium text-[#1A1A1A] mb-1">Status</label>
                         <select
                             name="status"
                             id="status"
@@ -580,7 +585,7 @@ const BuyerForm = ({ onSave, initialData = {}, onCancel }) => {
                         </select>
                     </div>
                     <div className="md:col-span-2">
-                        <label htmlFor="notes" className="block text-sm font-medium text-dark-700 mb-1">Notes</label>
+                        <label htmlFor="notes" className="block text-sm font-medium text-[#1A1A1A] mb-1">Notes</label>
                         <textarea
                             name="notes"
                             id="notes"
@@ -595,7 +600,7 @@ const BuyerForm = ({ onSave, initialData = {}, onCancel }) => {
             </div>
 
             {error && (
-                <div className="p-4 bg-red-50 text-red-700 rounded-lg border border-red-200 flex items-start">
+                <div className="p-4 bg-red-50 text-red-700 rounded-xl border border-red-200 flex items-start shadow-sm">
                     <svg className="w-5 h-5 mr-2 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                     </svg>
@@ -608,7 +613,7 @@ const BuyerForm = ({ onSave, initialData = {}, onCancel }) => {
                     <button 
                         type="button" 
                         onClick={onCancel} 
-                        className="px-5 py-2.5 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition-colors font-medium"
+                        className="px-5 py-2.5 bg-[#FFFFFF] text-[#1A1A1A] rounded-xl hover:bg-[#FAF7F2] transition-colors font-medium border border-[#E7E2D8] shadow-sm"
                     >
                         Cancel
                     </button>
@@ -616,11 +621,11 @@ const BuyerForm = ({ onSave, initialData = {}, onCancel }) => {
                 <button 
                     type="submit" 
                     disabled={isLoading} 
-                    className="px-6 py-2.5 text-white bg-primary-600 rounded-lg hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 transition-all duration-300 font-medium shadow-sm hover:shadow-md disabled:opacity-70 disabled:cursor-not-allowed flex items-center"
+                    className="px-6 py-2.5 text-[#1A1A1A] bg-[#F2C94C] rounded-xl hover:bg-[#e6b83a] focus:outline-none focus:ring-2 focus:ring-[#F2C94C] focus:ring-offset-2 transition-all duration-300 font-medium shadow-sm hover:shadow-md disabled:opacity-70 disabled:cursor-not-allowed flex items-center"
                 >
                     {isLoading ? (
                         <>
-                            <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-[#1A1A1A]" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                             </svg>
@@ -725,14 +730,14 @@ const BuyerMaster = () => {
     });
 
     if (isLoading) return (
-        <div className="flex flex-col items-center justify-center h-96">
-            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary-500 mb-4"></div>
-            <p className="text-gray-600">Loading buyers...</p>
+        <div className="flex flex-col items-center justify-center h-96 bg-[#FAF7F2] rounded-xl">
+            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#F2C94C] mb-4"></div>
+            <p className="text-[#6D6A62]">Loading buyers...</p>
         </div>
     );
     
     if (error) return (
-        <div className="p-4 bg-red-50 text-red-700 rounded-lg border border-red-200 mb-6 flex items-start">
+        <div className="p-4 bg-red-50 text-red-700 rounded-xl border border-red-200 mb-6 flex items-start shadow-sm">
             <svg className="w-5 h-5 mr-2 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
             </svg>
@@ -767,17 +772,17 @@ const BuyerMaster = () => {
     ];
 
     return (
-        <div className="space-y-6 p-4 md:p-6">
+        <div className="space-y-6 p-4 md:p-6 bg-[#FAF7F2] min-h-screen">
             {/* Page Header */}
             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
                 <div>
-                    <h1 className="text-2xl md:text-3xl font-bold text-dark-800">Buyer Master</h1>
-                    <p className="text-gray-600 mt-1">Manage your buyer information and details</p>
+                    <h1 className="text-2xl md:text-3xl font-bold text-[#1A1A1A]">Buyer Master</h1>
+                    <p className="text-[#6D6A62] mt-1">Manage your buyer information and details</p>
                 </div>
                 <div className="flex items-center space-x-3">
                     <button
                         onClick={fetchBuyers}
-                        className="flex items-center px-3 py-2 text-sm font-medium text-white bg-green-600 rounded-lg hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 transition"
+                        className="flex items-center px-3 py-2 text-sm font-medium text-white bg-green-600 rounded-xl hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 transition shadow-sm"
                         title="Refresh Data"
                     >
                         <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
@@ -787,7 +792,7 @@ const BuyerMaster = () => {
                     </button>
                     <button
                         onClick={() => openModal()}
-                        className="flex items-center px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-all duration-300 shadow-sm hover:shadow-md"
+                        className="flex items-center px-4 py-2 bg-[#F2C94C] text-[#1A1A1A] rounded-xl hover:bg-[#e6b83a] transition-all duration-300 shadow-sm hover:shadow-md font-medium"
                     >
                         <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
@@ -799,7 +804,7 @@ const BuyerMaster = () => {
 
             {/* Success Message */}
             {successMessage && (
-                <div className="p-4 bg-green-50 text-green-700 rounded-lg border border-green-200 animate-fadeIn flex items-start">
+                <div className="p-4 bg-green-50 text-green-700 rounded-xl border border-green-200 animate-fadeIn flex items-start shadow-sm">
                     <svg className="w-5 h-5 mr-2 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                     </svg>
@@ -816,7 +821,7 @@ const BuyerMaster = () => {
             )}
 
             {/* Search Bar */}
-            <div className="bg-white rounded-xl p-4 shadow-sm border border-light-200 mb-6">
+            <div className="bg-[#FFFFFF] rounded-xl p-4 shadow-sm border border-[#E7E2D8] mb-6">
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                     <div className="relative flex-1 max-w-md">
                         <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -829,7 +834,7 @@ const BuyerMaster = () => {
                             placeholder="Search buyers by name, contact, GSTIN, email, or city..."
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
-                            className="block w-full pl-10 pr-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                            className="block w-full pl-10 pr-3 py-2.5 border border-[#E7E2D8] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#F2C94C] focus:border-transparent bg-[#FFFFFF] text-[#1A1A1A] shadow-sm"
                         />
                     </div>
                     <div className="flex space-x-2">
@@ -845,40 +850,40 @@ const BuyerMaster = () => {
             </div>
 
             {/* Add New Buyer Card */}
-            <Card title="Add New Buyer" className="mb-6">
+            <Card title="Add New Buyer" className="mb-6 bg-[#FFFFFF] border border-[#E7E2D8] rounded-xl shadow-sm">
                 <BuyerForm onSave={handleCreate} />
             </Card>
 
             {/* All Buyers Card */}
-            <Card title="All Buyers">
+            <Card title="All Buyers" className="bg-[#FFFFFF] border border-[#E7E2D8] rounded-xl shadow-sm">
                 <div className="overflow-x-auto">
-                    <table className="min-w-full divide-y divide-light-200">
-                        <thead className="bg-light-100">
+                    <table className="min-w-full divide-y divide-[#E7E2D8]">
+                        <thead className="bg-[#FAF7F2]">
                             <tr>
-                                <th className="px-6 py-3 text-center text-xs font-medium text-secondary-600 uppercase tracking-wider">CODE</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-secondary-600 uppercase tracking-wider">NAME</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-secondary-600 uppercase tracking-wider hidden md:table-cell">CONTACT PERSON</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-secondary-600 uppercase tracking-wider">PHONE</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-secondary-600 uppercase tracking-wider hidden lg:table-cell">GSTIN</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-secondary-600 uppercase tracking-wider hidden lg:table-cell">EMAIL</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-secondary-600 uppercase tracking-wider">CITY</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-secondary-600 uppercase tracking-wider">STATUS</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-secondary-600 uppercase tracking-wider">ACTIONS</th>
+                                <th className="px-6 py-3 text-center text-xs font-medium text-[#6A7F3F] uppercase tracking-wider">CODE</th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-[#6A7F3F] uppercase tracking-wider">NAME</th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-[#6A7F3F] uppercase tracking-wider hidden md:table-cell">CONTACT PERSON</th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-[#6A7F3F] uppercase tracking-wider">PHONE</th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-[#6A7F3F] uppercase tracking-wider hidden lg:table-cell">GSTIN</th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-[#6A7F3F] uppercase tracking-wider hidden lg:table-cell">EMAIL</th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-[#6A7F3F] uppercase tracking-wider">CITY</th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-[#6A7F3F] uppercase tracking-wider">STATUS</th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-[#6A7F3F] uppercase tracking-wider">ACTIONS</th>
                             </tr>
                         </thead>
-                        <tbody className="bg-white divide-y divide-light-200">
+                        <tbody className="bg-[#FFFFFF] divide-y divide-[#E7E2D8]">
                             {filteredBuyers.length === 0 ? (
                                 <tr>
-                                    <td colSpan="9" className="px-6 py-8 text-center text-sm text-secondary-500">
+                                    <td colSpan="9" className="px-6 py-8 text-center text-sm text-[#6D6A62]">
                                         <div className="flex flex-col items-center justify-center">
-                                            <svg className="w-16 h-16 text-gray-300 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                            <svg className="w-16 h-16 text-[#E7E2D8] mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path>
                                             </svg>
-                                            <p className="text-lg font-medium text-gray-500">No buyers found</p>
-                                            <p className="mt-1 text-gray-400">Try adjusting your search or add a new buyer</p>
+                                            <p className="text-lg font-medium text-[#6D6A62]">No buyers found</p>
+                                            <p className="mt-1 text-[#6D6A62]">Try adjusting your search or add a new buyer</p>
                                             <button 
                                                 onClick={() => openModal()}
-                                                className="mt-4 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors flex items-center"
+                                                className="mt-4 px-4 py-2 bg-[#F2C94C] text-[#1A1A1A] rounded-xl hover:bg-[#e6b83a] transition-colors flex items-center font-medium shadow-sm"
                                             >
                                                 <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
@@ -890,39 +895,39 @@ const BuyerMaster = () => {
                                 </tr>
                             ) : (
                                 filteredBuyers.map(buyer => (
-                                    <tr key={buyer._id} className="hover:bg-light-50 transition-colors">
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-dark-700 text-center">{buyer.buyerCode}</td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-dark-700">
+                                    <tr key={buyer._id} className="hover:bg-[#FAF7F2] transition-colors">
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-[#1A1A1A] text-center">{buyer.buyerCode}</td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-[#1A1A1A]">
                                             <div className="flex items-center">
-                                                <div className="flex-shrink-0 h-10 w-10 rounded-full bg-primary-100 flex items-center justify-center">
-                                                    <span className="text-primary-800 font-medium">{buyer.name.charAt(0)}</span>
+                                                <div className="flex-shrink-0 h-10 w-10 rounded-full bg-[#F2C94C] flex items-center justify-center">
+                                                    <span className="text-[#1A1A1A] font-medium">{buyer.name.charAt(0)}</span>
                                                 </div>
                                                 <div className="ml-4">
-                                                    <div className="text-sm font-medium text-dark-900">{buyer.name}</div>
-                                                    <div className="text-sm text-gray-500 md:hidden">{buyer.contactPerson || 'N/A'}</div>
+                                                    <div className="text-sm font-medium text-[#1A1A1A]">{buyer.name}</div>
+                                                    <div className="text-sm text-[#6D6A62] md:hidden">{buyer.contactPerson || 'N/A'}</div>
                                                 </div>
                                             </div>
                                         </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-dark-700 hidden md:table-cell">{buyer.contactPerson || 'N/A'}</td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-dark-700">
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-[#1A1A1A] hidden md:table-cell">{buyer.contactPerson || 'N/A'}</td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-[#1A1A1A]">
                                             <div className="flex items-center">
-                                                <svg className="flex-shrink-0 h-4 w-4 text-gray-400 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                                <svg className="flex-shrink-0 h-4 w-4 text-[#6D6A62] mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"></path>
                                                 </svg>
                                                 {buyer.phoneNumber || 'N/A'}
                                             </div>
                                         </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-dark-700 hidden lg:table-cell">{buyer.gstin || 'N/A'}</td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-dark-700 hidden lg:table-cell">
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-[#1A1A1A] hidden lg:table-cell">{buyer.gstin || 'N/A'}</td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-[#1A1A1A] hidden lg:table-cell">
                                             <div className="flex items-center">
-                                                <svg className="flex-shrink-0 h-4 w-4 text-gray-400 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                                <svg className="flex-shrink-0 h-4 w-4 text-[#6D6A62] mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
                                                 </svg>
                                                 {buyer.email || 'N/A'}
                                             </div>
                                         </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-dark-700">{buyer.city || 'N/A'}</td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-dark-700">
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-[#1A1A1A]">{buyer.city || 'N/A'}</td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-[#1A1A1A]">
                                             <span className={`px-2.5 py-1 inline-flex text-xs leading-4 font-semibold rounded-full ${buyer.status === 'Active' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
                                                 {buyer.status}
                                             </span>
@@ -931,7 +936,7 @@ const BuyerMaster = () => {
                                             <div className="flex space-x-3">
                                                 <button 
                                                     onClick={() => openModal(buyer)} 
-                                                    className="text-blue-600 hover:text-blue-900 transition-colors p-1.5 rounded-full hover:bg-blue-50"
+                                                    className="text-[#6A7F3F] hover:text-[#1A1A1A] transition-colors p-1.5 rounded-full hover:bg-[#F2C94C]"
                                                     title="Edit Buyer"
                                                 >
                                                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
@@ -958,16 +963,16 @@ const BuyerMaster = () => {
                 
                 {/* Table Summary */}
                 {filteredBuyers.length > 0 && (
-                    <div className="mt-4 px-6 py-3 bg-light-50 rounded-lg border border-light-200 flex flex-col sm:flex-row sm:items-center sm:justify-between">
-                        <p className="text-sm text-gray-600">
+                    <div className="mt-4 px-6 py-3 bg-[#FAF7F2] rounded-xl border border-[#E7E2D8] flex flex-col sm:flex-row sm:items-center sm:justify-between shadow-sm">
+                        <p className="text-sm text-[#6D6A62]">
                             Showing <span className="font-medium">{filteredBuyers.length}</span> of <span className="font-medium">{buyers.length}</span> buyers
                         </p>
                         <div className="mt-2 sm:mt-0">
                             <nav className="inline-flex rounded-md shadow-sm" aria-label="Pagination">
-                                <button className="relative inline-flex items-center px-3 py-1.5 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
+                                <button className="relative inline-flex items-center px-3 py-1.5 rounded-l-md border border-[#E7E2D8] bg-[#FFFFFF] text-sm font-medium text-[#6D6A62] hover:bg-[#FAF7F2]">
                                     Previous
                                 </button>
-                                <button className="relative inline-flex items-center px-3 py-1.5 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
+                                <button className="relative inline-flex items-center px-3 py-1.5 rounded-r-md border border-[#E7E2D8] bg-[#FFFFFF] text-sm font-medium text-[#6D6A62] hover:bg-[#FAF7F2]">
                                     Next
                                 </button>
                             </nav>
@@ -976,7 +981,7 @@ const BuyerMaster = () => {
                 )}
             </Card>
 
-            <Modal isOpen={isModalOpen} onClose={closeModal} title={selectedBuyer ? `Edit Buyer: ${selectedBuyer.name}` : "Add New Buyer"}>
+            <Modal isOpen={isModalOpen} onClose={closeModal} title={selectedBuyer ? `Edit Buyer: ${selectedBuyer.name}` : "Add New Buyer"} className="bg-[#FFFFFF] rounded-xl shadow-lg border border-[#E7E2D8]">
                 <BuyerForm onSave={handleUpdate} initialData={selectedBuyer} onCancel={closeModal} />
             </Modal>
         </div>

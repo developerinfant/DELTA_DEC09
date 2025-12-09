@@ -40,6 +40,17 @@ const PurchaseOrderForm = ({ suppliers, materials, rawMaterials, onOrderCreated,
         ...rawMaterials.map(m => ({ ...m, type: 'RawMaterial' }))
     ];
 
+    // Get available materials for a specific row (excluding already selected materials in other rows)
+    const getAvailableMaterials = (currentIndex) => {
+        // Get all currently selected material IDs except for the current row
+        const selectedMaterialIds = items
+            .filter((item, index) => index !== currentIndex && item.materialId)
+            .map(item => item.materialId);
+        
+        // Return materials that are not already selected
+        return allMaterials.filter(material => !selectedMaterialIds.includes(material._id));
+    };
+
     // Calculate line item values
     const calculateLineItem = useCallback((item) => {
         const quantity = parseFloat(item.quantity) || 0;
@@ -641,7 +652,7 @@ const PurchaseOrderForm = ({ suppliers, materials, rawMaterials, onOrderCreated,
                                                     className="w-40 px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
                                                 >
                                                     <option value="" disabled>Select material</option>
-                                                    {allMaterials.map(m => (
+                                                    {getAvailableMaterials(index).map(m => (
                                                         <option key={m._id} value={m._id}>
                                                             {m.name} ({m.type.replace('Material', '')})
                                                         </option>
