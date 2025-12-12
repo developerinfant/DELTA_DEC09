@@ -65,8 +65,8 @@ const recalculateAllStock = async () => {
         // Calculate opening stock
         let openingStock = 0;
         if (i === 0) {
-          // For the first date, use PM Store value
-          openingStock = material.quantity;
+          // For the first date, use 0 as opening stock (no fallback to PM Store value)
+          openingStock = 0;
         } else {
           // For subsequent dates, get the previous date's closing stock
           const previousDateTimestamp = sortedDates[i - 1];
@@ -78,8 +78,8 @@ const recalculateAllStock = async () => {
           if (previousRecord) {
             openingStock = previousRecord.closingStock;
           } else {
-            // Fallback to PM Store value if no previous record
-            openingStock = material.quantity;
+            // Opening Stock should be taken ONLY from the previous day's closing stock (no fallback)
+            openingStock = 0;
           }
         }
         
@@ -107,7 +107,8 @@ const recalculateAllStock = async () => {
               }
               
               if (isMatchingMaterial) {
-                inward += item.receivedQuantity;
+                // Add both normal received quantity and extra received quantity
+                inward += (item.receivedQuantity || 0) + (item.extraReceivedQty || 0);
               }
             });
           }

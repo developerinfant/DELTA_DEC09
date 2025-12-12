@@ -48,8 +48,9 @@ const testStockCalculation = async () => {
       openingStock = previousRecord.closingStock;
       console.log(`Found previous record with closing stock: ${openingStock}`);
     } else {
-      openingStock = material.quantity;
-      console.log(`No previous record found, using PM Store value: ${openingStock}`);
+      // Opening Stock should be taken ONLY from the previous day's closing stock (no fallback)
+      openingStock = 0;
+      console.log(`No previous record found, using 0 as opening stock (no fallback)`);
     }
     
     // Calculate inward stock (GRN) for the test date
@@ -64,7 +65,8 @@ const testStockCalculation = async () => {
         grn.items.forEach(item => {
           if ((item.material && item.material.toString() === material._id.toString()) || 
               (typeof item.material === 'string' && item.material === material.name)) {
-            inward += item.receivedQuantity;
+            // Add both normal received quantity and extra received quantity
+            inward += (item.receivedQuantity || 0) + (item.extraReceivedQty || 0);
           }
         });
       }

@@ -51,10 +51,10 @@ const verifyStockCalculation = async () => {
         
         let expectedOpeningStock = 0;
         
-        // For the first record, use PM Store value
+        // For the first record, use 0 as opening stock (no fallback to PM Store value)
         if (i === 0) {
-          expectedOpeningStock = material.quantity;
-          console.log(`    First record - expected opening stock (PM Store value): ${expectedOpeningStock}`);
+          expectedOpeningStock = 0;
+          console.log(`    First record - expected opening stock (no fallback): ${expectedOpeningStock}`);
         } else {
           // For subsequent records, use previous day's closing stock
           expectedOpeningStock = allRecords[i-1].closingStock;
@@ -93,7 +93,8 @@ const verifyStockCalculation = async () => {
               }
               
               if (isMatchingMaterial) {
-                expectedInward += item.receivedQuantity;
+                // Add both normal received quantity and extra received quantity
+                expectedInward += (item.receivedQuantity || 0) + (item.extraReceivedQty || 0);
               }
             });
           }

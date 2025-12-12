@@ -177,7 +177,8 @@ const debugMaterialDetails = async (material) => {
   if (previousRecord) {
     openingStock = previousRecord.closingStock;
   } else {
-    openingStock = material.quantity;
+    // Opening Stock should be taken ONLY from the previous day's closing stock (no fallback)
+    openingStock = 0;
   }
   
   const expectedClosingStock = openingStock + totalInward - totalOutward;

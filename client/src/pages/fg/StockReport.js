@@ -120,20 +120,26 @@ const FGStockReport = () => {
       totals.totalCartons += product.available_cartons || 0;
       totals.totalPieces += product.broken_carton_pieces || 0;
       totals.availableStock += product.totalAvailable || 0;
-      totals.totalOpeningStock += product.openingStock || 0;
+      totals.totalOpeningCartons += product.openingCartons || 0;
+      totals.totalOpeningPieces += product.openingPieces || 0;
       totals.totalInward += product.inward || 0;
       totals.totalOutwardCartons += product.outwardCartons || 0;
       totals.totalOutwardPieces += product.outwardPieces || 0;
+      totals.totalClosingCartons += product.closingCartons || 0;
+      totals.totalClosingPieces += product.closingPieces || 0;
       return totals;
     }, {
       totalProducts: 0,
       totalCartons: 0,
       totalPieces: 0,
       availableStock: 0,
-      totalOpeningStock: 0,
+      totalOpeningCartons: 0,
+      totalOpeningPieces: 0,
       totalInward: 0,
       totalOutwardCartons: 0,
-      totalOutwardPieces: 0
+      totalOutwardPieces: 0,
+      totalClosingCartons: 0,
+      totalClosingPieces: 0
     });
   }, [filteredProducts]);
 
@@ -214,10 +220,13 @@ const FGStockReport = () => {
     const worksheet = XLSX.utils.json_to_sheet(filteredProducts.map(product => ({
       'Item Code': product.itemCode || 'N/A',
       'Product Name': product.productName,
-      'Opening Stock': product.openingStock,
+      'Opening Cartons': product.openingCartons,
+      'Opening Pieces': product.openingPieces,
       'Inward (GRN)': product.inward,
       'Outward Cartons': product.outwardCartons,
       'Outward Pieces': product.outwardPieces,
+      'Closing Cartons': product.closingCartons,
+      'Closing Pieces': product.closingPieces,
       'Total Cartons': product.available_cartons,
       'Broken Pieces': product.broken_carton_pieces,
       'Last Updated': product.lastUpdated ? new Date(product.lastUpdated).toLocaleString() : 'N/A'
@@ -244,14 +253,17 @@ const FGStockReport = () => {
     // Add table
     doc.autoTable({
       startY: 55,
-      head: [['Item Code', 'Product Name', 'Opening Stock', 'Inward (GRN)', 'Outward Cartons', 'Outward Pieces', 'Total Cartons', 'Broken Pieces', 'Last Updated']],
+      head: [['Item Code', 'Product Name', 'Opening Cartons', 'Opening Pieces', 'Inward (GRN)', 'Outward Cartons', 'Outward Pieces', 'Closing Cartons', 'Closing Pieces', 'Total Cartons', 'Broken Pieces', 'Last Updated']],
       body: filteredProducts.map(product => [
         product.itemCode || 'N/A',
         product.productName,
-        product.openingStock,
+        product.openingCartons,
+        product.openingPieces,
         product.inward,
         product.outwardCartons,
         product.outwardPieces,
+        product.closingCartons,
+        product.closingPieces,
         product.available_cartons,
         product.broken_carton_pieces,
         product.lastUpdated ? new Date(product.lastUpdated).toLocaleString() : 'N/A'
@@ -279,12 +291,15 @@ const FGStockReport = () => {
 
   // Define columns for desktop table
   const tableColumns = [
-    { key: 'itemCode', header: 'Item Code' }, // Add Item Code column
+    { key: 'itemCode', header: 'Item Code' },
     { key: 'productName', header: 'Product Name' },
-    { key: 'openingStock', header: 'Opening Stock' },
+    { key: 'openingCartons', header: 'Opening Cartons' },
+    { key: 'openingPieces', header: 'Opening Pieces' },
     { key: 'inward', header: 'Inward (GRN)' },
     { key: 'outwardCartons', header: 'Outward Cartons' },
     { key: 'outwardPieces', header: 'Outward Pieces' },
+    { key: 'closingCartons', header: 'Closing Cartons' },
+    { key: 'closingPieces', header: 'Closing Pieces' },
     { key: 'available_cartons', header: 'Total Cartons' },
     { key: 'broken_carton_pieces', header: 'Broken Pieces' },
     { 
@@ -299,12 +314,15 @@ const FGStockReport = () => {
 
   // Define fields for mobile card list
   const mobileFields = [
-    { key: 'itemCode', label: 'Item Code' }, // Add Item Code field
+    { key: 'itemCode', label: 'Item Code' },
     { key: 'productName', label: 'Product', isTitle: true },
-    { key: 'openingStock', label: 'Opening Stock' },
+    { key: 'openingCartons', label: 'Opening Cartons' },
+    { key: 'openingPieces', label: 'Opening Pieces' },
     { key: 'inward', label: 'Inward (GRN)' },
     { key: 'outwardCartons', label: 'Outward Cartons' },
     { key: 'outwardPieces', label: 'Outward Pieces' },
+    { key: 'closingCartons', label: 'Closing Cartons' },
+    { key: 'closingPieces', label: 'Closing Pieces' },
     { key: 'available_cartons', label: 'Cartons' },
     { key: 'broken_carton_pieces', label: 'Broken Pieces' },
     { 
@@ -513,16 +531,19 @@ const FGStockReport = () => {
               <tr>
                 <td className="px-6 py-3 text-sm text-[#1A1A1A]"></td>
                 <td className="px-6 py-3 text-sm text-[#1A1A1A]">TOTAL</td>
-                <td className="px-6 py-3 text-sm text-[#1A1A1A]">{summaryTotals.totalOpeningStock}</td>
+                <td className="px-6 py-3 text-sm text-[#1A1A1A]">{summaryTotals.totalOpeningCartons}</td>
+                <td className="px-6 py-3 text-sm text-[#1A1A1A]">{summaryTotals.totalOpeningPieces}</td>
                 <td className="px-6 py-3 text-sm text-[#1A1A1A]">{summaryTotals.totalInward}</td>
                 <td className="px-6 py-3 text-sm text-[#1A1A1A]">{summaryTotals.totalOutwardCartons}</td>
                 <td className="px-6 py-3 text-sm text-[#1A1A1A]">{summaryTotals.totalOutwardPieces}</td>
+                <td className="px-6 py-3 text-sm text-[#1A1A1A]">{summaryTotals.totalClosingCartons}</td>
+                <td className="px-6 py-3 text-sm text-[#1A1A1A]">{summaryTotals.totalClosingPieces}</td>
                 <td className="px-6 py-3 text-sm text-[#1A1A1A]">{summaryTotals.totalCartons}</td>
                 <td className="px-6 py-3 text-sm text-[#1A1A1A]">{summaryTotals.totalPieces}</td>
                 <td className="px-6 py-3 text-sm text-[#1A1A1A]"></td>
-                <td className="px-6 py-3 text-sm text-[#1A1A1A]"></td>
               </tr>
             </tfoot>
+
           </table>
         </div>
         <div className="px-6 py-3 bg-[#FAF7F2] border-t border-[#E7E2D8] text-sm text-[#6D6A62]">
