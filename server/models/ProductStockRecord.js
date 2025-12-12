@@ -19,7 +19,29 @@ const productStockRecordSchema = new mongoose.Schema({
         required: true,
         default: 0
     },
+    // New fields for carton/piece breakdown
+    openingCartons: {
+        type: Number,
+        required: true,
+        default: 0
+    },
+    openingPieces: {
+        type: Number,
+        required: true,
+        default: 0
+    },
     closingStock: {
+        type: Number,
+        required: true,
+        default: 0
+    },
+    // New fields for carton/piece breakdown
+    closingCartons: {
+        type: Number,
+        required: true,
+        default: 0
+    },
+    closingPieces: {
         type: Number,
         required: true,
         default: 0

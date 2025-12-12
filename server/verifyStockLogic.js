@@ -94,7 +94,8 @@ const verifyStockLogic = async () => {
               }
               
               if (isMatchingMaterial) {
-                expectedInward += item.receivedQuantity;
+                // Add both normal received quantity and extra received quantity
+                expectedInward += (item.receivedQuantity || 0) + (item.extraReceivedQty || 0);
               }
             });
           }

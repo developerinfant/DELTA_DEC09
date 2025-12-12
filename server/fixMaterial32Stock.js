@@ -76,10 +76,10 @@ const fixMaterialStockRecords = async (material) => {
     
     let openingStock = 0;
     
-    // For the first record, use PM Store value
+    // For the first record, use 0 as opening stock (no fallback to PM Store value)
     if (i === 0) {
-      openingStock = material.quantity;
-      console.log(`  First record - using PM Store value as opening stock: ${openingStock}`);
+      openingStock = 0;
+      console.log(`  First record - using 0 as opening stock (no fallback): ${openingStock}`);
     } else {
       // For subsequent records, use previous day's closing stock
       openingStock = allRecords[i-1].closingStock;
@@ -110,7 +110,8 @@ const fixMaterialStockRecords = async (material) => {
           }
           
           if (isMatchingMaterial) {
-            inward += item.receivedQuantity;
+            // Add both normal received quantity and extra received quantity
+            inward += (item.receivedQuantity || 0) + (item.extraReceivedQty || 0);
           }
         });
       }

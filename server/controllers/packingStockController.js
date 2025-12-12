@@ -42,7 +42,7 @@ exports.getDetailedStockReport = async (req, res) => {
                 },
                 { $unwind: '$items' },
                 { $match: { 'items.material': material._id } },
-                { $group: { _id: null, total: { $sum: '$items.receivedQuantity' } } }
+                { $group: { _id: null, total: { $sum: { $add: ['$items.receivedQuantity', { $ifNull: ['$items.extraReceivedQty', 0] }] } } } }
             ]);
             const inward = inwardAgg.length > 0 ? inwardAgg[0].total : 0;
 

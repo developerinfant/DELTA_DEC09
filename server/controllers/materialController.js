@@ -452,7 +452,7 @@ const getPackingMaterialStockReport = async (req, res) => {
             const ownUnitStock = material.ownUnitWIP || 0;
             const jobberStock = material.jobberWIP || 0;
             
-            // Calculate opening stock (previous day's closing stock)
+            // Calculate opening stock (previous day's closing stock) - ONLY from previous day's closing stock
             const yesterday = new Date(selectedDate);
             yesterday.setDate(yesterday.getDate() - 1);
             
@@ -461,6 +461,7 @@ const getPackingMaterialStockReport = async (req, res) => {
                 date: yesterday
             });
             
+            // Opening Stock should be taken ONLY from the previous day's closing stock (no fallback)
             const openingStock = previousStockRecord ? previousStockRecord.closingStock : 0;
             
             // Calculate inward stock from GRNs for the selected date
@@ -476,7 +477,8 @@ const getPackingMaterialStockReport = async (req, res) => {
                   // Handle both string and object formats for material
                   const materialId = typeof item.material === 'string' ? item.material : item.material._id;
                   if (materialId.toString() === material._id.toString()) {
-                    inward += item.receivedQuantity || 0;
+                    // Add both normal received quantity and extra received quantity
+                    inward += (item.receivedQuantity || 0) + (item.extraReceivedQty || 0);
                   }
                 });
               }
@@ -522,14 +524,9 @@ const getPackingMaterialStockReport = async (req, res) => {
               closingStock = 0;
             }
 
-            // Calculate PM Store stock (pmStoreStock) as opening stock + inward - outward
-            // PM Store should NOT subtract Own Unit WIP or Job Work WIP
-            let pmStoreStock = openingStock + inward - outward;
-            // Ensure pmStoreStock is never negative
-            if (pmStoreStock < 0) {
-              pmStoreStock = 0;
-            }
-
+            // PM Store value should be shown directly using material.quantity without any calculation
+            let pmStoreStock = material.quantity;
+            
             // Calculate total quantity and value
             const totalQty = closingStock;
             const ourStockValue = pmStoreStock * material.perQuantityPrice;

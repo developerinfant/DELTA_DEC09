@@ -1,4 +1,4 @@
-const GRN = require('../models/GRN');
+ const GRN = require('../models/GRN');
 const PurchaseOrder = require('../models/PurchaseOrder');
 const PackingMaterial = require('../models/PackingMaterial');
 const RawMaterial = require('../models/RawMaterial');
@@ -330,7 +330,7 @@ const createGRN = async (req, res) => {
                 balanceQuantity: balanceQuantity,
                 previousReceived: previousReceived,
                 receivedQuantity: parseFloat(receivedQuantity),
-                totalReceived: totalReceived,
+                totalReceived: totalReceived + (parseFloat(extraReceivedQty) || 0),
                 pendingQty: pendingQuantity,
                 extraAllowedQty: poItem.extraAllowedQty,
                 previousExtraReceived: previousExtraReceived,
@@ -394,7 +394,7 @@ const createGRN = async (req, res) => {
     if (item.materialModel === 'PackingMaterial') {
         await PackingMaterial.findByIdAndUpdate(
             item.material,
-            { $inc: { quantity: item.receivedQuantity } }
+            { $inc: { quantity: item.receivedQuantity + (item.extraReceivedQty || 0) } }
         );
     }
 }
@@ -502,7 +502,7 @@ const createGRN = async (req, res) => {
             const materialId = typeof item.material === 'object' ? item.material._id || item.material : item.material;
             await PurchaseOrder.updateOne(
                 { "_id": purchaseOrderId, "items.material": materialId, "items.materialModel": item.materialModel },
-                { "$inc": { "items.$.quantityReceived": item.receivedQuantity } }
+                { "$inc": { "items.$.quantityReceived": item.receivedQuantity + (item.extraReceivedQty || 0) } }
             );
         }
         
@@ -526,7 +526,7 @@ const createGRN = async (req, res) => {
                         const grnItemId = typeof grnItem.material === 'object' ? grnItem.material.toString() : grnItem.material;
                         const poItemId = typeof poItem.material === 'object' ? poItem.material.toString() : poItem.material;
                         if (grnItemId === poItemId && grnItem.materialModel === poItem.materialModel) {
-                            totalReceived += grnItem.receivedQuantity || 0;
+                            totalReceived += (grnItem.receivedQuantity || 0) + (grnItem.extraReceivedQty || 0);
                         }
                     }
                 }
@@ -953,7 +953,7 @@ const updateGRN = async (req, res) => {
                             const grnItemId = typeof grnItem.material === 'object' ? grnItem.material.toString() : grnItem.material;
                             const poItemId = typeof poItem.material === 'object' ? poItem.material.toString() : poItem.material;
                             if (grnItemId === poItemId && grnItem.materialModel === poItem.materialModel) {
-                                totalReceived += grnItem.receivedQuantity || 0;
+                                totalReceived += (grnItem.receivedQuantity || 0) + (grnItem.extraReceivedQty || 0);
                             }
                         }
                     }
@@ -1149,7 +1149,7 @@ const approveOrRejectGRN = async (req, res) => {
                             const grnItemId = typeof grnItem.material === 'object' ? grnItem.material.toString() : grnItem.material;
                             const poItemId = typeof poItem.material === 'object' ? poItem.material.toString() : poItem.material;
                             if (grnItemId === poItemId && grnItem.materialModel === poItem.materialModel) {
-                                totalReceived += grnItem.receivedQuantity || 0;
+                                totalReceived += (grnItem.receivedQuantity || 0) + (grnItem.extraReceivedQty || 0);
                             }
                         }
                     }

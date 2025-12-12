@@ -86,7 +86,8 @@ const fixAllStockRecords = async () => {
               }
               
               if (isMatchingMaterial) {
-                inward += item.receivedQuantity;
+                // Add both normal received quantity and extra received quantity
+                inward += (item.receivedQuantity || 0) + (item.extraReceivedQty || 0);
               }
             });
           }

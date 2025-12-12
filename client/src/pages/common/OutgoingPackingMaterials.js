@@ -8,6 +8,540 @@ import 'react-toastify/dist/ReactToastify.css';
 import DeliveryChallanDetailModal from '../../components/deliveryChallan/DeliveryChallanDetailModal';
 import { useAuth } from '../../context/AuthContext';
 import Select from 'react-select';
+import { useNavigate } from 'react-router-dom';
+import logoPO from '../../assets/logo-po.png';
+
+// === PDF GENERATION IMPORTS ===
+import pdfMake from 'pdfmake/build/pdfmake';
+import pdfFonts from 'pdfmake/build/vfs_fonts';
+
+// === FIX FOR VFS FONT IMPORT ERROR ===
+if (pdfFonts && pdfFonts.pdfMake && pdfFonts.pdfMake.vfs) {
+    pdfMake.vfs = pdfFonts.pdfMake.vfs;
+} else if (pdfFonts && pdfFonts.vfs) {
+    pdfMake.vfs = pdfFonts.vfs;
+}
+
+// === HELPER FUNCTIONS FOR PDF GENERATION ===
+const DEFAULT_SETTINGS = {
+    companyName: 'DELTA S TRADE LINK',
+    companyAddress: 'NO: 4078, THOTTANUTHU ROAD, REDDIYAPATTI (POST), NATHAM ROAD, DINDIGUL-624003, TAMIL NADU, INDIA',
+    companyEmail: 'deltastradelink@gmail.com',
+    companyGstin: '33BFDPS0871J1ZC',
+    bankName: 'KARUR VYSYA BANK',
+    accountName: 'DELTA S TRADE LINK',
+    accountNumber: '1128115000011983',
+    branchIfsc: 'DINDIGUL MAIN & KVBL0001128'
+};
+
+const getBase64ImageFromURL = (url) => {
+    return new Promise((resolve, reject) => {
+        const img = new Image();
+        img.setAttribute('crossOrigin', 'anonymous');
+        img.onload = () => {
+            const canvas = document.createElement('canvas');
+            canvas.width = img.width;
+            canvas.height = img.height;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0);
+            const dataURL = canvas.toDataURL('image/png');
+            resolve(dataURL);
+        };
+        img.onerror = error => {
+            console.warn('Could not load logo for PDF', error);
+            resolve(null);
+        };
+        img.src = url;
+    });
+};
+
+const numberToWords = (num) => {
+    const a = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten', 'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen', 'Seventeen', 'Eighteen', 'Nineteen'];
+    const b = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
+
+    const num_to_words = (n) => {
+        if (n === 0) return 'Zero';
+        else if (n < 20) return a[n];
+        else if (n < 100) return b[Math.floor(n / 10)] + (n % 10 ? ' ' + a[n % 10] : '');
+        else if (n < 1000) return a[Math.floor(n / 100)] + ' Hundred' + (n % 100 ? ' ' + num_to_words(n % 100) : '');
+        else if (n < 100000) return num_to_words(Math.floor(n / 1000)) + ' Thousand' + (n % 1000 ? ' ' + num_to_words(n % 1000) : '');
+        else if (n < 10000000) return num_to_words(Math.floor(n / 100000)) + ' Lakh' + (n % 100000 ? ' ' + num_to_words(n % 100000) : '');
+        else return num_to_words(Math.floor(n / 10000000)) + ' Crore' + (n % 10000000 ? ' ' + num_to_words(n % 10000000) : '');
+    };
+
+    return num_to_words(Math.floor(num)) + ' Only';
+};
+
+const formatCurrency = (amount) => {
+    if (!amount && amount !== 0) return '0.00';
+    return parseFloat(amount).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+};
+
+const formatDateForPdf = (dateString) => {
+    if (!dateString) return '';
+    const date = new Date(dateString);
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const year = date.getFullYear();
+    return `${day}-${month}-${year}`;
+};
+
+// === CORE PDF DEFINITION GENERATOR (VECTOR) ===
+const createDCPdfDefinition = (deliveryChallan, logoBase64) => {
+    const settings = DEFAULT_SETTINGS;
+    
+    // 1. Calculate Data / Extract Lists
+    // Handle materials for both single and multiple products (matching DeliveryChallanDetailModal logic)
+    let materials = [];
+    if (deliveryChallan && deliveryChallan.products && deliveryChallan.products.length > 0) {
+        // For multiple products, collect all materials from all products
+        deliveryChallan.products.forEach(product => {
+            if (product.materials && Array.isArray(product.materials)) {
+                materials = materials.concat(product.materials);
+            }
+        });
+    } else if (deliveryChallan && deliveryChallan.materials && Array.isArray(deliveryChallan.materials)) {
+        // For single product (backward compatibility)
+        materials = deliveryChallan.materials;
+    }
+    // Resolve Name for "Issued To"
+    const issuedToName = deliveryChallan.unit_type === 'Jobber'
+        ? (deliveryChallan.supplier_id?.name || '')
+        : (deliveryChallan.person_name || '');
+
+    // === SIMPLIFIED TOTAL CALCULATION BASED ON BACKEND FIELDS ===
+    const totalSent = materials.reduce((sum, item) => sum + (item.total_qty || 0), 0);    // === PDF BORDER STYLES ===
+    const BORDER_COLOR = '#000000';
+    const LINE_WIDTH = 1;
+
+    // Standard Grid Layout
+    const tableLayout = {
+        hLineWidth: () => LINE_WIDTH,
+        vLineWidth: () => LINE_WIDTH,
+        hLineColor: () => BORDER_COLOR,
+        vLineColor: () => BORDER_COLOR,
+        paddingLeft: () => 4, paddingRight: () => 4, paddingTop: () => 2, paddingBottom: () => 2,
+    };
+
+    // Layout that removes internal vertical lines (For Header Sections)
+    const noInternalVerticalsLayout = {
+        hLineWidth: () => LINE_WIDTH,
+        vLineWidth: (i, node) => (i === 0 || i === node.table.widths.length) ? LINE_WIDTH : 0,
+        hLineColor: () => BORDER_COLOR,
+        vLineColor: () => BORDER_COLOR,
+        paddingLeft: () => 4, paddingRight: () => 4, paddingTop: () => 2, paddingBottom: () => 2,
+    };
+
+    const noBorderTableLayout = {
+        hLineWidth: () => 0, vLineWidth: () => 0,
+        paddingLeft: () => 0, paddingRight: () => 0, paddingTop: () => 1, paddingBottom: () => 1,
+    };
+
+    // Column Widths for Materials Table (7 Columns)
+    // S.N | ITEM CODE | MATERIAL NAME | HSN | UOM | QTY/CTN | ISSUED QTY
+    const materialTableWidths = ['5%', '15%', '*', '10%', '8%', '12%', '15%'];
+
+    // --- Construct Material Table Body ---
+    const materialBody = [
+        [
+            { text: 'S.N', style: 'thCenter' },
+            { text: 'ITEM CODE', style: 'thCenter' },
+            { text: 'MATERIAL NAME', style: 'thCenter' },
+            { text: 'HSN', style: 'thCenter' },
+            { text: 'UOM', style: 'thCenter' },
+            { text: 'QTY/CTN', style: 'thCenter' },
+            { text: 'ISSUED QTY', style: 'thCenter' }
+        ]
+    ];
+
+    // === FIXED LOOP USING DIRECT BACKEND FIELDS ===
+    materials.forEach((item, index) => {
+        materialBody.push([
+            { text: index + 1, alignment: 'center' },
+            { text: item.material_code || '', alignment: 'center' },
+            { text: item.material_name || '', alignment: 'left' },
+            { text: item.hsn || '48191010', alignment: 'center' },
+            { text: item.uom || 'Nos', alignment: 'center' },
+            { text: formatCurrency(item.qty_per_carton || 0), alignment: 'right' },
+            { text: formatCurrency(item.total_qty || 0), alignment: 'right' }
+        ]);
+    });
+
+    // Fill Empty Rows to maintain height
+    const rowsToFill = Math.max(10 - materials.length, 0);
+    const emptyCellStyle = { text: ' ', style: 'tdEmpty', border: [true, false, true, false] };
+
+    for (let i = 0; i < rowsToFill; i++) {
+        materialBody.push([
+            emptyCellStyle, emptyCellStyle, emptyCellStyle,
+            emptyCellStyle, emptyCellStyle, emptyCellStyle,
+            emptyCellStyle
+        ]);
+    }
+
+    // Material Total Row
+    materialBody.push([
+        { text: '', colSpan: 6, border: [true, true, true, true] }, {}, {}, {}, {}, {},
+        { text: formatCurrency(totalSent), style: 'thRight', border: [true, true, true, true] }
+    ]);
+    // --- Construct HSN/Tax Table Body ---
+    const hsnBody = [
+        [
+            { text: 'HSN/SAC', rowSpan: 2, style: 'thCenter' },
+            { text: 'Taxable Value', rowSpan: 2, style: 'thCenter' },
+            { text: 'CGST', colSpan: 2, style: 'thCenter' }, {},
+            { text: 'SGST/UTGST', colSpan: 2, style: 'thCenter' }, {},
+            { text: '', rowSpan: 2, style: 'thCenter' },
+            { text: '', rowSpan: 2, style: 'thCenter' }
+        ],
+        [
+            {}, {},
+            { text: 'Rate', style: 'thCenter' }, { text: 'Amount', style: 'thCenter' },
+            { text: 'Rate', style: 'thCenter' }, { text: 'Amount', style: 'thCenter' },
+            {}, {}
+        ]
+    ];
+
+    const row = [
+        { text: '48191010', style: 'tdCenter' },
+        { text: formatCurrency(0), style: 'tdRight' },
+        { text: '2.5 %', style: 'tdCenter' },
+        { text: formatCurrency(0), style: 'tdRight' },
+        { text: '2.5 %', style: 'tdCenter' },
+        { text: formatCurrency(0), style: 'tdRight' },
+        { text: 'Input-CGST-2.5%\nInput-SGST-2.5%', style: 'tdLeft' },
+        { text: '0.00\n0.00', style: 'tdRight' }
+    ];
+    hsnBody.push(row);
+
+    hsnBody.push([
+        { text: 'Total', style: 'thCenter' },
+        { text: formatCurrency(0), style: 'thRight' },
+        { text: '', style: 'tdCenter' },
+        { text: formatCurrency(0), style: 'thRight' },
+        { text: '', style: 'tdCenter' },
+        { text: formatCurrency(0), style: 'thRight' },
+        { text: '', colSpan: 2, style: 'tdCenter' }, {}
+    ]);
+
+    hsnBody.push([
+        { text: 'Grand Total', colSpan: 6, style: 'grandTotalLabel' }, {}, {}, {}, {}, {},
+        { text: `₹ ${formatCurrency(0)}`, colSpan: 2, style: 'grandTotalValue' }, {}
+    ]);
+
+    // --- NEW PRODUCT DETAILS BLOCK CONSTRUCTION ---
+    // This will go below Header and before Materials
+    let productBlockContent = [];
+    if (deliveryChallan.products && deliveryChallan.products.length > 0) {
+        // Multi Product Table
+        const productRows = deliveryChallan.products.map(p => ([
+            { text: p.product_name, style: 'stdCell', border: [true, true, true, true] },
+            { text: p.carton_qty || 0, style: 'stdCell', alignment: 'right', border: [true, true, true, true] }
+        ]));
+
+        productBlockContent = [
+            { text: 'PRODUCT DETAILS', style: 'sectionHeader', margin: [0, 5, 0, 2] },
+            {
+                table: {
+                    widths: ['70%', '30%'],
+                    body: [
+                        [
+                            { text: 'Product Name', style: 'thCenter', fillColor: '#f0f0f0' },
+                            { text: 'Carton Qty', style: 'thCenter', fillColor: '#f0f0f0' }
+                        ],
+                        ...productRows
+                    ]
+                },
+                layout: tableLayout,
+                margin: [0, 0, 0, 5]
+            }
+        ];
+    } else {
+        // Single Product Display
+        productBlockContent = [
+            { text: 'PRODUCT DETAILS', style: 'sectionHeader', margin: [0, 5, 0, 2] },
+            {
+                table: {
+                    widths: ['30%', '70%'],
+                    body: [
+                        [{ text: 'Product Name', bold: true, style: 'stdCell' }, { text: `: ${deliveryChallan.product_name || ''}`, style: 'stdCell' }],
+                        [{ text: 'Carton Quantity', bold: true, style: 'stdCell' }, { text: `: ${deliveryChallan.carton_qty || ''}`, style: 'stdCell' }]
+                    ]
+                },
+                layout: noBorderTableLayout,
+                margin: [0, 0, 0, 5]
+            }
+        ];
+    }
+
+    // === DOCUMENT DEFINITION ===
+    return {
+        pageSize: 'A4',
+        pageMargins: [28, 28, 28, 28],
+        content: [
+            { text: 'SUBJECT TO JURISDICTION', style: 'topHeader', decoration: 'underline' },
+            {
+                style: 'tableExample',
+                table: {
+                    widths: ['35%', '65%'],
+                    body: [
+                        [
+                            { text: [{ text: 'GSTIN : ', bold: true }, { text: settings.companyGstin }], style: 'stdCell' },
+                            { text: 'DELIVERY CHALLAN', style: 'titleCell' }
+                        ]
+                    ]
+                },
+                layout: noInternalVerticalsLayout
+            },
+            {
+                style: 'tableExample',
+                margin: [0, -1, 0, 0], // Merge border
+                table: {
+                    widths: ['30%', '70%'],
+                    body: [
+                        [
+                            {
+                                stack: [
+                                    logoBase64 ? { image: logoBase64, width: 100, alignment: 'center' } : {},
+                                    { text: "DELTA'S TRADE LINK", bold: true, fontSize: 9, margin: [0, 5, 0, 0], alignment: 'center' }
+                                ],
+                                alignment: 'center',
+                                border: [true, false, true, true]
+                            },
+                            {
+                                stack: [
+                                    { text: 'DELTA S TRADE LINK', style: 'companyName' },
+                                    { text: "India's No 1 Pooja Products Manufacturer", style: 'tagline' },
+                                    { text: `NO: 4078, THOTTANUTHU ROAD, REDDIYAPATTI (POST),\nNATHAM ROAD, DINDIGUL-624003, TAMIL NADU, INDIA.`, style: 'address' },
+                                    { text: `E-Mail : ${settings.companyEmail}`, style: 'email' }
+                                ],
+                                alignment: 'center',
+                                margin: [0, 5, 0, 5],
+                                border: [false, false, true, true]
+                            }
+                        ]
+                    ]
+                },
+                layout: tableLayout
+            },
+            {
+                style: 'tableExample',
+                margin: [0, -1, 0, 0],
+                table: {
+                    widths: ['33.33%', '33.33%', '33.34%'],
+                    body: [
+                        [
+                            { text: `E-Way Bill No. : `, style: 'stdCell' },
+                            { text: `E-Way Bill Date : `, style: 'stdCell' },
+                            { text: `Vehicle No : `, style: 'stdCell' }
+                        ]
+                    ]
+                },
+                layout: noInternalVerticalsLayout
+            },
+            // === ADDRESS & DETAILS BLOCK ===
+            {
+                style: 'tableExample',
+                margin: [0, -1, 0, 0],
+                table: {
+                    widths: ['33%', '33%', '34%'],
+                    body: [
+                        [
+                            {
+                                stack: [
+                                    { text: 'Unit Type', bold: true, margin: [0, 0, 0, 4] },
+                                    { text: deliveryChallan.unit_type || '', bold: true, fontSize: 8.5 },
+                                    { text: '\n\n', fontSize: 8 }, // Spacer
+                                    { text: [{ text: 'Contact No. : ', bold: true }, { text: '' }], fontSize: 8 },
+                                    { text: [{ text: 'GSTIN : ', bold: true }, { text: settings.companyGstin }], fontSize: 8, margin: [0, 2, 0, 0] }
+                                ],
+                                style: 'stdCell',
+                                border: [true, false, true, true]
+                            },
+                            {
+                                stack: [
+                                    { text: deliveryChallan.unit_type === 'Jobber' ? 'Supplier:' : 'Issued To:', bold: true, margin: [0, 0, 0, 2] },
+                                    {
+                                        text: issuedToName,
+                                        bold: true, fontSize: 8.5, margin: [0, 0, 0, 2], textTransform: 'uppercase'
+                                    },
+                                    {
+                                        text: deliveryChallan.unit_type === 'Jobber'
+                                            ? (deliveryChallan.supplier_id?.address || '')
+                                            : '',
+                                        fontSize: 8, margin: [0, 0, 0, 5]
+                                    },
+                                    { text: [{ text: 'GSTIN          : ', bold: true }, { text: settings.companyGstin }], fontSize: 8 }
+                                ],
+                                style: 'stdCell',
+                                border: [false, false, true, true]
+                            },
+                            {
+                                // === RIGHT COLUMN: CLEAN DC DETAILS ONLY ===
+                                stack: [
+                                    {
+                                        table: {
+                                            widths: ['40%', '60%'],
+                                            body: [
+                                                [{ text: 'DC No.', bold: true }, { text: `: ${deliveryChallan.dc_no || ''}` }],
+                                                [{ text: 'Date', bold: true }, { text: `: ${formatDateForPdf(deliveryChallan.date)}` }],
+                                                [{ text: 'Issued To', bold: true }, { text: `: ${issuedToName}` }],
+                                                [{ text: 'Unit Type', bold: true }, { text: `: ${deliveryChallan.unit_type || ''}` }],
+                                                [{ text: 'Status', bold: true }, { text: `: ${deliveryChallan.status || ''}` }]
+                                            ]
+                                        },
+                                        layout: noBorderTableLayout
+                                    }
+                                ],
+                                style: 'stdCell',
+                                border: [false, false, true, true]
+                            }
+                        ]
+                    ]
+                },
+                layout: tableLayout
+            },
+            // === REFERENCE BLOCK (Terms, PO, Salesman) ===
+            {
+                style: 'tableExample',
+                margin: [0, -1, 0, 0],
+                table: {
+                    widths: ['33%', '33%', '34%'],
+                    body: [
+                        [
+                            {
+                                stack: [
+                                    { text: [{ text: 'Terms of Payment : ', bold: true }, { text: '' }] },
+                                    { text: [{ text: 'Destination : ', bold: true }, { text: '' }], margin: [0, 10, 0, 0] }
+                                ],
+                                style: 'stdCell',
+                                border: [true, false, true, true]
+                            },
+                            {
+                                stack: [
+                                    { text: [{ text: 'P.O No & Date : ', bold: true }, { text: '' }] },
+                                    { text: [{ text: 'D.C No & Date : ', bold: true }, { text: deliveryChallan.dc_no || '' }], margin: [0, 10, 0, 0] }
+                                ],
+                                style: 'stdCell',
+                                border: [false, false, true, true]
+                            },
+                            {
+                                text: [{ text: 'Salesman : ', bold: true }, { text: '' }],
+                                style: 'stdCell',
+                                border: [false, false, true, true]
+                            }
+                        ]
+                    ]
+                },
+                layout: tableLayout
+            },
+            
+            // === NEW PRODUCT DETAILS BLOCK (Inserted Here) ===
+            ...productBlockContent,
+
+            // === MATERIALS TABLE ===
+            {
+                style: 'tableExample',
+                margin: [0, -1, 0, 0],
+                table: {
+                    headerRows: 1,
+                    widths: materialTableWidths,
+                    body: materialBody
+                },
+                layout: tableLayout
+            },
+            // === TAX TABLE ===
+            {
+                style: 'tableExample',
+                margin: [0, -1, 0, 0],
+                table: {
+                    headerRows: 2,
+                    widths: ['15%', '16%', '8%', '15%', '8%', '15%', '13%', '10%'],
+                    body: hsnBody
+                },
+                layout: tableLayout
+            },
+            // === FOOTER (Amount Words, Bank, Signatures) ===
+            {
+                style: 'tableExample',
+                margin: [0, -1, 0, 0],
+                table: {
+                    widths: ['70%', '30%'],
+                    body: [
+                        [{
+                            colSpan: 2,
+                            border: [true, false, true, true],
+                            stack: [
+                                {
+                                    columns: [
+                                        { text: [{ text: 'Amount Chargeable (in words): ', fontSize: 9 }, { text: `INR ${numberToWords(0)}`, bold: true, fontSize: 9 }] },
+                                        { text: 'E. & O.E', bold: true, alignment: 'right', fontSize: 9 }
+                                    ]
+                                }
+                            ],
+                            margin: [0, 2, 0, 2]
+                        }, {}],
+                        [
+                            {
+                                stack: [
+                                    { text: 'BANK DETAILS :-', bold: true, fontSize: 9, decoration: 'underline', margin: [0, 5, 0, 2] },
+                                    {
+                                        table: {
+                                            widths: ['auto', '*'],
+                                            body: [
+                                                [{ text: 'Bank Name', width: 80 }, { text: `: ${settings.bankName}` }],
+                                                [{ text: 'A/c. Name', width: 80 }, { text: `: ${settings.accountName}` }],
+                                                [{ text: 'A/c. No.', width: 80 }, { text: `: ${settings.accountNumber}` }],
+                                                [{ text: 'Branch & IFSC', width: 80 }, { text: `: ${settings.branchIfsc}` }]
+                                            ]
+                                        },
+                                        layout: noBorderTableLayout
+                                    },
+                                    { text: 'TERMS & CONDITIONS', bold: true, fontSize: 9, margin: [0, 10, 0, 0] },
+                                    { text: '\n\n\n\nCustomer Signature', alignment: 'center', margin: [0, 10, 0, 0] }
+                                ],
+                                border: [true, true, true, true]
+                            },
+                            {
+                                stack: [
+                                    { text: `For ${settings.companyName}`, bold: true, alignment: 'center', margin: [0, 5, 0, 30] },
+                                    { text: 'Authorised Signatory', alignment: 'center' }
+                                ],
+                                border: [false, true, true, true],
+                                alignment: 'center',
+                                valign: 'center'
+                            }
+                        ]
+                    ]
+                },
+                layout: tableLayout
+            }
+        ],
+        styles: {
+            topHeader: { fontSize: 8, bold: true, alignment: 'center', margin: [0, 5, 0, 5], letterSpacing: 0.2 },
+            stdCell: { fontSize: 8, color: '#000000' },
+            titleCell: { fontSize: 8, bold: true, alignment: 'left', margin: [0, 2, 0, 2] },
+            sectionHeader: { fontSize: 9, bold: true, decoration: 'underline' },
+            companyName: { fontSize: 25, bold: true, font: 'Roboto', alignment: 'center' },
+            tagline: { fontSize: 12, bold: true, italics: true, alignment: 'center', margin: [0, 2, 0, 2] },
+            address: { fontSize: 10, bold: true, alignment: 'center', lineHeight: 1.2 },
+            email: { fontSize: 9, bold: true, alignment: 'center', margin: [0, 2, 0, 0] },
+            thCenter: { fontSize: 9, bold: true, alignment: 'center', fillColor: '#ffffff' },
+            thRight: { fontSize: 9, bold: true, alignment: 'right', fillColor: '#ffffff' },
+            tdCenter: { fontSize: 9, alignment: 'center' },
+            tdRight: { fontSize: 9, alignment: 'right' },
+            tdLeft: { fontSize: 8.5, alignment: 'left' },
+            tdEmpty: { fontSize: 9, height: 10 },
+            grandTotalLabel: { fontSize: 10, bold: true, alignment: 'right' },
+            grandTotalValue: { fontSize: 10, bold: true, alignment: 'right' }
+        },
+        defaultStyle: {
+            font: 'Roboto',
+            fontSize: 8,
+            color: '#000000'
+        }
+    };
+};
 
 const OutgoingPackingMaterials = () => {
     // State for materials, product mappings, suppliers, and delivery challan records
@@ -50,6 +584,7 @@ const OutgoingPackingMaterials = () => {
     
     // Add auth context to get logged-in user
     const { user } = useAuth();
+    const navigate = useNavigate();
 
     // Calculate materials when selected products change
     useEffect(() => {
@@ -259,38 +794,65 @@ const OutgoingPackingMaterials = () => {
         );
     };
 
-    // ✅ NEW: Handle Direct PDF Download
-    const handleDownloadPDF = async (dcNo) => {
+    // ✅ FIXED: Handle Direct PDF Download - Generate and download Vector PDF directly
+    const handleDownloadPDF = async (dcId) => {
         try {
-            toast.info('📥 Downloading PDF...');
-            const response = await apiWithOfflineSupport.get(`/api/delivery-challan/${dcNo}/pdf`, {
-                responseType: 'blob'
-            });
+            toast.info('📥 Generating PDF...');
             
-            // Create blob link to download
-            const url = window.URL.createObjectURL(new Blob([response.data]));
-            const link = document.createElement('a');
-            link.href = url;
-            link.setAttribute('download', `DC_${dcNo}.pdf`);
-            document.body.appendChild(link);
-            link.click();
-            link.parentNode.removeChild(link);
-            window.URL.revokeObjectURL(url);
+            // Fetch the delivery challan data directly
+            const response = await apiWithOfflineSupport.getDeliveryChallanById(dcId);
+            const deliveryChallan = response.data;
+
+            // Load logo
+            let logoBase64 = null;
+            if (logoPO) {
+                try {
+                    logoBase64 = await getBase64ImageFromURL(logoPO);
+                } catch (e) {
+                    console.warn("Logo failed to load for PDF generation", e);
+                }
+            }
+            
+            // Generate PDF Definition (Vector)
+            const docDefinition = createDCPdfDefinition(deliveryChallan, logoBase64);
+
+            // Create filename
+            const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+            const filename = `DeliveryChallan_${deliveryChallan.dc_no}_${timestamp}.pdf`;
+            
+            // Generate and Download
+            pdfMake.createPdf(docDefinition).download(filename);
             
             toast.success('✅ PDF downloaded successfully!');
         } catch (error) {
-            console.error('Error downloading PDF:', error);
-            toast.error('❌ Failed to download PDF. Please try again.');
+            console.error('Error generating PDF:', error);
+            toast.error('❌ Failed to generate PDF. Please try again.');
         }
     };
 
-    // ✅ NEW: Handle Direct Print Preview
-    const handlePrintPDF = (dcNo) => {
+    // ✅ UPDATED: Handle Print Preview - Uses createDCPdfDefinition directly instead of navigating
+    const handlePrintPDF = async (dcId) => {
         try {
-            // Open PDF in new tab for printing
-            const printUrl = `/api/delivery-challan/${dcNo}/pdf`;
-            window.open(printUrl, '_blank');
-            toast.info('🖨️ Opening print preview...');
+            toast.info('🖨️ Preparing print...');
+            
+            // Fetch data
+            const response = await apiWithOfflineSupport.getDeliveryChallanById(dcId);
+            const deliveryChallan = response.data;
+            
+            // Load logo
+            let logoBase64 = null;
+            if (logoPO) {
+                try {
+                    logoBase64 = await getBase64ImageFromURL(logoPO);
+                } catch (e) {
+                    console.warn("Logo failed to load for PDF print", e);
+                }
+            }
+            
+            // Generate PDF and Print
+            const docDefinition = createDCPdfDefinition(deliveryChallan, logoBase64);
+            pdfMake.createPdf(docDefinition).print();
+            
         } catch (error) {
             console.error('Error opening print preview:', error);
             toast.error('❌ Failed to open print preview. Please try again.');
@@ -855,7 +1417,7 @@ const OutgoingPackingMaterials = () => {
                                                 
                                                 {/* Red PDF Icon - Direct Download */}
                                                 <button
-                                                    onClick={() => handleDownloadPDF(record.dc_no)}
+                                                    onClick={() => handleDownloadPDF(record._id)}
                                                     className="text-red-600 hover:text-red-900 transition-colors"
                                                     title="Download PDF"
                                                 >
@@ -864,7 +1426,7 @@ const OutgoingPackingMaterials = () => {
                                                 
                                                 {/* Green Print Icon - Direct Print Preview */}
                                                 <button
-                                                    onClick={() => handlePrintPDF(record.dc_no)}
+                                                    onClick={() => handlePrintPDF(record._id)}
                                                     className="text-green-600 hover:text-green-900 transition-colors"
                                                     title="Print PDF"
                                                 >

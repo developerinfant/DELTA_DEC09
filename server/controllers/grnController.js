@@ -860,7 +860,7 @@ const createGRN = async (req, res) => {
                 balanceQuantity: balanceQuantity,
                 previousReceived: previousReceived,
                 receivedQuantity: parseFloat(receivedQuantity),
-                totalReceived: totalReceived,
+                totalReceived: totalReceived + (parseFloat(extraReceivedQty) || 0),
                 pendingQty: pendingQuantity,
                 extraAllowedQty: poItem.extraAllowedQty,
                 previousExtraReceived: previousExtraReceived,
@@ -920,14 +920,6 @@ const createGRN = async (req, res) => {
 
         const newGRN = new GRN(grnData);
         const savedGRN = await newGRN.save();
-        for (const item of processedItems) {
-    if (item.materialModel === 'PackingMaterial') {
-        await PackingMaterial.findByIdAndUpdate(
-            item.material,
-            { $inc: { quantity: item.receivedQuantity } }
-        );
-    }
-}
         // Update stock for each item in the GRN immediately upon submission
         for (const item of processedItems) {
             const Model = item.materialModel === 'PackingMaterial' ? PackingMaterial : RawMaterial;
@@ -1032,7 +1024,7 @@ const createGRN = async (req, res) => {
             const materialId = typeof item.material === 'object' ? item.material._id || item.material : item.material;
             await PurchaseOrder.updateOne(
                 { "_id": purchaseOrderId, "items.material": materialId, "items.materialModel": item.materialModel },
-                { "$inc": { "items.$.quantityReceived": item.receivedQuantity } }
+                { "$inc": { "items.$.quantityReceived": item.receivedQuantity + (item.extraReceivedQty || 0) } }
             );
         }
         
@@ -1056,7 +1048,7 @@ const createGRN = async (req, res) => {
                         const grnItemId = typeof grnItem.material === 'object' ? grnItem.material.toString() : grnItem.material;
                         const poItemId = typeof poItem.material === 'object' ? poItem.material.toString() : poItem.material;
                         if (grnItemId === poItemId && grnItem.materialModel === poItem.materialModel) {
-                            totalReceived += grnItem.receivedQuantity || 0;
+                            totalReceived += (grnItem.receivedQuantity || 0) + (grnItem.extraReceivedQty || 0);
                         }
                     }
                 }
@@ -1999,7 +1991,7 @@ const updateGRN = async (req, res) => {
                             const grnItemId = typeof grnItem.material === 'object' ? grnItem.material.toString() : grnItem.material;
                             const poItemId = typeof poItem.material === 'object' ? poItem.material.toString() : poItem.material;
                             if (grnItemId === poItemId && grnItem.materialModel === poItem.materialModel) {
-                                totalReceived += grnItem.receivedQuantity || 0;
+                                totalReceived += (grnItem.receivedQuantity || 0) + (grnItem.extraReceivedQty || 0);
                             }
                         }
                     }
@@ -2114,7 +2106,7 @@ const approveOrRejectGRN = async (req, res) => {
                         // Create a simplified item object for the update function
                         const simplifiedItem = {
                             material: typeof item.material === 'string' ? item.material : item.material.name,
-                            receivedQuantity: item.receivedQuantity
+                            receivedQuantity: item.receivedQuantity + (item.extraReceivedQty || 0)
                         };
                         await updateDeliveryChallanQuantities(grn.deliveryChallan._id, [simplifiedItem], grn._id);
                     } catch (dcUpdateError) {
@@ -2210,7 +2202,7 @@ const approveOrRejectGRN = async (req, res) => {
                             const grnItemId = typeof grnItem.material === 'object' ? grnItem.material.toString() : grnItem.material;
                             const poItemId = typeof poItem.material === 'object' ? poItem.material.toString() : poItem.material;
                             if (grnItemId === poItemId && grnItem.materialModel === poItem.materialModel) {
-                                totalReceived += grnItem.receivedQuantity || 0;
+                                totalReceived += (grnItem.receivedQuantity || 0) + (grnItem.extraReceivedQty || 0);
                             }
                         }
                     }
