@@ -953,7 +953,7 @@ const OutgoingPackingMaterials = () => {
     }
 
     return (
-        <div className="container mx-auto px-4 py-6 max-w-7xl">
+        <div className="w-full px-4 py-6">
             <ToastContainer position="top-right" autoClose={5000} />
             
             {/* Person Name Popup */}
@@ -1034,11 +1034,11 @@ const OutgoingPackingMaterials = () => {
                 </p>
             </div>
             
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 mb-8 w-full">
                 {/* Delivery Challan Form */}
-                <div className="lg:col-span-2">
-                    <Card title="Create Delivery Challan">
-                        <form onSubmit={handleSubmit} className="space-y-5">
+                <div className="lg:col-span-8">
+                    <Card title="Create Delivery Challan" className="w-full">
+                        <form onSubmit={handleSubmit} className="space-y-5 w-full">
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                                 {/* Unit Type */}
                                 <div>
@@ -1122,7 +1122,7 @@ const OutgoingPackingMaterials = () => {
                                             Selected Products
                                         </label>
                                         <div className="border border-gray-200 rounded-lg overflow-hidden">
-                                            <table className="min-w-full divide-y divide-gray-200">
+                                            <table className="min-w-full divide-y divide-gray-200 w-full">
                                                 <thead className="bg-gray-50">
                                                     <tr>
                                                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Product Name</th>
@@ -1238,7 +1238,7 @@ const OutgoingPackingMaterials = () => {
                                         <h3 className="text-sm font-semibold text-gray-700">Materials Required</h3>
                                     </div>
                                     <div className="overflow-x-auto">
-                                        <table className="min-w-full divide-y divide-gray-200">
+                                        <table className="min-w-full divide-y divide-gray-200 w-full">
                                             <thead className="bg-gray-50">
                                                 <tr>
                                                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Material Name</th>
@@ -1291,8 +1291,8 @@ const OutgoingPackingMaterials = () => {
                 </div>
                 
                 {/* Stock Information Card */}
-                <div className="lg:col-span-1">
-                    <Card title="Stock Information">
+                <div className="lg:col-span-4">
+                    <Card title="Stock Information" className="w-full">
                         {calculatedMaterials.length > 0 ? (
                             <div className="space-y-3">
                                 <h3 className="text-lg font-bold text-gray-800">Total Material Required</h3>
@@ -1335,10 +1335,10 @@ const OutgoingPackingMaterials = () => {
             </div>
             
             {/* ✅ UPDATED: Delivery Challan History with PDF and Print Actions */}
-            <div className="mt-8">
+            <div className="mt-8 w-full">
                 <h2 className="text-xl font-semibold text-gray-800 mb-4">Delivery Challan History</h2>
-                <div className="overflow-x-auto bg-white rounded-lg shadow-md">
-                    <table className="min-w-full divide-y divide-gray-200">
+                <div className="overflow-x-auto bg-white rounded-lg shadow-md w-full">
+                    <table className="min-w-full divide-y divide-gray-200 w-full">
                         <thead className="bg-gray-50">
                             <tr>
                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">DC No</th>

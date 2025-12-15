@@ -22,6 +22,8 @@ const FGStockReport = () => {
   const [isConfigModalOpen, setIsConfigModalOpen] = useState(false); // Add this state for config modal
   const [config, setConfig] = useState({ openingTime: '09:00', closingTime: '21:00' }); // Add this state for config
   const [newConfig, setNewConfig] = useState({ openingTime: '09:00', closingTime: '21:00' }); // Add this state for new config
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(50); // Show 50 items per page
   const updatedProductTimers = useRef({});
 
   // Fetch data
@@ -97,50 +99,103 @@ const FGStockReport = () => {
     };
   }, [selectedDate]);
 
-  // Filter and search products
+  // Filter and search products with optimized search
   const filteredProducts = useMemo(() => {
+    if (!searchTerm) {
+      return productStocks;
+    }
+    
+    const lowerSearchTerm = searchTerm.toLowerCase().trim();
+    
+    // Early exit if search term is empty
+    if (!lowerSearchTerm) {
+      return productStocks;
+    }
+    
     return productStocks.filter(product => {
-      // Search filter
-      const matchesSearch = 
-        product.productName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (product.itemCode && product.itemCode.toLowerCase().includes(searchTerm.toLowerCase())); // Add itemCode to search
+      // Search filter - optimized with early returns
+      if (product.productName && product.productName.toLowerCase().includes(lowerSearchTerm)) {
+        return true;
+      }
       
-      // NOTE: We intentionally do NOT filter by date here to show ALL products
-      // This matches the behavior of the Packing Materials Stock Report
-      // The date selection is used only for calculating the stock values, not for filtering which products to show
+      if (product.itemCode && product.itemCode.toLowerCase().includes(lowerSearchTerm)) {
+        return true;
+      }
       
-      return matchesSearch;
+      return false;
     });
   }, [productStocks, searchTerm]);
+  
+  // Pagination
+  const paginatedProducts = useMemo(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    return filteredProducts.slice(startIndex, endIndex);
+  }, [filteredProducts, currentPage, itemsPerPage]);
+  
+  // Calculate total pages
+  const totalPages = Math.ceil(filteredProducts.length / itemsPerPage);
 
-  // Calculate summary totals
+  // Calculate summary totals with optimized calculation
   const summaryTotals = useMemo(() => {
-    return filteredProducts.reduce((totals, product) => {
-      totals.totalProducts += 1;
-      totals.totalCartons += product.available_cartons || 0;
-      totals.totalPieces += product.broken_carton_pieces || 0;
-      totals.availableStock += product.totalAvailable || 0;
-      totals.totalOpeningCartons += product.openingCartons || 0;
-      totals.totalOpeningPieces += product.openingPieces || 0;
-      totals.totalInward += product.inward || 0;
-      totals.totalOutwardCartons += product.outwardCartons || 0;
-      totals.totalOutwardPieces += product.outwardPieces || 0;
-      totals.totalClosingCartons += product.closingCartons || 0;
-      totals.totalClosingPieces += product.closingPieces || 0;
-      return totals;
-    }, {
-      totalProducts: 0,
-      totalCartons: 0,
-      totalPieces: 0,
-      availableStock: 0,
-      totalOpeningCartons: 0,
-      totalOpeningPieces: 0,
-      totalInward: 0,
-      totalOutwardCartons: 0,
-      totalOutwardPieces: 0,
-      totalClosingCartons: 0,
-      totalClosingPieces: 0
-    });
+    // Early exit for empty arrays
+    if (!filteredProducts || filteredProducts.length === 0) {
+      return {
+        totalProducts: 0,
+        totalCartons: 0,
+        totalPieces: 0,
+        availableStock: 0,
+        totalOpeningCartons: 0,
+        totalOpeningPieces: 0,
+        totalInward: 0,
+        totalOutwardCartons: 0,
+        totalOutwardPieces: 0,
+        totalClosingCartons: 0,
+        totalClosingPieces: 0
+      };
+    }
+    
+    // Use a single loop for better performance
+    let totalProducts = 0;
+    let totalCartons = 0;
+    let totalPieces = 0;
+    let availableStock = 0;
+    let totalOpeningCartons = 0;
+    let totalOpeningPieces = 0;
+    let totalInward = 0;
+    let totalOutwardCartons = 0;
+    let totalOutwardPieces = 0;
+    let totalClosingCartons = 0;
+    let totalClosingPieces = 0;
+    
+    for (let i = 0; i < filteredProducts.length; i++) {
+      const product = filteredProducts[i];
+      totalProducts += 1;
+      totalCartons += product.available_cartons || 0;
+      totalPieces += product.broken_carton_pieces || 0;
+      availableStock += product.totalAvailable || 0;
+      totalOpeningCartons += product.openingCartons || 0;
+      totalOpeningPieces += product.openingPieces || 0;
+      totalInward += product.inward || 0;
+      totalOutwardCartons += product.outwardCartons || 0;
+      totalOutwardPieces += product.outwardPieces || 0;
+      totalClosingCartons += product.closingCartons || 0;
+      totalClosingPieces += product.closingPieces || 0;
+    }
+    
+    return {
+      totalProducts,
+      totalCartons,
+      totalPieces,
+      availableStock,
+      totalOpeningCartons,
+      totalOpeningPieces,
+      totalInward,
+      totalOutwardCartons,
+      totalOutwardPieces,
+      totalClosingCartons,
+      totalClosingPieces
+    };
   }, [filteredProducts]);
 
   // Handle edit button click
@@ -215,30 +270,67 @@ const FGStockReport = () => {
     }
   };
 
-  // Export to Excel
+  // Export to Excel with performance optimization for large datasets
   const exportToExcel = () => {
-    const worksheet = XLSX.utils.json_to_sheet(filteredProducts.map(product => ({
-      'Item Code': product.itemCode || 'N/A',
-      'Product Name': product.productName,
-      'Opening Cartons': product.openingCartons,
-      'Opening Pieces': product.openingPieces,
-      'Inward (GRN)': product.inward,
-      'Outward Cartons': product.outwardCartons,
-      'Outward Pieces': product.outwardPieces,
-      'Closing Cartons': product.closingCartons,
-      'Closing Pieces': product.closingPieces,
-      'Total Cartons': product.available_cartons,
-      'Broken Pieces': product.broken_carton_pieces,
-      'Last Updated': product.lastUpdated ? new Date(product.lastUpdated).toLocaleString() : 'N/A'
-    })));
+    // Show warning for large datasets
+    if (filteredProducts.length > 5000) {
+      const confirmExport = window.confirm(`You are about to export ${filteredProducts.length} records. This may take a moment. Continue?`);
+      if (!confirmExport) return;
+    }
     
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, 'FG Stock Report');
-    XLSX.writeFile(workbook, 'FG_Stock_Report.xlsx');
+    // Process data in chunks to prevent UI freezing
+    const processDataChunk = (startIndex, endIndex) => {
+      return filteredProducts.slice(startIndex, endIndex).map(product => ({
+        'Item Code': product.itemCode || 'N/A',
+        'Product Name': product.productName,
+        'Opening Cartons': product.openingCartons,
+        'Opening Pieces': product.openingPieces,
+        'Inward (GRN)': product.inward,
+        'Outward Cartons': product.outwardCartons,
+        'Outward Pieces': product.outwardPieces,
+        'Closing Cartons': product.closingCartons,
+        'Closing Pieces': product.closingPieces,
+        'Total Cartons': product.available_cartons,
+        'Broken Pieces': product.broken_carton_pieces
+      }));
+    };
+    
+    // For smaller datasets, process all at once
+    if (filteredProducts.length <= 1000) {
+      const worksheet = XLSX.utils.json_to_sheet(processDataChunk(0, filteredProducts.length));
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'FG Stock Report');
+      XLSX.writeFile(workbook, 'FG_Stock_Report.xlsx');
+    } else {
+      // For larger datasets, show processing indicator
+      const originalButtonContent = document.activeElement.innerHTML;
+      document.activeElement.innerHTML = 'Processing...';
+      document.activeElement.disabled = true;
+      
+      // Use setTimeout to allow UI to update before processing
+      setTimeout(() => {
+        try {
+          const worksheet = XLSX.utils.json_to_sheet(processDataChunk(0, filteredProducts.length));
+          const workbook = XLSX.utils.book_new();
+          XLSX.utils.book_append_sheet(workbook, worksheet, 'FG Stock Report');
+          XLSX.writeFile(workbook, 'FG_Stock_Report.xlsx');
+        } finally {
+          // Restore button state
+          document.activeElement.innerHTML = originalButtonContent;
+          document.activeElement.disabled = false;
+        }
+      }, 100);
+    }
   };
 
-  // Export to PDF
+  // Export to PDF with performance optimization for large datasets
   const exportToPDF = () => {
+    // Show warning for large datasets
+    if (filteredProducts.length > 3000) {
+      const confirmExport = window.confirm(`You are about to export ${filteredProducts.length} records to PDF. This may take a moment. Continue?`);
+      if (!confirmExport) return;
+    }
+    
     const doc = new jsPDF();
     
     doc.setFontSize(18);
@@ -250,11 +342,9 @@ const FGStockReport = () => {
     doc.text(`Total Cartons: ${summaryTotals.totalCartons}`, 14, 40);
     doc.text(`Total Broken Pieces: ${summaryTotals.totalPieces}`, 14, 48);
     
-    // Add table
-    doc.autoTable({
-      startY: 55,
-      head: [['Item Code', 'Product Name', 'Opening Cartons', 'Opening Pieces', 'Inward (GRN)', 'Outward Cartons', 'Outward Pieces', 'Closing Cartons', 'Closing Pieces', 'Total Cartons', 'Broken Pieces', 'Last Updated']],
-      body: filteredProducts.map(product => [
+    // Process data in chunks for large datasets
+    const processDataChunk = (startIndex, endIndex) => {
+      return filteredProducts.slice(startIndex, endIndex).map(product => [
         product.itemCode || 'N/A',
         product.productName,
         product.openingCartons,
@@ -265,12 +355,41 @@ const FGStockReport = () => {
         product.closingCartons,
         product.closingPieces,
         product.available_cartons,
-        product.broken_carton_pieces,
-        product.lastUpdated ? new Date(product.lastUpdated).toLocaleString() : 'N/A'
-      ]),
-    });
+        product.broken_carton_pieces
+      ]);
+    };
     
-    doc.save('FG_Stock_Report.pdf');
+    // For larger datasets, show processing indicator
+    let originalButtonContent = null;
+    let buttonElement = null;
+    if (filteredProducts.length > 1000) {
+      buttonElement = document.activeElement;
+      if (buttonElement) {
+        originalButtonContent = buttonElement.innerHTML;
+        buttonElement.innerHTML = 'Processing...';
+        buttonElement.disabled = true;
+      }
+    }
+    
+    // Use setTimeout to allow UI to update before processing large datasets
+    setTimeout(() => {
+      try {
+        // Add table
+        doc.autoTable({
+          startY: 55,
+          head: [['Item Code', 'Product Name', 'Opening Cartons', 'Opening Pieces', 'Inward (GRN)', 'Outward Cartons', 'Outward Pieces', 'Closing Cartons', 'Closing Pieces', 'Total Cartons', 'Broken Pieces']],
+          body: processDataChunk(0, filteredProducts.length),
+        });
+        
+        doc.save('FG_Stock_Report.pdf');
+      } finally {
+        // Restore button state
+        if (buttonElement && originalButtonContent) {
+          buttonElement.innerHTML = originalButtonContent;
+          buttonElement.disabled = false;
+        }
+      }
+    }, filteredProducts.length > 1000 ? 100 : 0);
   };
 
   if (isLoading) {
@@ -301,15 +420,7 @@ const FGStockReport = () => {
     { key: 'closingCartons', header: 'Closing Cartons' },
     { key: 'closingPieces', header: 'Closing Pieces' },
     { key: 'available_cartons', header: 'Total Cartons' },
-    { key: 'broken_carton_pieces', header: 'Broken Pieces' },
-    { 
-      key: 'lastUpdated', 
-      header: 'Last Updated', 
-      render: (value) => {
-        if (!value) return 'N/A';
-        return new Date(value).toLocaleString();
-      }
-    }
+    { key: 'broken_carton_pieces', header: 'Broken Pieces' }
   ];
 
   // Define fields for mobile card list
@@ -324,15 +435,7 @@ const FGStockReport = () => {
     { key: 'closingCartons', label: 'Closing Cartons' },
     { key: 'closingPieces', label: 'Closing Pieces' },
     { key: 'available_cartons', label: 'Cartons' },
-    { key: 'broken_carton_pieces', label: 'Broken Pieces' },
-    { 
-      key: 'lastUpdated', 
-      label: 'Updated', 
-      render: (value) => {
-        if (!value) return 'N/A';
-        return new Date(value).toLocaleDateString();
-      }
-    }
+    { key: 'broken_carton_pieces', label: 'Broken Pieces' }
   ];
 
   return (
@@ -491,14 +594,14 @@ const FGStockReport = () => {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-[#E7E2D8]">
-              {filteredProducts.length === 0 ? (
+              {paginatedProducts.length === 0 ? (
                 <tr>
                   <td colSpan={tableColumns.length + 1} className="px-6 py-4 text-center text-[#6D6A62]">
                     No products found.
                   </td>
                 </tr>
               ) : (
-                filteredProducts.map((product, index) => (
+                paginatedProducts.map((product, index) => (
                   <tr 
                     key={product._id} 
                     className={`${index % 2 === 0 ? 'bg-white' : 'bg-[#FAF7F2]'} hover:bg-[#FAF7F2] ${
@@ -540,14 +643,40 @@ const FGStockReport = () => {
                 <td className="px-6 py-3 text-sm text-[#1A1A1A]">{summaryTotals.totalClosingPieces}</td>
                 <td className="px-6 py-3 text-sm text-[#1A1A1A]">{summaryTotals.totalCartons}</td>
                 <td className="px-6 py-3 text-sm text-[#1A1A1A]">{summaryTotals.totalPieces}</td>
-                <td className="px-6 py-3 text-sm text-[#1A1A1A]"></td>
               </tr>
             </tfoot>
 
           </table>
         </div>
         <div className="px-6 py-3 bg-[#FAF7F2] border-t border-[#E7E2D8] text-sm text-[#6D6A62]">
-          Showing {filteredProducts.length} of {productStocks.length} products
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between">
+            <div>
+              Showing {Math.min((currentPage - 1) * itemsPerPage + 1, filteredProducts.length)} 
+              to {Math.min(currentPage * itemsPerPage, filteredProducts.length)} 
+              of {filteredProducts.length} products
+            </div>
+            <div className="mt-2 md:mt-0">
+              <nav className="inline-flex rounded-md shadow-sm" aria-label="Pagination">
+                <button
+                  onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                  disabled={currentPage === 1}
+                  className={`relative inline-flex items-center px-3 py-1 rounded-l-md border border-[#E7E2D8] text-sm font-medium ${currentPage === 1 ? 'bg-[#FAF7F2] text-[#6D6A62] cursor-not-allowed' : 'bg-white text-[#1A1A1A] hover:bg-[#E7E2D8]'}`}
+                >
+                  Previous
+                </button>
+                <span className="relative inline-flex items-center px-4 py-1 border-t border-b border-[#E7E2D8] bg-white text-sm font-medium text-[#1A1A1A]">
+                  Page {currentPage} of {totalPages || 1}
+                </span>
+                <button
+                  onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                  disabled={currentPage === totalPages || totalPages === 0}
+                  className={`relative inline-flex items-center px-3 py-1 rounded-r-md border border-[#E7E2D8] text-sm font-medium ${currentPage === totalPages || totalPages === 0 ? 'bg-[#FAF7F2] text-[#6D6A62] cursor-not-allowed' : 'bg-white text-[#1A1A1A] hover:bg-[#E7E2D8]'}`}
+                >
+                  Next
+                </button>
+              </nav>
+            </div>
+          </div>
         </div>
       </div>
 

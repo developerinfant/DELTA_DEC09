@@ -42,7 +42,8 @@ exports.getDetailedStockReport = async (req, res) => {
                 },
                 { $unwind: '$items' },
                 { $match: { 'items.material': material._id } },
-                { $group: { _id: null, total: { $sum: { $add: ['$items.receivedQuantity', { $ifNull: ['$items.extraReceivedQty', 0] }] } } } }
+                { $group: { _id: null, total: { $sum: { $add: ['$items.receivedQuantity', { $ifNull: ['$items.extraReceivedQty', 0] }] } } }
+ }
             ]);
             const inward = inwardAgg.length > 0 ? inwardAgg[0].total : 0;
 
@@ -60,8 +61,8 @@ exports.getDetailedStockReport = async (req, res) => {
             const outward = outwardAgg.length > 0 ? outwardAgg[0].total : 0;
 
             // --- D. Calculate Closing Stock ---
-            // Formula: Opening + Inward - Outward
-            const closingStock = calculatedOpeningStock + inward - outward;
+            // As per user request: Closing Stock = pmStoreCount (material.quantity)
+            const closingStock = material.quantity || 0;
 
             return {
                 _id: material._id,

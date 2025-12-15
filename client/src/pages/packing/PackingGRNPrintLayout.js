@@ -53,7 +53,7 @@ const PackingGRNPrintLayout = ({ grnData }) => {
                     @media print {
                         @page {
                             size: A4;
-                            margin: 10mm;
+                            margin: 15mm;
                         }
                         
                         body * {
@@ -67,7 +67,7 @@ const PackingGRNPrintLayout = ({ grnData }) => {
                             left: 0;
                             top: 0;
                             width: 100%;
-                            padding: 10mm; /* Match the page margin */
+                            padding: 15mm; /* Match the page margin */
                         }
                         .no-print {
                             display: none;
@@ -81,8 +81,8 @@ const PackingGRNPrintLayout = ({ grnData }) => {
                         
                         th, td {
                             border: 1px solid #000 !important;
-                            padding: 4px 6px !important;
-                            font-size: 10px !important;
+                            padding: 6px 8px !important;
+                            font-size: 11px !important;
                         }
                         
                         /* Limit image size */
@@ -101,88 +101,136 @@ const PackingGRNPrintLayout = ({ grnData }) => {
             
             <div id="print-section">
                 {/* Header */}
-                <div className="flex justify-between items-start pb-4 border-b-2 border-black">
+                <div className="flex justify-between items-start pb-6 border-b-2 border-black">
                     <div className="w-1/3">
-                        <img src={logo} alt="Delta Logo" className="h-20" style={{ maxWidth: '60mm', height: 'auto' }} />
+                        <img src={logo} alt="Delta Logo" className="h-24" style={{ maxWidth: '60mm', height: 'auto' }} />
                     </div>
                     <div className="w-2/3 text-right">
                         <h1 className="text-3xl font-bold text-black">DELTA'S TRADE LINK</h1>
-                        <p className="text-sm">4078, Thottanuthu Road, Reddiyapatti P.O,</p>
+                        <p className="text-sm mt-1">4078, Thottanuthu Road, Reddiyapatti P.O,</p>
                         <p className="text-sm">Natham Road, Dindigul - 624003</p>
+                        <p className="text-sm mt-2 font-bold">GOODS RECEIPT NOTE (GRN)</p>
                     </div>
                 </div>
 
-                {/* Title */}
-                <h2 className="text-center text-2xl font-bold my-6 uppercase underline">Goods Receipt Note (GRN)</h2>
-
-                {/* Supplier and GRN Details */}
-                <div className="grid grid-cols-2 gap-4 text-sm mb-6">
-                    <div className="border p-4 rounded-md">
-                        <h3 className="font-bold mb-2">Supplier Details:</h3>
-                        <p className="font-semibold">{data.supplier?.name || 'N/A'}</p>
-                        <p>{data.supplier?.address || 'N/A'}</p>
+                {/* GRN Details */}
+                <div className="grid grid-cols-2 gap-6 my-6 text-sm">
+                    <div className="border border-black p-4">
+                        <h3 className="font-bold mb-3 text-base">SUPPLIER DETAILS</h3>
+                        <div className="space-y-1">
+                            <p><span className="font-medium">Name:</span> {data.supplier?.name || 'N/A'}</p>
+                            <p><span className="font-medium">Address:</span> {data.supplier?.address || 'N/A'}</p>
+                        </div>
                     </div>
-                    <div className="border p-4 rounded-md space-y-1">
-                         <div className="flex justify-between"><span>GRN Number:</span> <span className="font-semibold">{data.grnNumber || 'N/A'}</span></div>
-                         <div className="flex justify-between"><span>PO Number:</span> <span className="font-semibold">{data.purchaseOrder?.poNumber || 'N/A'}</span></div>
-                         <div className="flex justify-between"><span>Date Received:</span> <span className="font-semibold">{formatDate(data.dateReceived)}</span></div>
+                    <div className="border border-black p-4">
+                        <h3 className="font-bold mb-3 text-base">GRN INFORMATION</h3>
+                        <div className="space-y-1">
+                            <div className="flex justify-between">
+                                <span>GRN Number:</span>
+                                <span className="font-semibold">{data.grnNumber || 'N/A'}</span>
+                            </div>
+                            <div className="flex justify-between">
+                                <span>PO Number:</span>
+                                <span className="font-semibold">{data.purchaseOrder?.poNumber || 'N/A'}</span>
+                            </div>
+                            <div className="flex justify-between">
+                                <span>Date Received:</span>
+                                <span className="font-semibold">{formatDate(data.dateReceived)}</span>
+                            </div>
+                            <div className="flex justify-between">
+                                <span>Prepared By:</span>
+                                <span className="font-semibold">{data.receivedBy || 'N/A'}</span>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
                 {/* Items Table */}
-                <table className="min-w-full divide-y divide-gray-300 border" style={{ borderCollapse: 'collapse', tableLayout: 'fixed' }}>
+                <table className="min-w-full border border-black" style={{ borderCollapse: 'collapse', tableLayout: 'fixed' }}>
                     <thead className="bg-gray-100">
                         <tr>
-                            <th className="px-4 py-2 text-left text-xs font-bold uppercase" style={{ border: '1px solid #000', padding: '4px 6px', fontSize: '10px' }}>Material</th>
-                            <th className="px-4 py-2 text-right text-xs font-bold uppercase" style={{ border: '1px solid #000', padding: '4px 6px', fontSize: '10px' }}>Ordered</th>
-                            <th className="px-4 py-2 text-right text-xs font-bold uppercase" style={{ border: '1px solid #000', padding: '4px 6px', fontSize: '10px' }}>Received</th>
-                            <th className="px-4 py-2 text-right text-xs font-bold uppercase" style={{ border: '1px solid #000', padding: '4px 6px', fontSize: '10px' }}>Damaged</th>
-                            <th className="px-4 py-2 text-left text-xs font-bold uppercase" style={{ border: '1px solid #000', padding: '4px 6px', fontSize: '10px' }}>Remarks</th>
+                            <th className="px-4 py-3 text-left text-xs font-bold uppercase border border-black" style={{ border: '1px solid #000', padding: '6px 8px', fontSize: '11px' }}>Material</th>
+                            <th className="px-4 py-3 text-right text-xs font-bold uppercase border border-black" style={{ border: '1px solid #000', padding: '6px 8px', fontSize: '11px' }}>Ordered</th>
+                            <th className="px-4 py-3 text-right text-xs font-bold uppercase border border-black" style={{ border: '1px solid #000', padding: '6px 8px', fontSize: '11px' }}>Received</th>
+                            <th className="px-4 py-3 text-right text-xs font-bold uppercase border border-black" style={{ border: '1px solid #000', padding: '6px 8px', fontSize: '11px' }}>Damaged</th>
+                            <th className="px-4 py-3 text-left text-xs font-bold uppercase border border-black" style={{ border: '1px solid #000', padding: '6px 8px', fontSize: '11px' }}>Remarks</th>
                         </tr>
                     </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
+                    <tbody className="bg-white">
                         {data.items?.map((item, index) => (
                             <tr key={item._id || index}>
-                                <td className="px-4 py-2 text-sm" style={{ border: '1px solid #000', padding: '4px 6px', fontSize: '10px' }}>{item.material?.name || 'N/A'}</td>
-                                <td className="px-4 py-2 text-sm text-right" style={{ border: '1px solid #000', padding: '4px 6px', fontSize: '10px' }}>{item.orderedQuantity || 0}</td>
-                                <td className="px-4 py-2 text-sm text-right" style={{ border: '1px solid #000', padding: '4px 6px', fontSize: '10px' }}>{item.receivedQuantity || 0}</td>
-                                <td className="px-4 py-2 text-sm text-right" style={{ border: '1px solid #000', padding: '4px 6px', fontSize: '10px' }}>{item.damagedQuantity || 0}</td>
-                                <td className="px-4 py-2 text-sm" style={{ border: '1px solid #000', padding: '4px 6px', fontSize: '10px' }}>{item.remarks || ''}</td>
+                                <td className="px-4 py-3 text-sm border border-black" style={{ border: '1px solid #000', padding: '6px 8px', fontSize: '11px' }}>{item.material?.name || 'N/A'}</td>
+                                <td className="px-4 py-3 text-sm text-right border border-black" style={{ border: '1px solid #000', padding: '6px 8px', fontSize: '11px' }}>{item.orderedQuantity || 0}</td>
+                                <td className="px-4 py-3 text-sm text-right border border-black" style={{ border: '1px solid #000', padding: '6px 8px', fontSize: '11px' }}>{item.receivedQuantity || 0}</td>
+                                <td className="px-4 py-3 text-sm text-right border border-black" style={{ border: '1px solid #000', padding: '6px 8px', fontSize: '11px' }}>{item.damagedQuantity || 0}</td>
+                                <td className="px-4 py-3 text-sm border border-black" style={{ border: '1px solid #000', padding: '6px 8px', fontSize: '11px' }}>{item.remarks || ''}</td>
                             </tr>
                         ))}
                     </tbody>
                 </table>
                 
-                {/* Approval Details */}
-                <div className="mt-6 border p-4 rounded-md text-sm">
-                    <h3 className="font-bold mb-2">Approval Details:</h3>
-                    <div className="grid grid-cols-2 gap-x-4">
-                        <p><strong>Prepared By:</strong> {data.receivedBy || 'N/A'}</p>
-                        <p><strong>Status:</strong> {data.status || 'N/A'}</p>
-                        {data.approvedBy && <p><strong>Approved By:</strong> {data.approvedBy.name || 'N/A'}</p>}
-                        {data.approvalDate && <p><strong>Approval Date:</strong> {formatDate(data.approvalDate)}</p>}
+                {/* Summary */}
+                <div className="grid grid-cols-3 gap-6 my-6 text-sm">
+                    <div className="border border-black p-4">
+                        <h3 className="font-bold mb-2">ITEM SUMMARY</h3>
+                        <div className="space-y-1">
+                            <div className="flex justify-between">
+                                <span>Total Items:</span>
+                                <span className="font-semibold">{data.items?.length || 0}</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div className="border border-black p-4">
+                        <h3 className="font-bold mb-2">STATUS</h3>
+                        <div className="space-y-1">
+                            <p><span className="font-medium">Current Status:</span> {data.status || 'N/A'}</p>
+                        </div>
+                    </div>
+                    <div className="border border-black p-4">
+                        <h3 className="font-bold mb-2">APPROVAL</h3>
+                        <div className="space-y-1">
+                            {data.approvedBy ? (
+                                <>
+                                    <p><span className="font-medium">Approved By:</span> {data.approvedBy.name || 'N/A'}</p>
+                                    <p><span className="font-medium">Date:</span> {formatDate(data.approvalDate)}</p>
+                                </>
+                            ) : (
+                                <p>Pending Approval</p>
+                            )}
+                        </div>
                     </div>
                 </div>
 
                 {/* Signatures */}
-                <div className="flex justify-between mt-16 pt-8 text-center text-sm">
-                    <div>
-                        <p className="border-t pt-2 w-48">Storekeeper Signature</p>
+                <div className="flex justify-between mt-12 pt-8 text-center text-sm">
+                    <div className="w-1/3">
+                        <p className="border-t border-black pt-2">Storekeeper Signature</p>
+                        <p className="mt-1 text-xs">(Name: _____________________)</p>
                     </div>
-                    <div>
-                        <p className="border-t pt-2 w-48">Manager Signature</p>
+                    <div className="w-1/3">
+                        <p className="border-t border-black pt-2">Manager Signature</p>
+                        <p className="mt-1 text-xs">(Name: _____________________)</p>
                     </div>
-                    <div>
-                        <p className="border-t pt-2 w-48">Admin Signature</p>
+                    <div className="w-1/3">
+                        <p className="border-t border-black pt-2">Admin Signature</p>
+                        <p className="mt-1 text-xs">(Name: _____________________)</p>
                     </div>
+                </div>
+                
+                {/* Footer */}
+                <div className="mt-8 pt-4 border-t border-gray-300 text-center text-xs text-gray-500">
+                    <p>Generated on {new Date().toLocaleString('en-GB')} | Document ID: {data._id}</p>
                 </div>
             </div>
 
-             <div className="text-center mt-6 no-print">
+             <div className="text-center mt-8 no-print">
                 <button 
                     onClick={() => window.print()} 
-                    className="px-6 py-2 text-white bg-primary-500 rounded-lg hover:bg-primary-600"
+                    className="px-6 py-3 text-white bg-F2C94C hover:bg-amber-500 rounded-lg shadow-md hover:shadow-lg transition-all duration-200 font-medium"
                 >
+                    <svg className="w-5 h-5 inline-block mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path>
+                    </svg>
                     Print / Save as PDF
                 </button>
             </div>

@@ -517,17 +517,21 @@ const getPackingMaterialStockReport = async (req, res) => {
             
             // Calculate closing stock using the correct formula
             // ClosingStock = OpeningStock + Today's GRN - Today's Delivery Challan
-            let closingStock = openingStock + inward - outward;
+            // let closingStock = openingStock + inward - outward;
 
             // Ensure closing stock is never negative
-            if (closingStock < 0) {
-              closingStock = 0;
-            }
+            // if (closingStock < 0) {
+            //   closingStock = 0;
+            // }
+
+            // As per user request: Closing Stock = pmStoreCount (material.quantity)
+            const closingStock = material.quantity || 0;
 
             // PM Store value should be shown directly using material.quantity without any calculation
             let pmStoreStock = material.quantity;
             
             // Calculate total quantity and value
+            // As per user request: Total Qty = Closing Stock
             const totalQty = closingStock;
             const ourStockValue = pmStoreStock * material.perQuantityPrice;
             const ownUnitValue = ownUnitStock * material.perQuantityPrice;

@@ -68,6 +68,8 @@ import DriverMaster from './pages/fg/DriverMaster';
 import FGInvoicePrintLayout from './pages/fg/FGInvoicePrintLayout';
 // Import FG GRN Details page
 import ViewFGGRN from './pages/fg/ViewFGGRN';
+// Import E-Way Bill page
+import EWayBill from './pages/ewaybill/EWayBill';
 
 // Import Delivery Challan Print Layout
 import DeltaDCPrintLayout from './pages/purchase/DeltaDCPrintLayout';
@@ -299,6 +301,13 @@ function App() {
           <Route path="fg/driver-master/view" element={
             <ConditionalRoute moduleId="view-fg-buyers" action="view">
               <DriverMaster />
+            </ConditionalRoute>
+          } />
+          
+          {/* E-Way Bill Route */}
+          <Route path="eway-bill" element={
+            <ConditionalRoute moduleId="view-fg-buyers" action="view">
+              <EWayBill />
             </ConditionalRoute>
           } />
           
