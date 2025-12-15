@@ -281,20 +281,20 @@ useEffect(() => {
     const isFormDisabled = existingGRN && existingGRN.status === 'Completed';
 
     // Helper class for form inputs
-    const inputStyle = "mt-1 block w-full px-4 py-2 text-dark-700 bg-light-100 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent";
+    const inputStyle = "mt-1 block w-full px-4 py-2.5 text-gray-700 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-F2C94C focus:border-transparent transition-all duration-200";
     
     // Custom styles for React Select to match the theme
     const customSelectStyles = {
         control: (provided, state) => ({
             ...provided,
             minHeight: '42px',
-            borderColor: state.isFocused ? '#6366f1' : '#e5e7eb',
-            boxShadow: state.isFocused ? '0 0 0 3px rgba(99, 102, 241, 0.1)' : 'none',
+            borderColor: state.isFocused ? '#F2C94C' : '#e5e7eb',
+            boxShadow: state.isFocused ? '0 0 0 3px rgba(242, 201, 76, 0.1)' : 'none',
             '&:hover': {
-                borderColor: state.isFocused ? '#6366f1' : '#d1d5db'
+                borderColor: state.isFocused ? '#F2C94C' : '#d1d5db'
             },
             borderRadius: '0.5rem',
-            backgroundColor: '#f9fafb',
+            backgroundColor: '#ffffff',
             fontSize: '0.875rem'
         }),
         menu: (provided) => ({
@@ -305,11 +305,11 @@ useEffect(() => {
         }),
         option: (provided, state) => ({
             ...provided,
-            backgroundColor: state.isSelected ? '#e0e7ff' : state.isFocused ? '#eef2ff' : 'white',
-            color: state.isSelected ? '#4f46e5' : '#374151',
+            backgroundColor: state.isSelected ? '#fef3c7' : state.isFocused ? '#fffbeb' : 'white',
+            color: state.isSelected ? '#92400e' : '#374151',
             '&:hover': {
-                backgroundColor: '#e0e7ff',
-                color: '#4f46e5'
+                backgroundColor: '#fef3c7',
+                color: '#92400e'
             }
         }),
         placeholder: (provided) => ({
@@ -341,13 +341,32 @@ useEffect(() => {
     };
 
     return (
-        <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                    <label htmlFor="po-select" className="block text-sm font-medium text-dark-700 mb-1">Select Purchase Order</label>
-                    {!summaryLoaded ? (
-    <div className="p-3 text-sm text-gray-500">
-        Loading PO status…
+        <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-200">
+            <form onSubmit={handleSubmit} className="space-y-6">
+                {/* Form Header */}
+                <div className="border-b border-gray-200 pb-4">
+                    <h2 className="text-xl font-bold text-gray-900">
+                        {existingGRN ? 'Edit GRN' : 'Create New GRN'}
+                    </h2>
+                    <p className="text-gray-600 mt-1">
+                        {existingGRN 
+                            ? 'Update the details for this goods receipt note' 
+                            : 'Fill in the details to create a new goods receipt note for packing materials'}
+                    </p>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                        <label htmlFor="po-select" className="block text-sm font-medium text-gray-700 mb-2">Select Purchase Order</label>
+                        {!summaryLoaded ? (
+    <div className="p-4 text-sm text-gray-500 bg-gray-50 rounded-lg border border-gray-200">
+        <div className="flex items-center">
+            <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            Loading purchase orders...
+        </div>
     </div>
 ) : (
                     <Select
@@ -388,7 +407,6 @@ if (normalPending === 0 && extraPending === 0) {
         label: `${po.poNumber} - ${status}`
     };
 })}
-
                         placeholder="-- Choose a PO --"
                         isSearchable={true}
                         className="basic-single"
@@ -397,19 +415,19 @@ if (normalPending === 0 && extraPending === 0) {
                         required
                         styles={customSelectStyles}
                     />)}
-                    <p className="mt-1 text-xs text-gray-500">Select a purchase order to receive goods against (type to search)</p>
+                    <p className="mt-2 text-xs text-gray-500">Select a purchase order to receive goods against (type to search)</p>
                 </div>
                 <div>
-                    <label className="block text-sm font-medium text-dark-700 mb-1">Supplier</label>
-                    <div className="mt-1 p-3 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Supplier Information</label>
+                    <div className="mt-1 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border border-blue-100">
                         <div className="flex justify-between items-start">
                             <div>
-                                <p className="font-bold text-lg">{poDetails?.supplier?.name || 'N/A'}</p>
+                                <p className="font-bold text-lg text-gray-900">{poDetails?.supplier?.name || 'N/A'}</p>
                                 <p className="text-sm text-gray-600 mt-1">Supplier Details</p>
                             </div>
                             {poDetails && (
-                                <div className="flex items-center bg-white px-3 py-1 rounded-full">
-                                    <span className="text-xs font-medium">Status: </span>
+                                <div className="flex items-center bg-white px-3 py-1 rounded-full border border-gray-200">
+                                    <span className="text-xs font-medium text-gray-700">Status: </span>
                                     <span className="ml-2">
     {getStatusBadge(
         (() => {
@@ -442,14 +460,19 @@ if (normalPending === 0 && extraPending === 0) {
 
             {/* Reference Type Selection */}
             {poDetails && (
-                <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200">
-                    <label className="block text-sm font-semibold text-dark-700 mb-2">Reference Document</label>
+                <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm">
+                    <div className="border-b border-gray-200 pb-3 mb-4">
+                        <h3 className="text-lg font-semibold text-gray-900">Reference Document</h3>
+                        <p className="text-sm text-gray-600">Provide reference information for this GRN</p>
+                    </div>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div>
+                            <label htmlFor="reference-type" className="block text-sm font-medium text-gray-700 mb-2">Reference Type</label>
                             <select
+                                id="reference-type"
                                 value={referenceType}
                                 onChange={(e) => setReferenceType(e.target.value)}
-                                className="mt-1 block w-full px-4 py-2 text-dark-700 bg-light-100 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                                className={inputStyle}
                                 disabled={isFormDisabled}
                             >
                                 <option value="">-- Select Reference Type --</option>
@@ -461,25 +484,25 @@ if (normalPending === 0 && extraPending === 0) {
                         {referenceType === 'invoice' && (
                             <>
                                 <div>
-                                    <label htmlFor="invoiceNo" className="block text-xs font-medium text-dark-700 mb-1">Invoice No</label>
+                                    <label htmlFor="invoiceNo" className="block text-sm font-medium text-gray-700 mb-2">Invoice Number</label>
                                     <input
                                         type="text"
                                         id="invoiceNo"
                                         value={invoiceNo}
                                         onChange={(e) => setInvoiceNo(e.target.value)}
-                                        className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
-                                        placeholder="Enter Invoice No"
+                                        className={inputStyle}
+                                        placeholder="Enter Invoice Number"
                                         disabled={isFormDisabled}
                                     />
                                 </div>
                                 <div>
-                                    <label htmlFor="invoiceDate" className="block text-xs font-medium text-dark-700 mb-1">Invoice Date</label>
+                                    <label htmlFor="invoiceDate" className="block text-sm font-medium text-gray-700 mb-2">Invoice Date</label>
                                     <input
                                         type="date"
                                         id="invoiceDate"
                                         value={invoiceDate}
                                         onChange={(e) => setInvoiceDate(e.target.value)}
-                                        className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
+                                        className={inputStyle}
                                         disabled={isFormDisabled}
                                     />
                                 </div>
@@ -489,25 +512,25 @@ if (normalPending === 0 && extraPending === 0) {
                         {referenceType === 'dc' && (
                             <>
                                 <div>
-                                    <label htmlFor="dcNo" className="block text-xs font-medium text-dark-700 mb-1">DC No</label>
+                                    <label htmlFor="dcNo" className="block text-sm font-medium text-gray-700 mb-2">DC Number</label>
                                     <input
                                         type="text"
                                         id="dcNo"
                                         value={dcNo}
                                         onChange={(e) => setDcNo(e.target.value)}
-                                        className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
-                                        placeholder="Enter DC No"
+                                        className={inputStyle}
+                                        placeholder="Enter DC Number"
                                         disabled={isFormDisabled}
                                     />
                                 </div>
                                 <div>
-                                    <label htmlFor="dcDate" className="block text-xs font-medium text-dark-700 mb-1">DC Date</label>
+                                    <label htmlFor="dcDate" className="block text-sm font-medium text-gray-700 mb-2">DC Date</label>
                                     <input
                                         type="date"
                                         id="dcDate"
                                         value={dcDate}
                                         onChange={(e) => setDcDate(e.target.value)}
-                                        className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
+                                        className={inputStyle}
                                         disabled={isFormDisabled}
                                     />
                                 </div>
@@ -521,24 +544,22 @@ if (normalPending === 0 && extraPending === 0) {
                 <>
                     {/* PO Details Summary */}
                     <div className="p-5 bg-gradient-to-r from-blue-50 to-cyan-50 rounded-xl border border-blue-100 shadow-sm">
-                        <div className="flex justify-between items-center mb-3">
-                            <h3 className="text-lg font-bold text-blue-800">Purchase Order Summary</h3>
-                            <span className="text-sm bg-blue-100 text-blue-800 px-3 py-1 rounded-full font-medium">
-                                {poDetails.poNumber}
-                            </span>
+                        <div className="border-b border-blue-100 pb-3 mb-4">
+                            <h3 className="text-lg font-semibold text-blue-800">Purchase Order Summary</h3>
+                            <p className="text-sm text-blue-600">Overview of the selected purchase order</p>
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                            <div className="bg-white p-3 rounded-lg">
-                                <p className="text-xs text-gray-500 uppercase">Created Date</p>
-                                <p className="font-semibold">{new Date(poDetails.createdAt).toLocaleDateString()}</p>
+                            <div className="bg-white p-4 rounded-lg border border-gray-200">
+                                <p className="text-xs text-gray-500 uppercase tracking-wider">Created Date</p>
+                                <p className="font-semibold text-gray-900">{new Date(poDetails.createdAt).toLocaleDateString()}</p>
                             </div>
-                            <div className="bg-white p-3 rounded-lg">
-                                <p className="text-xs text-gray-500 uppercase">Expected Delivery</p>
-                                <p className="font-semibold">{poDetails.expectedDeliveryDate ? new Date(poDetails.expectedDeliveryDate).toLocaleDateString() : 'N/A'}</p>
+                            <div className="bg-white p-4 rounded-lg border border-gray-200">
+                                <p className="text-xs text-gray-500 uppercase tracking-wider">Expected Delivery</p>
+                                <p className="font-semibold text-gray-900">{poDetails.expectedDeliveryDate ? new Date(poDetails.expectedDeliveryDate).toLocaleDateString() : 'N/A'}</p>
                             </div>
-                            <div className="bg-white p-3 rounded-lg">
-                                <p className="text-xs text-gray-500 uppercase">Items</p>
-                                <p className="font-semibold">{poDetails.items.length}</p>
+                            <div className="bg-white p-4 rounded-lg border border-gray-200">
+                                <p className="text-xs text-gray-500 uppercase tracking-wider">Items</p>
+                                <p className="font-semibold text-gray-900">{poDetails.items.length}</p>
                             </div>
                         </div>
                     </div>
@@ -546,15 +567,24 @@ if (normalPending === 0 && extraPending === 0) {
                     {/* Items Section */}
                     <div className="space-y-4">
                         <div className="flex justify-between items-center bg-white p-4 rounded-xl shadow-sm border border-gray-100">
-                            <h3 className="text-xl font-bold text-dark-700">Received Items</h3>
-                            <span className="bg-primary-100 text-primary-800 px-3 py-1 rounded-full font-medium">
+                            <div>
+                                <h3 className="text-xl font-bold text-gray-900">Received Items</h3>
+                                <p className="text-sm text-gray-600">Specify quantities for each item in this GRN</p>
+                            </div>
+                            <span className="bg-F2C94C text-gray-900 px-3 py-1 rounded-full font-medium">
                                 {items.length} items
                             </span>
                         </div>
                         
                         {items.length === 0 ? (
                             <div className="text-center py-12 bg-gray-50 rounded-xl border-2 border-dashed border-gray-200">
-                                <p className="text-gray-500 text-lg">No items found in this purchase order</p>
+                                <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-gray-100">
+                                    <svg className="h-6 w-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path>
+                                    </svg>
+                                </div>
+                                <p className="mt-4 text-gray-500 text-lg font-medium">No items found</p>
+                                <p className="text-gray-400 mt-1">There are no items in this purchase order</p>
                             </div>
                         ) : (
                             <div className="space-y-4">
@@ -568,33 +598,33 @@ if (normalPending === 0 && extraPending === 0) {
                                     <div key={index} className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
                                         <div className="p-4 bg-gray-50 border-b border-gray-100">
                                             <div className="flex justify-between items-center">
-                                                <h4 className="font-bold text-dark-700">
+                                                <h4 className="font-bold text-gray-900">
                                                     {poDetails.items[index]?.material?.name || 'Unknown Material'}
                                                 </h4>
-                                                <span className="text-xs bg-gray-200 text-gray-700 px-2 py-1 rounded">
+                                                <span className="text-xs bg-gray-200 text-gray-700 px-2.5 py-1 rounded-full">
                                                     {item.materialModel?.replace('Material', '') || 'N/A'}
                                                 </span>
                                             </div>
                                         </div>
-                                        <div className="p-4">
+                                        <div className="p-5">
                                             <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-center">
-                                                <div className="md:col-span-3 text-center bg-blue-50 p-3 rounded-lg">
-                                                    <p className="text-xs text-gray-500 uppercase">Ordered</p>
-                                                    <p className="font-bold text-lg">{item.orderedQuantity}</p>
+                                                <div className="md:col-span-3 text-center bg-blue-50 p-4 rounded-lg border border-blue-100">
+                                                    <p className="text-xs text-gray-500 uppercase tracking-wider">Ordered</p>
+                                                    <p className="font-bold text-lg text-gray-900">{item.orderedQuantity}</p>
                                                 </div>
-                                                <div className="md:col-span-3 text-center bg-yellow-50 p-3 rounded-lg">
-                                                    <p className="text-xs text-gray-500 uppercase">Previous Received</p>
-                                                    <p className="font-bold text-lg">{item.previousReceived || 0}</p>
+                                                <div className="md:col-span-3 text-center bg-yellow-50 p-4 rounded-lg border border-yellow-100">
+                                                    <p className="text-xs text-gray-500 uppercase tracking-wider">Previous Received</p>
+                                                    <p className="font-bold text-lg text-gray-900">{item.previousReceived || 0}</p>
                                                 </div>
-                                                <div className="md:col-span-3 text-center bg-orange-50 p-3 rounded-lg">
-                                                    <p className="text-xs text-gray-500 uppercase">Pending</p>
-                                                    <p className="font-bold text-lg">{normalPending}</p>
+                                                <div className="md:col-span-3 text-center bg-orange-50 p-4 rounded-lg border border-orange-100">
+                                                    <p className="text-xs text-gray-500 uppercase tracking-wider">Pending</p>
+                                                    <p className="font-bold text-lg text-gray-900">{normalPending}</p>
                                                 </div>
 
                                                 {/* Normal Received Quantity - show input only if pending > 0 */}
                                                 { normalPending > 0 ? (
                                                     <div className="md:col-span-3">
-                                                        <label htmlFor={`received-${index}`} className="block text-xs font-medium text-dark-700 mb-1">Normal Received Quantity</label>
+                                                        <label htmlFor={`received-${index}`} className="block text-sm font-medium text-gray-700 mb-2">Normal Received Quantity</label>
                                                         <input 
                                                             id={`received-${index}`} 
                                                             type="number" 
@@ -603,34 +633,39 @@ if (normalPending === 0 && extraPending === 0) {
                                                             value={item.receivedQuantity} 
                                                             onChange={e => handleItemChange(index, 'receivedQuantity', e.target.value)} 
                                                             required 
-                                                            className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
+                                                            className={inputStyle}
                                                         />
                                                     </div>
                                                 ) : (
                                                     <div className="md:col-span-3 flex items-center justify-center">
-                                                        <div className="text-green-600 font-medium">✔ Fully Received</div>
+                                                        <div className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800">
+                                                            <svg className="mr-1.5 h-4 w-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
+                                                            </svg>
+                                                            Fully Received
+                                                        </div>
                                                     </div>
                                                 )}
                                             </div>
                                             
-                                            <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-center mt-2">
+                                            <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-center mt-4">
                                                 {/* Extra receiving fields - show input only if extraPending > 0 */}
-                                                <div className="md:col-span-3 text-center bg-purple-50 p-3 rounded-lg">
-                                                    <p className="text-xs text-gray-500 uppercase">Extra Allowed</p>
-                                                    <p className="font-bold text-lg">{item.extraAllowedQty || 0}</p>
+                                                <div className="md:col-span-3 text-center bg-purple-50 p-4 rounded-lg border border-purple-100">
+                                                    <p className="text-xs text-gray-500 uppercase tracking-wider">Extra Allowed</p>
+                                                    <p className="font-bold text-lg text-gray-900">{item.extraAllowedQty || 0}</p>
                                                 </div>
-                                                <div className="md:col-span-3 text-center bg-yellow-50 p-3 rounded-lg">
-                                                    <p className="text-xs text-gray-500 uppercase">Extra Previous</p>
-                                                    <p className="font-bold text-lg">{item.previousExtraReceived || 0}</p>
+                                                <div className="md:col-span-3 text-center bg-yellow-50 p-4 rounded-lg border border-yellow-100">
+                                                    <p className="text-xs text-gray-500 uppercase tracking-wider">Extra Previous</p>
+                                                    <p className="font-bold text-lg text-gray-900">{item.previousExtraReceived || 0}</p>
                                                 </div>
-                                                <div className="md:col-span-3 text-center bg-orange-50 p-3 rounded-lg">
-                                                    <p className="text-xs text-gray-500 uppercase">Extra Pending</p>
-                                                    <p className="font-bold text-lg">{extraPending}</p>
+                                                <div className="md:col-span-3 text-center bg-orange-50 p-4 rounded-lg border border-orange-100">
+                                                    <p className="text-xs text-gray-500 uppercase tracking-wider">Extra Pending</p>
+                                                    <p className="font-bold text-lg text-gray-900">{extraPending}</p>
                                                 </div>
 
                                                 { extraPending > 0 ? (
                                                     <div className="md:col-span-3">
-                                                        <label htmlFor={`extra-received-${index}`} className="block text-xs font-medium text-dark-700 mb-1">Extra Received Quantity</label>
+                                                        <label htmlFor={`extra-received-${index}`} className="block text-sm font-medium text-gray-700 mb-2">Extra Received Quantity</label>
                                                         <input 
                                                             id={`extra-received-${index}`} 
                                                             type="number" 
@@ -638,43 +673,56 @@ if (normalPending === 0 && extraPending === 0) {
                                                             max={extraPending}
                                                             value={item.extraReceivedQty} 
                                                             onChange={e => handleItemChange(index, 'extraReceivedQty', e.target.value)} 
-                                                            className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
+                                                            className={inputStyle}
                                                         />
                                                     </div>
                                                 ) : (
                                                     <div className="md:col-span-3 flex items-center justify-center">
-                                                        <div className="text-green-600 font-medium">✔ Extra Fully Received</div>
+                                                        <div className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800">
+                                                            <svg className="mr-1.5 h-4 w-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
+                                                            </svg>
+                                                            Extra Fully Received
+                                                        </div>
                                                     </div>
                                                 )}
                                             </div>
                                             
                                             {/* If fully received, show a green banner */}
                                             { isFullyReceived && (
-                                                <div className="mt-4 p-3 bg-green-50 border border-green-100 rounded-lg text-green-700">
-                                                    <strong>✓ This item has been fully received</strong>
+                                                <div className="mt-5 p-4 bg-green-50 border border-green-100 rounded-lg">
+                                                    <div className="flex items-center">
+                                                        <svg className="h-5 w-5 text-green-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                                        </svg>
+                                                        <div>
+                                                            <h4 className="text-sm font-medium text-green-800">Item Fully Received</h4>
+                                                            <p className="text-sm text-green-700">This item has been completely received</p>
+                                                        </div>
+                                                    </div>
                                                 </div>
                                             )}
 
                                             {/* Dropdown history view for previous GRNs */}
                                             {item.previousReceived > 0 && (
-                                                <div className="mt-4">
+                                                <div className="mt-5">
                                                     <details className="bg-gray-50 rounded-lg border border-gray-200">
-                                                        <summary className="p-3 font-medium text-sm cursor-pointer hover:bg-gray-100 flex justify-between items-center">
+                                                        <summary className="p-4 font-medium text-sm cursor-pointer hover:bg-gray-100 flex justify-between items-center">
                                                             <span>View Previous GRN History</span>
-                                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                                            <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                                                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path>
                                                             </svg>
                                                         </summary>
-                                                        <div className="p-3 border-t border-gray-200">
-                                                            <div className="text-xs text-gray-600 mb-2">
-                                                                <div className="grid grid-cols-4 gap-2 font-semibold py-2 border-b">
+                                                        <div className="p-4 border-t border-gray-200">
+                                                            <div className="text-xs text-gray-600 mb-3">
+                                                                <div className="grid grid-cols-4 gap-3 font-semibold py-2 border-b border-gray-200">
                                                                     <span>Date</span>
                                                                     <span>GRN #</span>
                                                                     <span className="text-right">Received Qty</span>
                                                                     <span className="text-right">Pending Qty</span>
                                                                 </div>
                                                                 {item.grnHistory && item.grnHistory.map((historyItem, historyIndex) => (
-                                                                    <div key={historyIndex} className="grid grid-cols-4 gap-2 py-2 border-b border-gray-100 last:border-0">
+                                                                    <div key={historyIndex} className="grid grid-cols-4 gap-3 py-2 border-b border-gray-100 last:border-0">
                                                                         <span>{historyItem.date ? new Date(historyItem.date).toLocaleDateString() : 'N/A'}</span>
                                                                         <span>{historyItem.grnNumber || 'N/A'}</span>
                                                                         <span className="text-right">{historyItem.receivedQuantity}</span>
@@ -685,17 +733,21 @@ if (normalPending === 0 && extraPending === 0) {
                                                                     </div>
                                                                 ))}
                                                             </div>
-                                                            <div className="text-xs text-gray-500 mt-2">
-                                                                <p><span className="font-semibold">Total Ordered:</span> {item.orderedQuantity}</p>
-                                                                <p><span className="font-semibold">Total Received:</span> {item.previousReceived}</p>
-                                                                <p><span className="font-semibold">Pending Qty:</span> {item.orderedQuantity - item.previousReceived}</p>
-                                                                {item.extraAllowedQty > 0 && (
-                                                                    <>
-                                                                        <p><span className="font-semibold">Extra Allowed:</span> {item.extraAllowedQty}</p>
-                                                                        <p><span className="font-semibold">Extra Received:</span> {item.previousExtraReceived}</p>
-                                                                        <p><span className="font-semibold">Extra Pending:</span> {item.extraAllowedQty - item.previousExtraReceived}</p>
-                                                                    </>
-                                                                )}
+                                                            <div className="text-xs text-gray-500 bg-gray-100 p-3 rounded-lg">
+                                                                <div className="grid grid-cols-2 gap-2">
+                                                                    <div>
+                                                                        <p><span className="font-semibold">Total Ordered:</span> {item.orderedQuantity}</p>
+                                                                        <p><span className="font-semibold">Total Received:</span> {item.previousReceived}</p>
+                                                                        <p><span className="font-semibold">Pending Qty:</span> {item.orderedQuantity - item.previousReceived}</p>
+                                                                    </div>
+                                                                    {item.extraAllowedQty > 0 && (
+                                                                        <div>
+                                                                            <p><span className="font-semibold">Extra Allowed:</span> {item.extraAllowedQty}</p>
+                                                                            <p><span className="font-semibold">Extra Received:</span> {item.previousExtraReceived}</p>
+                                                                            <p><span className="font-semibold">Extra Pending:</span> {item.extraAllowedQty - item.previousExtraReceived}</p>
+                                                                        </div>
+                                                                    )}
+                                                                </div>
                                                             </div>
                                                         </div>
                                                     </details>
@@ -710,19 +762,19 @@ if (normalPending === 0 && extraPending === 0) {
 
                     {/* Receiver Details and Submit */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4">
-                        <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
-                            <label htmlFor="dateReceived" className="block text-sm font-semibold text-dark-700 mb-2">Date Received</label>
+                        <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-100">
+                            <label htmlFor="dateReceived" className="block text-sm font-medium text-gray-700 mb-2">Date Received</label>
                             <input 
                                 type="date" 
                                 id="dateReceived" 
                                 value={dateReceived} 
                                 onChange={(e) => setDateReceived(e.target.value)} 
                                 required 
-                                className="mt-1 block w-full px-4 py-3 text-dark-700 bg-light-100 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                                className={inputStyle}
                             />
                         </div>
-                        <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
-                            <label htmlFor="receivedBy" className="block text-sm font-semibold text-dark-700 mb-2">Received By (Name)</label>
+                        <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-100">
+                            <label htmlFor="receivedBy" className="block text-sm font-medium text-gray-700 mb-2">Received By (Name)</label>
                             <input 
                                 type="text" 
                                 id="receivedBy" 
@@ -732,47 +784,68 @@ if (normalPending === 0 && extraPending === 0) {
                                 placeholder="Enter receiver's name"
                                 readOnly // Make the field read-only
                                 disabled // Disable the field visually
-                                className="mt-1 block w-full px-4 py-3 text-dark-700 bg-light-100 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent disabled:bg-gray-100 disabled:text-gray-500"
+                                className="mt-1 block w-full px-4 py-2.5 text-gray-700 bg-gray-50 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-F2C94C focus:border-transparent transition-all duration-200"
                             />
                         </div>
                     </div>
-<div className="bg-white rounded-xl p-6 shadow-md border border-gray-200">
-    <div className="flex flex-col md:flex-row justify-end items-center">
-        <button 
-            type="submit" 
-            disabled={isLoading} 
-            className="
-                relative
-                inline-flex items-center justify-center
-                px-8 py-3 
-                bg-blue-600 hover:bg-blue-700
-                disabled:bg-gray-400 
-                text-white font-semibold text-lg
-                rounded-lg
-                shadow-md hover:shadow-lg
-                transition-all duration-200
-                focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2
-            "
-        >
-            {isLoading ? (
-                <>
-                    <span className="animate-spin mr-2 h-5 w-5 border-2 border-white border-t-transparent rounded-full"></span>
-                    Processing...
-                </>
-            ) : (
-                <>
-                    <i className="bi bi-check-circle mr-2 text-xl"></i>
-                    Submit GRN
-                </>
-            )}
-        </button>
-    </div>
-</div>
 
+                    <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
+                        <div className="flex flex-col sm:flex-row justify-end items-center gap-3">
+                            <button 
+                                type="button"
+                                onClick={() => navigation(-1)}
+                                className="px-6 py-3 bg-white border border-gray-300 text-gray-700 font-medium rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-F2C94C transition-all duration-200"
+                            >
+                                Cancel
+                            </button>
+                            <button 
+                                type="submit" 
+                                disabled={isLoading} 
+                                className="
+                                    relative
+                                    inline-flex items-center justify-center
+                                    px-6 py-3 
+                                    bg-F2C94C hover:bg-amber-500
+                                    disabled:bg-gray-300 
+                                    text-gray-900 font-semibold
+                                    rounded-lg
+                                    shadow-sm hover:shadow-md
+                                    transition-all duration-200
+                                    focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-F2C94C
+                                "
+                            >
+                                {isLoading ? (
+                                    <>
+                                        <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-gray-900" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                        </svg>
+                                        Processing...
+                                    </>
+                                ) : (
+                                    <>
+                                        <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
+                                        </svg>
+                                        Submit GRN
+                                    </>
+                                )}
+                            </button>
+                        </div>
+                    </div>
 
                     {(error || success) && (
-                        <div className={`p-4 rounded-xl ${error ? 'bg-red-50 text-red-800 border border-red-200' : 'bg-green-50 text-green-800 border border-green-200'}`}>
+                        <div className={`p-5 rounded-xl ${error ? 'bg-red-50 text-red-800 border border-red-200' : 'bg-green-50 text-green-800 border border-green-200'}`}>
                             <div className="flex items-center">
+                                {error ? (
+                                    <svg className="h-5 w-5 text-red-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                    </svg>
+                                ) : (
+                                    <svg className="h-5 w-5 text-green-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                    </svg>
+                                )}
                                 <span className="font-medium">{error || success}</span>
                             </div>
                         </div>
@@ -780,6 +853,7 @@ if (normalPending === 0 && extraPending === 0) {
                 </>
             )}
         </form>
+        </div>
     );
 };
 

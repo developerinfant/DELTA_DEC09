@@ -151,27 +151,54 @@ const GRNDetail = () => {
     };
 
     if (isLoading) return (
-        <div className="flex justify-center items-center h-96">
-            <div className="text-center">
-                <FaSpinner className="animate-spin text-primary-500 mx-auto text-3xl" />
-                <p className="mt-4 text-gray-600">Loading GRN details...</p>
+        <div className="flex justify-center items-center min-h-[70vh]">
+            <div className="text-center bg-white rounded-xl p-8 shadow-sm border border-gray-200 max-w-md w-full">
+                <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-F2C94C/10 mb-6">
+                    <FaSpinner className="animate-spin text-F2C94C mx-auto text-3xl" />
+                </div>
+                <h3 className="text-xl font-semibold text-gray-900 mb-2">Loading GRN Details</h3>
+                <p className="text-gray-600">Please wait while we fetch the goods receipt note information...</p>
             </div>
         </div>
     );
     if (error) return (
-        <Card>
-            <div className="p-6 bg-red-50 text-red-800 rounded-lg">
-                <p>{error}</p>
+        <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-200">
+            <div className="p-6 bg-red-50 text-red-800 rounded-lg border border-red-200">
+                <div className="flex items-center mb-3">
+                    <svg className="h-5 w-5 text-red-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    <h3 className="text-lg font-medium">Error Loading GRN</h3>
+                </div>
+                <p className="mb-4">{error}</p>
                 <button 
                     onClick={fetchGRN}
-                    className="mt-4 px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700"
+                    className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors duration-200"
                 >
                     Retry
                 </button>
             </div>
-        </Card>
+        </div>
     );
-    if (!grn) return <Card><p className="text-center py-8">GRN not found.</p></Card>;
+    if (!grn) return (
+        <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-200">
+            <div className="text-center py-12">
+                <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-gray-100">
+                    <svg className="h-6 w-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                </div>
+                <h3 className="mt-4 text-lg font-medium text-gray-900">GRN Not Found</h3>
+                <p className="mt-2 text-gray-500">The requested goods receipt note could not be found.</p>
+                <div className="mt-6">
+                    <Link to={backPath} className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-F2C94C hover:bg-amber-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-F2C94C">
+                        <FaArrowLeft className="mr-2 -ml-1 h-4 w-4" />
+                        Back to GRN List
+                    </Link>
+                </div>
+            </div>
+        </div>
+    );
 
     // Determine the reference label and value based on source type
     const getReferenceInfo = () => {
@@ -231,135 +258,152 @@ const GRNDetail = () => {
         : 0;
 
     return (
-        <div className="space-y-6">
-            <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4">
-                <div>
-                    <h1 className="text-3xl font-bold text-gray-900">GRN Details</h1>
-                    <p className="text-gray-600 mt-1">View detailed information about this goods receipt note</p>
-                </div>
-                <div className="flex space-x-2">
-                    {location?.pathname?.includes('/packing/') && (
-                        <button 
-                            onClick={handlePrint}
-                            className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-                        >
-                            <FaPrint className="mr-2" />
-                            Print
-                        </button>
-                    )}
-                    <Link to={backPath} className="flex items-center px-4 py-2 text-primary-600 hover:text-primary-800 font-medium bg-gray-100 rounded-md hover:bg-gray-200">
-                        <FaArrowLeft className="mr-2" />
-                        Back to GRN List
-                    </Link>
+        <div className="space-y-6 bg-FAF7F2 min-h-screen">
+            {/* Page Header */}
+            <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-200">
+                <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4">
+                    <div>
+                        <h1 className="text-2xl font-bold text-gray-900">GRN Details</h1>
+                        <p className="text-gray-600 mt-1">View detailed information about this goods receipt note</p>
+                    </div>
+                    <div className="flex flex-wrap gap-3">
+                        {location?.pathname?.includes('/packing/') && (
+                            <button 
+                                onClick={handlePrint}
+                                className="inline-flex items-center px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-F2C94C transition-all duration-200"
+                            >
+                                <FaPrint className="mr-2" />
+                                Print
+                            </button>
+                        )}
+                        <Link to={backPath} className="inline-flex items-center px-4 py-2 bg-F2C94C hover:bg-amber-500 text-gray-900 font-medium rounded-lg shadow-sm hover:shadow-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-F2C94C transition-all duration-200">
+                            <FaArrowLeft className="mr-2" />
+                            Back to GRN List
+                        </Link>
+                    </div>
                 </div>
             </div>
 
             {/* Status Banner */}
             {grn && grn.status === 'Partial' && (
-                <Card className="bg-gradient-to-r from-purple-50 to-purple-100 border-l-4 border-purple-500">
-                    <div className="flex items-center">
-                        <FaEdit className="mr-3 text-xl text-purple-700" />
-                        <div>
-                            <h3 className="font-bold text-lg text-purple-800">
-                                {grn.sourceType === 'jobber' && grn.cartonsReturned !== undefined 
-                                    ? 'Partial Delivery Challan' 
-                                    : 'Partial GRN'}
-                            </h3>
-                            <p className="text-purple-700">
-                                This record is partially completed. To make changes, please use the Create GRN page.
-                            </p>
+                <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-200">
+                    <div className="bg-gradient-to-r from-purple-50 to-purple-100 border-l-4 border-purple-500 rounded-lg p-4">
+                        <div className="flex items-center">
+                            <FaEdit className="mr-3 text-xl text-purple-700" />
+                            <div>
+                                <h3 className="font-bold text-lg text-purple-800">
+                                    {grn.sourceType === 'jobber' && grn.cartonsReturned !== undefined 
+                                        ? 'Partial Delivery Challan' 
+                                        : 'Partial GRN'}
+                                </h3>
+                                <p className="text-purple-700">
+                                    This record is partially completed. To make changes, please use the Create GRN page.
+                                </p>
+                            </div>
                         </div>
                     </div>
-                </Card>
+                </div>
             )}
 
             {grn && grn.status === 'Completed' && (
-                <Card className="bg-gradient-to-r from-gray-50 to-gray-100 border-l-4 border-gray-500">
-                    <div className="flex items-center">
-                        <FaCheck className="mr-3 text-xl text-gray-700" />
-                        <div>
-                            <h3 className="font-bold text-lg text-gray-800">Completed GRN</h3>
-                            <p className="text-gray-700">This GRN is Completed.</p>
+                <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-200">
+                    <div className="bg-gradient-to-r from-gray-50 to-gray-100 border-l-4 border-gray-500 rounded-lg p-4">
+                        <div className="flex items-center">
+                            <FaCheck className="mr-3 text-xl text-gray-700" />
+                            <div>
+                                <h3 className="font-bold text-lg text-gray-800">Completed GRN</h3>
+                                <p className="text-gray-700">This GRN is Completed.</p>
+                            </div>
                         </div>
                     </div>
-                </Card>
+                </div>
             )}
 
             {/* Lock Status Banner */}
             {grn && grn.isLocked && (
-                <Card className="bg-gradient-to-r from-gray-50 to-gray-100 border-l-4 border-gray-500">
-                    <div className="flex items-center">
-                        <FaBan className="mr-3 text-xl text-gray-700" />
-                        <div>
-                            <h3 className="font-bold text-lg text-gray-800">Locked GRN</h3>
-                            <p className="text-gray-700">This GRN is locked.</p>
+                <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-200">
+                    <div className="bg-gradient-to-r from-gray-50 to-gray-100 border-l-4 border-gray-500 rounded-lg p-4">
+                        <div className="flex items-center">
+                            <FaBan className="mr-3 text-xl text-gray-700" />
+                            <div>
+                                <h3 className="font-bold text-lg text-gray-800">Locked GRN</h3>
+                                <p className="text-gray-700">This GRN is locked.</p>
+                            </div>
                         </div>
                     </div>
-                </Card>
+                </div>
             )}
 
             {/* GRN Info */}
-            <Card className="shadow-lg">
+            <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-200">
+                <div className="border-b border-gray-200 pb-4 mb-6">
+                    <h2 className="text-xl font-bold text-gray-900">GRN Information</h2>
+                    <p className="text-gray-600 mt-1">Basic details and status of this goods receipt note</p>
+                </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                    <div className="bg-gray-50 p-4 rounded-lg">
+                    <div className="bg-gray-50 p-5 rounded-lg border border-gray-200">
                         <p className="text-sm text-gray-500 uppercase tracking-wider">GRN Number</p>
-                        <p className="font-bold text-lg">{grn?.grnNumber || 'N/A'}</p>
+                        <p className="font-bold text-lg text-gray-900">{grn?.grnNumber || 'N/A'}</p>
                     </div>
-                    <div className="bg-gray-50 p-4 rounded-lg">
+                    <div className="bg-gray-50 p-5 rounded-lg border border-gray-200">
                         <p className="text-sm text-gray-500 uppercase tracking-wider">{referenceInfo.label}</p>
-                        <p className="font-bold text-lg">{referenceInfo.value}</p>
+                        <p className="font-bold text-lg text-gray-900">{referenceInfo.value}</p>
                     </div>
-                    <div className="bg-gray-50 p-4 rounded-lg">
+                    <div className="bg-gray-50 p-5 rounded-lg border border-gray-200">
                         <p className="text-sm text-gray-500 uppercase tracking-wider">
                             {grn?.sourceType === 'jobber' ? (grn?.unitType === 'Own Unit' ? 'Issued To' : 'Supplier') : 'Supplier'}
                         </p>
-                        <p className="font-bold text-lg">{supplierInfo}</p>
+                        <p className="font-bold text-lg text-gray-900">{supplierInfo}</p>
                     </div>
-                    <div className="bg-gray-50 p-4 rounded-lg">
+                    <div className="bg-gray-50 p-5 rounded-lg border border-gray-200">
                         <p className="text-sm text-gray-500 uppercase tracking-wider">Status</p>
-                        <span className={`px-3 py-1 text-sm font-semibold rounded-full ${getStatusClass(grn?.status || '')}`}>
+                        <span className={`px-3 py-1.5 text-sm font-semibold rounded-full ${getStatusClass(grn?.status || '')}`}>
                             {grn?.status || 'N/A'}
                         </span>
                     </div>
-                    <div className="bg-gray-50 p-4 rounded-lg">
+                    <div className="bg-gray-50 p-5 rounded-lg border border-gray-200">
                         <p className="text-sm text-gray-500 uppercase tracking-wider">Date Received</p>
-                        <p className="font-bold text-lg">{formatDate(grn?.dateReceived)}</p>
+                        <p className="font-bold text-lg text-gray-900">{formatDate(grn?.dateReceived)}</p>
                     </div>
-                    <div className="bg-gray-50 p-4 rounded-lg">
+                    <div className="bg-gray-50 p-5 rounded-lg border border-gray-200">
                         <p className="text-sm text-gray-500 uppercase tracking-wider">Received By</p>
-                        <p className="font-bold text-lg">{grn?.receivedBy || 'N/A'}</p>
+                        <p className="font-bold text-lg text-gray-900">{grn?.receivedBy || 'N/A'}</p>
                     </div>
                     {/* Add Reference Document Information for PO-based GRNs */}
                     {referenceDocumentInfo && (
                         <>
-                            <div className="bg-gray-50 p-4 rounded-lg">
+                            <div className="bg-gray-50 p-5 rounded-lg border border-gray-200">
                                 <p className="text-sm text-gray-500 uppercase tracking-wider">{referenceDocumentInfo.label}</p>
-                                <p className="font-bold text-lg">{referenceDocumentInfo.value}</p>
+                                <p className="font-bold text-lg text-gray-900">{referenceDocumentInfo.value}</p>
                             </div>
-                            <div className="bg-gray-50 p-4 rounded-lg">
+                            <div className="bg-gray-50 p-5 rounded-lg border border-gray-200">
                                 <p className="text-sm text-gray-500 uppercase tracking-wider">{referenceDocumentInfo.dateLabel}</p>
-                                <p className="font-bold text-lg">{referenceDocumentInfo.dateValue}</p>
+                                <p className="font-bold text-lg text-gray-900">{referenceDocumentInfo.dateValue}</p>
                             </div>
                         </>
                     )}
                     {grn?.approvedBy && (
-                        <div className="bg-gray-50 p-4 rounded-lg">
+                        <div className="bg-gray-50 p-5 rounded-lg border border-gray-200">
                             <p className="text-sm text-gray-500 uppercase tracking-wider">Approved By</p>
-                            <p className="font-bold text-lg">{grn.approvedBy?.name || 'N/A'}</p>
+                            <p className="font-bold text-lg text-gray-900">{grn.approvedBy?.name || 'N/A'}</p>
                         </div>
                     )}
                     {grn?.rejectionReason && (
-                        <div className="bg-red-50 p-4 rounded-lg border border-red-100">
+                        <div className="bg-red-50 p-5 rounded-lg border border-red-100 md:col-span-2 lg:col-span-4">
                             <p className="text-sm text-red-500 uppercase tracking-wider">Rejection Reason</p>
-                            <p className="font-medium text-red-800">{grn.rejectionReason}</p>
+                            <p className="font-medium text-red-800 mt-1">{grn.rejectionReason}</p>
                         </div>
                     )}
                 </div>
-            </Card>
+            </div>
 
             {/* Items Table - Show carton-based table for Delivery Challan GRNs */}
             {grn && grn.sourceType === 'jobber' && grn.cartonsReturned !== undefined ? (
-                <Card title="Carton Return Details" className="shadow-lg">
+                <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-200">
+                    <div className="border-b border-gray-200 pb-4 mb-6">
+                        <h2 className="text-xl font-bold text-gray-900">Carton Return Details</h2>
+                        <p className="text-gray-600 mt-1">Information about cartons sent and returned</p>
+                    </div>
                     <div className="overflow-x-auto">
                         <table className="min-w-full divide-y divide-gray-200">
                             <thead className="bg-gray-50">
@@ -388,7 +432,7 @@ const GRNDetail = () => {
                                         </div>
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap text-center">
-                                        <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
+                                        <span className={`px-3 py-1 text-xs font-semibold rounded-full ${
                                             grn.cartonsReturned === grn.cartonsSent 
                                                 ? 'bg-green-100 text-green-800' 
                                                 : 'bg-orange-100 text-orange-800'
@@ -400,30 +444,38 @@ const GRNDetail = () => {
                             </tbody>
                         </table>
                     </div>
-                </Card>
+                </div>
             ) : (
                 // Show material-based table for Purchase Order GRNs
-                <Card title="Items Received" className="shadow-lg">
+                <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-200">
+                    <div className="border-b border-gray-200 pb-4 mb-6">
+                        <h2 className="text-xl font-bold text-gray-900">Items Received</h2>
+                        <p className="text-gray-600 mt-1">List of items received in this goods receipt note</p>
+                    </div>
                     <div className="space-y-4">
                         <div className="flex justify-between items-center bg-white p-4 rounded-xl shadow-sm border border-gray-100">
-                            <h3 className="text-xl font-bold text-dark-700">Received Items</h3>
-                            <span className="bg-primary-100 text-primary-800 px-3 py-1 rounded-full font-medium">
+                            <h3 className="text-lg font-bold text-gray-900">Received Items</h3>
+                            <span className="bg-F2C94C text-gray-900 px-3 py-1 rounded-full font-medium">
                                 {editedItems.length} items
                             </span>
                         </div>
                         <ReceivedItemsDisplay items={editedItems} />
                     </div>
-                </Card>
+                </div>
             )}
 
             {/* Action Buttons - Remove all edit buttons, keep only approval buttons for admins */}
-            <div className="flex flex-wrap gap-3 justify-end">
-                {grn?.status === 'Pending Admin Approval' && user?.role === 'Admin' && (
-                    <>
+            {(grn?.status === 'Pending Admin Approval' && user?.role === 'Admin') && (
+                <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-200">
+                    <div className="border-b border-gray-200 pb-4 mb-6">
+                        <h2 className="text-xl font-bold text-gray-900">Actions</h2>
+                        <p className="text-gray-600 mt-1">Approve or reject this goods receipt note</p>
+                    </div>
+                    <div className="flex flex-wrap gap-3 justify-end">
                         <button
                             onClick={() => handleApproval('Approved')}
                             disabled={isProcessing}
-                            className="flex items-center px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:opacity-50"
+                            className="inline-flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors duration-200"
                         >
                             {isProcessing ? (
                                 <FaSpinner className="animate-spin mr-2" />
@@ -435,14 +487,14 @@ const GRNDetail = () => {
                         <button
                             onClick={() => setIsRejectModalOpen(true)}
                             disabled={isProcessing}
-                            className="flex items-center px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 disabled:opacity-50"
+                            className="inline-flex items-center px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors duration-200"
                         >
                             <FaTimes className="mr-2" />
                             Reject
                         </button>
-                    </>
-                )}
-            </div>
+                    </div>
+                </div>
+            )}
 
             {/* Reject Modal */}
             <Modal isOpen={isRejectModalOpen} onClose={() => setIsRejectModalOpen(false)} title="Reject GRN">
@@ -452,27 +504,28 @@ const GRNDetail = () => {
                         value={rejectionReason}
                         onChange={(e) => setRejectionReason(e.target.value)}
                         rows={4}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-F2C94C focus:border-transparent"
                         placeholder="Enter rejection reason..."
                     />
-                    <div className="flex justify-end space-x-3">
+                    <div className="flex justify-end space-x-3 pt-2">
                         <button
                             onClick={() => setIsRejectModalOpen(false)}
                             disabled={isProcessing}
-                            className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 disabled:opacity-50"
+                            className="px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-F2C94C transition-colors duration-200"
                         >
                             Cancel
                         </button>
                         <button
                             onClick={() => handleApproval('Rejected')}
                             disabled={isProcessing || !rejectionReason.trim()}
-                            className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 disabled:opacity-50"
+                            className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors duration-200"
                         >
                             {isProcessing ? (
-                                <FaSpinner className="animate-spin" />
+                                <FaSpinner className="animate-spin mr-2" />
                             ) : (
-                                'Reject GRN'
+                                <FaTimes className="mr-2" />
                             )}
+                            Reject GRN
                         </button>
                     </div>
                 </div>

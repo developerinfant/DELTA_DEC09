@@ -65,6 +65,7 @@ const damagedStockMasterRoutes = require('./routes/damagedStockMasterRoutes');
 // Import dashboard routes
 const dashboardRoutes = require('./routes/dashboardRoutes');
 const fgDriverRoutes = require('./routes/fgDriverRoutes');
+const ewayBillRoutes = require('./routes/ewayBillRoutes');
 
 // 4. Connect to MongoDB Database
 mongoose.connect(process.env.MONGO_URI)
@@ -115,6 +116,7 @@ app.use('/api/person-names', personNameRoutes); // Add this line
 app.use('/api/damaged-stock-master', damagedStockMasterRoutes); // Add this line
 app.use('/api/dashboard', dashboardRoutes); // Add dashboard routes
 app.use('/api/fg/drivers', fgDriverRoutes);
+app.use('/api/eway-bill', ewayBillRoutes);
 
 // Basic route for testing if the server is up
 app.get('/', (req, res) => {
@@ -130,7 +132,7 @@ app.use((err, req, res, next) => {
     });
 });
 
-// Handle 404 for undefined routes
+// Handle 404 for undefined routes (must be LAST)
 app.use('*', (req, res) => {
     res.status(404).json({ message: 'Route not found' });
 });

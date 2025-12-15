@@ -68,29 +68,29 @@ const PurchaseOrdersTable = ({ purchaseOrders, user, onStatusUpdate }) => {
     };
 
     return (
-        <div className="overflow-x-auto bg-white rounded-xl shadow-lg">
-            <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
+        <div className="overflow-x-auto bg-white rounded-[16px] shadow-lg border border-[#E7E2D8]">
+            <table className="min-w-full divide-y divide-[#E7E2D8]">
+                <thead className="bg-[#FAF7F2]">
                     <tr>
-                        <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">PO Number</th>
-                        <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Supplier</th>
-                        <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Date</th>
-                        <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Total Amount</th>
-                        <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Status</th>
-                        <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Actions</th>
+                        <th className="px-6 py-4 text-left text-xs font-bold text-[#1A1A1A] uppercase tracking-wider">PO Number</th>
+                        <th className="px-6 py-4 text-left text-xs font-bold text-[#1A1A1A] uppercase tracking-wider">Supplier</th>
+                        <th className="px-6 py-4 text-left text-xs font-bold text-[#1A1A1A] uppercase tracking-wider">Date</th>
+                        <th className="px-6 py-4 text-left text-xs font-bold text-[#1A1A1A] uppercase tracking-wider">Total Amount</th>
+                        <th className="px-6 py-4 text-left text-xs font-bold text-[#1A1A1A] uppercase tracking-wider">Status</th>
+                        <th className="px-6 py-4 text-left text-xs font-bold text-[#1A1A1A] uppercase tracking-wider">Actions</th>
                     </tr>
                 </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
+                <tbody className="bg-white divide-y divide-[#E7E2D8]">
                     {purchaseOrders.length === 0 ? (
                         <tr>
-                            <td colSpan="6" className="px-6 py-8 text-center text-gray-500">
+                            <td colSpan="6" className="px-6 py-12 text-center text-[#6A6A6A]">
                                 <div className="flex flex-col items-center justify-center">
-                                    <div className="bg-gray-100 rounded-full p-4 mb-3">
-                                        <FaEye className="text-gray-400 text-2xl" />
+                                    <div className="bg-[#FAF7F2] rounded-full p-5 mb-4">
+                                        <FaEye className="text-[#6A6A6A] text-3xl" />
                                     </div>
                                     <p className="text-lg font-medium">No purchase orders found</p>
-                                    <p className="text-sm mt-1">Create a new purchase order to get started</p>
-                                    <Link to="/purchase-orders/create" className="mt-3 px-4 py-2 bg-primary-500 text-white rounded-lg hover:bg-primary-600 text-sm font-medium">
+                                    <p className="text-sm mt-2">Create a new purchase order to get started</p>
+                                    <Link to="/purchase-orders/create" className="mt-4 px-5 py-2.5 bg-[#F2C94C] text-[#1A1A1A] rounded-[14px] hover:bg-[#e0b840] text-sm font-medium transition-all duration-200 shadow-sm">
                                         Create New PO
                                     </Link>
                                 </div>
@@ -98,44 +98,44 @@ const PurchaseOrdersTable = ({ purchaseOrders, user, onStatusUpdate }) => {
                         </tr>
                     ) : (
                         purchaseOrders.map(po => (
-                            <tr key={po._id} className="hover:bg-gray-50 transition-colors">
-                                <td className="px-6 py-4 whitespace-nowrap">
-                                    <div className="text-sm font-medium text-gray-900">{po.poNumber}</div>
+                            <tr key={po._id} className="hover:bg-[#FAF7F2] transition-colors duration-150">
+                                <td className="px-6 py-5 whitespace-nowrap">
+                                    <div className="text-sm font-medium text-[#1A1A1A]">{po.poNumber}</div>
                                 </td>
-                                <td className="px-6 py-4 whitespace-nowrap">
-                                    <div className="text-sm text-gray-900">{po.supplier?.name || 'N/A'}</div>
+                                <td className="px-6 py-5 whitespace-nowrap">
+                                    <div className="text-sm text-[#1A1A1A]">{po.supplier?.name || 'N/A'}</div>
                                 </td>
-                                <td className="px-6 py-4 whitespace-nowrap">
-                                    <div className="text-sm text-gray-500">{formatDate(po.createdAt)}</div>
+                                <td className="px-6 py-5 whitespace-nowrap">
+                                    <div className="text-sm text-[#6A6A6A]">{formatDate(po.createdAt)}</div>
                                 </td>
-                                <td className="px-6 py-4 whitespace-nowrap">
-                                    <div className="text-sm font-semibold text-gray-900">{formatCurrency(po.totalAmount)}</div>
+                                <td className="px-6 py-5 whitespace-nowrap">
+                                    <div className="text-sm font-semibold text-[#1A1A1A]">{formatCurrency(po.totalAmount)}</div>
                                 </td>
-                                <td className="px-6 py-4 whitespace-nowrap">
-                                    <span className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusClass(po.status)}`}>
+                                <td className="px-6 py-5 whitespace-nowrap">
+                                    <span className={`px-3 py-1.5 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusClass(po.status)}`}>
                                         {po.status}
                                     </span>
                                 </td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                                    <div className="flex items-center space-x-2">
-                                        <Link to={`/purchase-orders/${po._id}`} className="text-primary-600 hover:text-primary-900 flex items-center">
-                                            <FaEye className="mr-1" /> View
+                                <td className="px-6 py-5 whitespace-nowrap text-sm font-medium">
+                                    <div className="flex items-center space-x-3">
+                                        <Link to={`/purchase-orders/${po._id}`} className="text-[#6A7F3F] hover:text-[#5a6d35] flex items-center transition-colors duration-200">
+                                            <FaEye className="mr-1.5" /> View
                                         </Link>
                                         {po.status === 'Pending' && (
                                             <>
                                                 <button 
                                                     onClick={() => handleApprove(po._id)}
-                                                    className="text-green-600 hover:text-green-900 flex items-center"
+                                                    className="text-green-600 hover:text-green-800 flex items-center transition-colors duration-200"
                                                     title="Approve Purchase Order"
                                                 >
-                                                    <FaCheck className="mr-1" /> Approve
+                                                    <FaCheck className="mr-1.5" /> Approve
                                                 </button>
                                                 <button 
                                                     onClick={() => handleReject(po._id)}
-                                                    className="text-red-600 hover:text-red-900 flex items-center"
+                                                    className="text-red-600 hover:text-red-800 flex items-center transition-colors duration-200"
                                                     title="Reject Purchase Order"
                                                 >
-                                                    <FaTimes className="mr-1" /> Reject
+                                                    <FaTimes className="mr-1.5" /> Reject
                                                 </button>
                                             </>
                                         )}
@@ -230,8 +230,9 @@ const ViewPurchaseOrders = () => {
         return (
             <div className="flex justify-center items-center h-96">
                 <div className="text-center">
-                    <FaSpinner className="animate-spin text-primary-500 mx-auto text-3xl" />
-                    <p className="mt-4 text-gray-600">Loading purchase orders...</p>
+                    <FaSpinner className="animate-spin text-[#F2C94C] mx-auto text-4xl" />
+                    <p className="mt-5 text-[#1A1A1A] text-lg">Loading purchase orders...</p>
+                    <p className="mt-2 text-[#6A6A6A]">Please wait while we fetch the information</p>
                 </div>
             </div>
         );
@@ -239,94 +240,98 @@ const ViewPurchaseOrders = () => {
 
     if (error) {
         return (
-            <Card>
-                <div className="p-6 bg-red-50 text-red-800 rounded-lg">
+            <div className="bg-white rounded-[16px] shadow-lg border border-[#E7E2D8] p-6">
+                <div className="p-6 bg-red-50 text-red-800 rounded-[14px] border border-red-200">
                     <div className="flex items-center">
-                        <FaSpinner className="mr-3 text-xl" />
+                        <FaSpinner className="mr-4 text-2xl" />
                         <span>{error}</span>
                     </div>
                     <button 
                         onClick={fetchPurchaseOrders}
-                        className="mt-4 px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 flex items-center"
+                        className="mt-5 px-5 py-2.5 bg-red-600 text-white rounded-[12px] hover:bg-red-700 flex items-center transition-all duration-200"
                     >
                         <FaRedo className="mr-2" />
                         Retry
                     </button>
                 </div>
-            </Card>
+            </div>
         );
     }
 
     return (
-        <Card>
-            <div className="flex flex-col md:flex-row md:justify-between md:items-center mb-6 gap-4">
-                <div>
-                    <h2 className="text-2xl font-bold text-gray-900">Packing Materials Purchase Orders</h2>
-                    <p className="text-gray-600 mt-1">Manage and view all packing materials purchase orders</p>
-                </div>
-                <div className="flex space-x-3">
-                    <Link to="/purchase-orders/create" className="px-4 py-2 bg-primary-500 text-white rounded-lg hover:bg-primary-600 flex items-center">
-                        <span className="mr-2">+</span> Create New PO
-                    </Link>
-                    <ViewReportTools
-                        data={filteredPurchaseOrders}
-                        title="Packing Materials Purchase Orders"
-                        fileName="PackingPOs"
-                        metaDetails={{ user: 'Current User' }}
-                        columns={reportColumns}
-                    />
-                    <button 
-                        onClick={fetchPurchaseOrders}
-                        className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 flex items-center"
-                        title="Refresh purchase orders"
-                    >
-                        <FaRedo className="mr-2" />
-                        Refresh
-                    </button>
-                </div>
-            </div>
-            
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                <div className="md:col-span-2">
-                    <div className="relative">
-                        <input
-                            type="text"
-                            placeholder="Search by PO# or Supplier..."
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                            className="w-full px-4 py-3 text-gray-700 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                        />
+        <div className="bg-[#FAF7F2] min-h-screen py-8 px-4 sm:px-6 lg:px-8">
+            <div className="max-w-7xl mx-auto">
+                <div className="bg-white rounded-[16px] shadow-lg border border-[#E7E2D8] p-6 mb-8">
+                    <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-6 mb-8">
+                        <div>
+                            <h2 className="text-2xl font-bold text-[#1A1A1A]">Packing Materials Purchase Orders</h2>
+                            <p className="text-[#6A6A6A] mt-2">Manage and view all packing materials purchase orders</p>
+                        </div>
+                        <div className="flex flex-wrap gap-3">
+                            <Link to="/purchase-orders/create" className="px-5 py-2.5 bg-[#F2C94C] text-[#1A1A1A] rounded-[14px] hover:bg-[#e0b840] flex items-center transition-all duration-200 shadow-sm font-medium">
+                                <span className="mr-2 text-lg">+</span> Create New PO
+                            </Link>
+                            <ViewReportTools
+                                data={filteredPurchaseOrders}
+                                title="Packing Materials Purchase Orders"
+                                fileName="PackingPOs"
+                                metaDetails={{ user: 'Current User' }}
+                                columns={reportColumns}
+                            />
+                            <button 
+                                onClick={fetchPurchaseOrders}
+                                className="px-5 py-2.5 bg-gray-100 text-gray-700 rounded-[14px] hover:bg-gray-200 flex items-center transition-all duration-200"
+                                title="Refresh purchase orders"
+                            >
+                                <FaRedo className="mr-2" />
+                                Refresh
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-8">
+                        <div className="md:col-span-2">
+                            <div className="relative">
+                                <input
+                                    type="text"
+                                    placeholder="Search by PO# or Supplier..."
+                                    value={searchTerm}
+                                    onChange={(e) => setSearchTerm(e.target.value)}
+                                    className="w-full px-5 py-3.5 text-[#1A1A1A] bg-white border border-[#E7E2D8] rounded-[14px] focus:outline-none focus:ring-2 focus:ring-[#F2C94C] focus:border-transparent transition-all duration-200"
+                                />
+                            </div>
+                        </div>
+                        <div>
+                            <select 
+                                value={statusFilter}
+                                onChange={(e) => setStatusFilter(e.target.value)}
+                                className="w-full px-5 py-3.5 text-[#1A1A1A] bg-white border border-[#E7E2D8] rounded-[14px] focus:outline-none focus:ring-2 focus:ring-[#F2C94C] focus:border-transparent transition-all duration-200"
+                            >
+                                <option value="">All Statuses</option>
+                                <option value="Pending">Pending</option>
+                                <option value="Approved">Approved</option>
+                                <option value="Rejected">Rejected</option>
+                                <option value="Ordered">Ordered</option>
+                                <option value="Partially Received">Partially Received</option>
+                                <option value="Completed">Completed</option>
+                                <option value="Cancelled">Cancelled</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <PurchaseOrdersTable purchaseOrders={filteredPurchaseOrders} user={user} onStatusUpdate={fetchPurchaseOrders} />
+                    
+                    <div className="mt-6 text-sm text-[#6A6A6A] flex justify-between items-center">
+                        <div>
+                            Showing {filteredPurchaseOrders.length} of {purchaseOrders.length} purchase orders
+                        </div>
+                        <div>
+                            Last updated: {lastUpdated.toLocaleTimeString()}
+                        </div>
                     </div>
                 </div>
-                <div>
-                    <select 
-                        value={statusFilter}
-                        onChange={(e) => setStatusFilter(e.target.value)}
-                        className="w-full px-4 py-3 text-gray-700 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                    >
-                        <option value="">All Statuses</option>
-                        <option value="Pending">Pending</option>
-                        <option value="Approved">Approved</option>
-                        <option value="Rejected">Rejected</option>
-                        <option value="Ordered">Ordered</option>
-                        <option value="Partially Received">Partially Received</option>
-                        <option value="Completed">Completed</option>
-                        <option value="Cancelled">Cancelled</option>
-                    </select>
-                </div>
             </div>
-            
-            <PurchaseOrdersTable purchaseOrders={filteredPurchaseOrders} user={user} onStatusUpdate={fetchPurchaseOrders} />
-            
-            <div className="mt-6 text-sm text-gray-500 flex justify-between items-center">
-                <div>
-                    Showing {filteredPurchaseOrders.length} of {purchaseOrders.length} purchase orders
-                </div>
-                <div>
-                    Last updated: {lastUpdated.toLocaleTimeString()}
-                </div>
-            </div>
-        </Card>
+        </div>
     );
 };
 

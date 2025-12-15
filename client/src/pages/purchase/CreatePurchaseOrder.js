@@ -516,455 +516,467 @@ const PurchaseOrderForm = ({ suppliers, materials, rawMaterials, onOrderCreated,
     };
 
     return (
-        <Card title="Create New Purchase Order" className="max-w-7xl mx-auto">
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
-                <h2 className="text-2xl font-bold text-dark-700">Purchase Order Details</h2>
-            </div>
-            
-            {/* Supplier Details Preview */}
-            {selectedSupplierDetails && (
-                <div className="mb-6 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl border border-blue-200 shadow-sm">
-                    <h3 className="text-lg font-semibold text-blue-800 mb-3">Supplier Information</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 text-sm">
-                        <div className="bg-white p-3 rounded-lg shadow-sm">
-                            <span className="font-medium text-blue-700 block">GSTIN:</span> 
-                            <span className="text-gray-700">{selectedSupplierDetails.gstin || 'N/A'}</span>
-                        </div>
-                        <div className="bg-white p-3 rounded-lg shadow-sm">
-                            <span className="font-medium text-blue-700 block">Phone:</span> 
-                            <span className="text-gray-700">{selectedSupplierDetails.phoneNumber || 'N/A'}</span>
-                        </div>
-                        <div className="bg-white p-3 rounded-lg shadow-sm">
-                            <span className="font-medium text-blue-700 block">Email:</span> 
-                            <span className="text-gray-700">{selectedSupplierDetails.email || 'N/A'}</span>
-                        </div>
-                        <div className="bg-white p-3 rounded-lg shadow-sm">
-                            <span className="font-medium text-blue-700 block">Payment Terms:</span> 
-                            <span className="text-gray-700">{selectedSupplierDetails.paymentTerms || 'N/A'}</span>
-                        </div>
-                    </div>
-                    <div className="mt-3 bg-white p-3 rounded-lg shadow-sm">
-                        <span className="font-medium text-blue-700 block">Address:</span> 
-                        <span className="text-gray-700">{selectedSupplierDetails.address || 'N/A'}</span>
-                    </div>
-                </div>
-            )}
-            
-            <form onSubmit={handleSubmit} className="space-y-8">
-                {/* Supplier and Date Section */}
-                <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm">
-                    <h3 className="text-lg font-semibold text-gray-800 mb-4 pb-2 border-b border-gray-100">Basic Information</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-                        <div>
-                            <label htmlFor="supplier" className="block text-sm font-medium text-gray-700 mb-2">Supplier *</label>
-                            <select 
-                                id="supplier" 
-                                value={supplier} 
-                                onChange={handleSupplierChange} 
-                                required 
-                                className="w-full px-4 py-2.5 text-gray-700 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
-                            >
-                                <option value="" disabled>Select a supplier</option>
-                                {suppliers.map(s => <option key={s._id} value={s._id}>{s.name}</option>)}
-                            </select>
-                        </div>
-                        <div>
-                            <label htmlFor="expectedDeliveryDate" className="block text-sm font-medium text-gray-700 mb-2">Expected Delivery Date</label>
-                            <input 
-                                type="date" 
-                                id="expectedDeliveryDate" 
-                                value={expectedDeliveryDate} 
-                                onChange={(e) => setExpectedDeliveryDate(e.target.value)} 
-                                className="w-full px-4 py-2.5 text-gray-700 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
-                            />
-                        </div>
-                        <div>
-                            <label htmlFor="paymentTerms" className="block text-sm font-medium text-gray-700 mb-2">Payment Terms</label>
-                            <select 
-                                id="paymentTerms" 
-                                value={paymentTerms} 
-                                onChange={(e) => setPaymentTerms(e.target.value)} 
-                                className="w-full px-4 py-2.5 text-gray-700 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
-                            >
-                                <option value="Net 30">Net 30</option>
-                                <option value="Net 15">Net 15</option>
-                                <option value="Net 45">Net 45</option>
-                                <option value="Cash on Delivery">Cash on Delivery</option>
-                                <option value="Immediate">Immediate</option>
-                            </select>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Items Section */}
-                <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm">
-                    <div className="flex justify-between items-center mb-4 pb-2 border-b border-gray-100">
-                        <h3 className="text-lg font-semibold text-gray-800">Items</h3>
-                        <button 
-                            type="button" 
-                            onClick={addItem}
-                            className="flex items-center px-3 py-1.5 text-sm bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-lg hover:from-green-600 hover:to-emerald-700 transition shadow-sm"
-                        >
-                            <FaPlus className="mr-1" /> Add Item
-                        </button>
-                    </div>
-                    
-                    <div className="overflow-x-auto">
-                        <table className="min-w-full divide-y divide-gray-200">
-                            <thead className="bg-gray-50">
-                                <tr>
-                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">S.No</th>
-                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Item Code</th>
-                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Material</th>
-                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">HSN</th>
-                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Qty</th>
-                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">UOM</th>
-                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Rate (₹)</th>
-                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Disc%</th>
-                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">GST%</th>
-                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Extra Receiving Type</th>
-                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Extra Receiving Value</th>
-                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Extra Allowed Qty</th>
-                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total (₹)</th>
-                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody className="bg-white divide-y divide-gray-200">
-                                {items.map((item, index) => {
-                                    const lineItem = calculateLineItem(item);
-                                    return (
-                                        <tr key={index} className="hover:bg-gray-50">
-                                            <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">{index + 1}</td>
-                                            <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
-                                                <input 
-                                                    type="text" 
-                                                    value={item.itemCode || ''} 
-                                                    onChange={(e) => handleItemChange(index, 'itemCode', e.target.value)} 
-                                                    className="w-24 px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
-                                                    title="Auto-populated from material selection, but can be manually edited"
-                                                />
-                                            </td>
-                                            <td className="px-4 py-3 text-sm text-gray-700">
-                                                <select 
-                                                    value={item.materialId} 
-                                                    onChange={(e) => handleItemChange(index, 'materialId', e.target.value)} 
-                                                    required 
-                                                    className="w-40 px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
-                                                >
-                                                    <option value="" disabled>Select material</option>
-                                                    {getAvailableMaterials(index).map(m => (
-                                                        <option key={m._id} value={m._id}>
-                                                            {m.name} ({m.type.replace('Material', '')})
-                                                        </option>
-                                                    ))}
-                                                </select>
-                                            </td>
-                                            <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
-                                                <input 
-                                                    type="text" 
-                                                    value={item.hsn} 
-                                                    onChange={(e) => handleItemChange(index, 'hsn', e.target.value)} 
-                                                    className="w-20 px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
-                                                    title="Auto-populated from material selection, but can be manually edited"
-                                                />
-                                            </td>
-                                            <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
-                                                <input 
-                                                    type="number" 
-                                                    min="1" 
-                                                    step="1"
-                                                    value={item.quantity} 
-                                                    onChange={(e) => handleItemChange(index, 'quantity', e.target.value)} 
-                                                    required 
-                                                    className="w-20 px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
-                                                />
-                                            </td>
-                                            <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
-                                                <input 
-                                                    type="text" 
-                                                    value={item.uom} 
-                                                    onChange={(e) => handleItemChange(index, 'uom', e.target.value)} 
-                                                    className="w-16 px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
-                                                />
-                                            </td>
-                                            <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
-                                                <input 
-                                                    type="number" 
-                                                    step="0.01" 
-                                                    min="0"
-                                                    value={item.rate} 
-                                                    onChange={(e) => handleItemChange(index, 'rate', e.target.value)} 
-                                                    required 
-                                                    className="w-24 px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
-                                                />
-                                            </td>
-                                            <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
-                                                <input 
-                                                    type="number" 
-                                                    step="0.01" 
-                                                    min="0"
-                                                    max="100"
-                                                    value={item.discountPercent} 
-                                                    onChange={(e) => handleItemChange(index, 'discountPercent', e.target.value)} 
-                                                    className="w-16 px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
-                                                />
-                                            </td>
-                                            <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
-                                                <input 
-                                                    type="number" 
-                                                    step="0.01" 
-                                                    min="0"
-                                                    max="100"
-                                                    value={item.gstPercent} 
-                                                    onChange={(e) => handleItemChange(index, 'gstPercent', e.target.value)} 
-                                                    className="w-16 px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
-                                                />
-                                            </td>
-                                            <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
-                                                <select 
-                                                    value={item.extraReceivingType} 
-                                                    onChange={(e) => handleItemChange(index, 'extraReceivingType', e.target.value)} 
-                                                    className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
-                                                >
-                                                    <option value="">Select Type</option>
-                                                    <option value="Percentage">Percentage</option>
-                                                    <option value="Quantity">Quantity</option>
-                                                </select>
-                                            </td>
-                                            <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
-                                                <input 
-                                                    type="number" 
-                                                    step="0.01" 
-                                                    min="0"
-                                                    value={item.extraReceivingValue} 
-                                                    onChange={(e) => handleItemChange(index, 'extraReceivingValue', e.target.value)} 
-                                                    className="w-20 px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
-                                                    disabled={!item.extraReceivingType}
-                                                />
-                                            </td>
-                                            <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
-                                                {item.extraReceivingType && item.extraReceivingValue ? (
-                                                    item.extraReceivingType === 'Percentage' ? 
-                                                    `${((parseFloat(item.quantity) || 0) * (parseFloat(item.extraReceivingValue) || 0) / 100).toFixed(2)}` :
-                                                    `${parseFloat(item.extraReceivingValue).toFixed(2)}`
-                                                ) : '0.00'}
-                                            </td>
-                                            <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">
-                                                {lineItem.lineTotal.toFixed(2)}
-                                            </td>
-                                            <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
-                                                {items.length > 1 && (
-                                                    <button 
-                                                        type="button" 
-                                                        onClick={() => removeItem(index)} 
-                                                        className="text-red-500 hover:text-red-700 p-1 rounded-full hover:bg-red-50 transition"
-                                                        title="Remove item"
-                                                    >
-                                                        <FaTrash />
-                                                    </button>
-                                                )}
-                                            </td>
-                                        </tr>
-                                    );
-                                })}
-                            </tbody>
-                        </table>
-                    </div>
+        // Removed the max-w-7xl mx-auto container to match the layout of the listing page
+        <div className="bg-[#FAF7F2] min-h-screen py-8 px-4 sm:px-6 lg:px-8">
+            {/* Removed the extra max-w-7xl mx-auto wrapper */}
+            <div className="bg-white rounded-[16px] shadow-lg border border-[#E7E2D8] p-6 transition-all duration-300 hover:shadow-xl">
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+                    <h2 className="text-2xl font-bold text-[#1A1A1A]">Create New Purchase Order</h2>
                 </div>
                 
-                {/* Compare Prices Button */}
-                <div className="flex justify-center my-6">
-                    <button 
-                        type="button" 
-                        onClick={comparePrices}
-                        disabled={items.filter(item => item.materialId).length === 0}
-                        className={`flex items-center px-6 py-3 rounded-lg transition-all transform hover:scale-105 ${
-                            items.filter(item => item.materialId).length > 0
-                                ? 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white hover:from-blue-600 hover:to-indigo-700 shadow-lg' 
-                                : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                        }`}
-                    >
-                        <FaExchangeAlt className="mr-2" />
-                        Compare Prices
-                    </button>
-                </div>
-                
-                {/* Totals Section */}
-                <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl border border-gray-200 p-5 shadow-sm">
-                    <h3 className="text-lg font-semibold text-gray-800 mb-4">Order Summary</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-                        <div className="lg:col-span-3"></div>
-                        <div className="lg:col-span-2">
-                            <div className="bg-white rounded-lg p-4 shadow-sm">
-                                <div className="space-y-3">
-                                    <div className="flex justify-between">
-                                        <span className="text-gray-600">Taxable Amount:</span>
-                                        <span className="font-medium">₹{totals.taxableAmount.toFixed(2)}</span>
-                                    </div>
-                                    <div className="flex justify-between">
-                                        <span className="text-gray-600">Total CGST:</span>
-                                        <span className="font-medium">₹{totals.totalCGST.toFixed(2)}</span>
-                                    </div>
-                                    <div className="flex justify-between">
-                                        <span className="text-gray-600">Total SGST:</span>
-                                        <span className="font-medium">₹{totals.totalSGST.toFixed(2)}</span>
-                                    </div>
-                                    <div className="flex justify-between">
-                                        <span className="text-gray-600">Round Off:</span>
-                                        <span className="font-medium">₹{totals.roundOff.toFixed(2)}</span>
-                                    </div>
-                                    <div className="flex justify-between pt-3 border-t border-gray-200">
-                                        <span className="text-lg font-bold text-gray-800">Grand Total:</span>
-                                        <span className="text-lg font-extrabold text-blue-600">₹{totals.finalTotal.toFixed(2)}</span>
-                                    </div>
-                                    <div className="pt-3 border-t border-gray-200">
-                                        <span className="text-sm text-gray-600">Amount in Words: </span>
-                                        <span className="text-sm font-medium">
-                                            Rupees {totals.finalTotal > 0 ? 
-                                                // Convert number to words (simplified version)
-                                                `${Math.floor(totals.finalTotal).toLocaleString('en-IN')} and ${Math.round((totals.finalTotal - Math.floor(totals.finalTotal)) * 100)}/100 Only` : 
-                                                'Zero Only'}
-                                        </span>
-                                    </div>
-                                </div>
+                {/* Supplier Details Preview */}
+                {selectedSupplierDetails && (
+                    <div className="mb-6 p-5 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-[16px] border border-blue-200 shadow-sm">
+                        <h3 className="text-xl font-bold text-blue-800 mb-4">Supplier Information</h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 text-sm">
+                            <div className="bg-white p-4 rounded-[14px] shadow-sm border border-[#E7E2D8]">
+                                <span className="font-medium text-blue-700 block mb-1">GSTIN:</span> 
+                                <span className="text-gray-700">{selectedSupplierDetails.gstin || 'N/A'}</span>
+                            </div>
+                            <div className="bg-white p-4 rounded-[14px] shadow-sm border border-[#E7E2D8]">
+                                <span className="font-medium text-blue-700 block mb-1">Phone:</span> 
+                                <span className="text-gray-700">{selectedSupplierDetails.phoneNumber || 'N/A'}</span>
+                            </div>
+                            <div className="bg-white p-4 rounded-[14px] shadow-sm border border-[#E7E2D8]">
+                                <span className="font-medium text-blue-700 block mb-1">Email:</span> 
+                                <span className="text-gray-700">{selectedSupplierDetails.email || 'N/A'}</span>
+                            </div>
+                            <div className="bg-white p-4 rounded-[14px] shadow-sm border border-[#E7E2D8]">
+                                <span className="font-medium text-blue-700 block mb-1">Payment Terms:</span> 
+                                <span className="text-gray-700">{selectedSupplierDetails.paymentTerms || 'N/A'}</span>
                             </div>
                         </div>
-                    </div>
-                </div>
-                
-                {/* Price Comparison Section */}
-                {showComparisonPanel && (
-                    <div id="comparison-panel" className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden transition-all duration-300 ease-in-out">
-                        <div className="bg-gradient-to-r from-blue-500 to-indigo-600 text-white p-4 rounded-t-xl">
-                            <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4">
-                                <h3 className="text-lg font-bold flex items-center">
-                                    <FaExchangeAlt className="mr-2" />
-                                    Purchase Order Comparison
-                                </h3>
-                                <div className="flex flex-col sm:flex-row gap-3">
-                                    {/* Supplier Filter - Added before date filters */}
-                                    <div className="flex items-center">
-                                        <label className="text-sm mr-2 whitespace-nowrap">Supplier:</label>
-                                        <select 
-                                            value={comparisonSupplier} 
-                                            onChange={(e) => setComparisonSupplier(e.target.value)}
-                                            className="text-sm px-2 py-1 rounded text-gray-800 min-w-[120px]"
-                                        >
-                                            <option value="">All Suppliers</option>
-                                            {suppliers.map(supplier => (
-                                                <option key={supplier._id} value={supplier._id}>
-                                                    {supplier.name}
-                                                </option>
-                                            ))}
-                                        </select>
-                                    </div>
-                                    <div className="flex items-center">
-                                        <label className="text-sm mr-2">From:</label>
-                                        <input 
-                                            type="date" 
-                                            value={dateFrom} 
-                                            onChange={(e) => setDateFrom(e.target.value)}
-                                            className="text-sm px-2 py-1 rounded text-gray-800"
-                                        />
-                                    </div>
-                                    <div className="flex items-center">
-                                        <label className="text-sm mr-2">To:</label>
-                                        <input 
-                                            type="date" 
-                                            value={dateTo} 
-                                            onChange={(e) => setDateTo(e.target.value)}
-                                            className="text-sm px-2 py-1 rounded text-gray-800"
-                                        />
-                                    </div>
-                                    <button 
-                                        type="button" 
-                                        onClick={applyDateFilter}
-                                        className="px-3 py-1 bg-white text-blue-600 text-sm rounded hover:bg-gray-100 font-medium whitespace-nowrap"
-                                    >
-                                        Apply Filters
-                                    </button>
-                                </div>
-                                <button 
-                                    type="button" 
-                                    onClick={clearComparison}
-                                    className="px-3 py-1 bg-white text-blue-600 text-sm rounded hover:bg-gray-100 flex items-center font-medium whitespace-nowrap"
-                                >
-                                    <FaTimes className="mr-1" /> Clear
-                                </button>
-                            </div>
-                        </div>
-                        <div className="p-4">
-                            {comparisonData.length > 0 ? (
-                                <div className="space-y-6">
-                                    {comparisonData.map((materialData, index) => (
-                                        <div key={index} className="bg-gray-50 rounded-lg shadow-sm overflow-hidden">
-                                            <div className="bg-white px-4 py-3 border-b border-gray-200">
-                                                <h4 className="font-semibold text-gray-800 text-lg">{materialData.materialName}</h4>
-                                            </div>
-                                            <div className="overflow-x-auto">
-                                                <table className="min-w-full divide-y divide-gray-200">
-                                                    <thead className="bg-gray-50">
-                                                        <tr>
-                                                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">PO Number</th>
-                                                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">PO Date</th>
-                                                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Supplier</th>
-                                                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ordered Qty</th>
-                                                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Previous Price (₹)</th>
-                                                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Current Price (₹)</th>
-                                                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Difference (₹)</th>
-                                                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Change (%)</th>
-                                                        </tr>
-                                                    </thead>
-                                                    <tbody className="bg-white divide-y divide-gray-200">
-                                                        {materialData.records.map((record, recordIndex) => (
-                                                            <tr key={recordIndex} className="hover:bg-gray-50">
-                                                                <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">{record.poNumber}</td>
-                                                                <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">{formatDate(record.poDate)}</td>
-                                                                <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">{record.supplier}</td>
-                                                                <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">{record.orderedQty}</td>
-                                                                <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">₹{parseFloat(record.previousPrice).toFixed(2)}</td>
-                                                                <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 font-medium">₹{parseFloat(record.currentPrice).toFixed(2)}</td>
-                                                                <td className={`px-4 py-3 whitespace-nowrap text-sm font-medium ${getPriceDifferenceColor(record.difference, record.percentage)}`}>
-                                                                    {record.difference >= 0 ? '+' : ''}{record.difference.toFixed(2)}
-                                                                </td>
-                                                                <td className={`px-4 py-3 whitespace-nowrap text-sm font-medium ${getPriceDifferenceColor(record.difference, record.percentage)}`}>
-                                                                    {record.percentage >= 0 ? '+' : ''}{record.percentage.toFixed(2)}%
-                                                                </td>
-                                                            </tr>
-                                                        ))}
-                                                    </tbody>
-                                                </table>
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            ) : (
-                                <div className="text-center py-8 text-gray-500 bg-gray-50 rounded-lg">
-                                    <p>No previous purchase records found for the selected materials{comparisonSupplier ? ` from supplier ${suppliers.find(s => s._id === comparisonSupplier)?.name || ''}` : ''}{dateFrom || dateTo ? ' within the selected date range' : ''}.</p>
-                                </div>
-                            )}
+                        <div className="mt-4 bg-white p-4 rounded-[14px] shadow-sm border border-[#E7E2D8]">
+                            <span className="font-medium text-blue-700 block mb-1">Address:</span> 
+                            <span className="text-gray-700">{selectedSupplierDetails.address || 'N/A'}</span>
                         </div>
                     </div>
                 )}
                 
-                {/* Submit */}
-                <div className="flex justify-end pt-4">
-                    <button 
-                        type="submit" 
-                        disabled={isLoading} 
-                        className="px-6 py-3 text-white bg-gradient-to-r from-blue-500 to-indigo-600 rounded-lg hover:from-blue-600 hover:to-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:from-gray-400 disabled:to-gray-500 shadow-md font-medium transition"
-                    >
-                        {isLoading ? (
-                            <span className="flex items-center">
-                                <FaSpinner className="animate-spin mr-2" />
-                                Creating...
-                            </span>
-                        ) : 'Create Purchase Order'}
-                    </button>
-                </div>
-                 {error && <p className="text-red-500 text-sm mt-2 text-right">{error}</p>}
-            </form>
-        </Card>
+                <form onSubmit={handleSubmit} className="space-y-10">
+                    {/* Supplier and Date Section */}
+                    <div className="bg-white p-6 rounded-[16px] border border-[#E7E2D8] shadow-sm">
+                        <h3 className="text-xl font-bold text-[#1A1A1A] mb-6 pb-3 border-b-2 border-[#E7E2D8]">Basic Information</h3>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                            <div>
+                                <label htmlFor="supplier" className="block text-sm font-semibold text-[#1A1A1A] mb-2">Supplier *</label>
+                                <select 
+                                    id="supplier" 
+                                    value={supplier} 
+                                    onChange={handleSupplierChange} 
+                                    required 
+                                    className="w-full px-4 py-3 text-[#1A1A1A] bg-white border border-[#E7E2D8] rounded-[14px] focus:outline-none focus:ring-2 focus:ring-[#F2C94C] focus:border-transparent transition-all duration-200"
+                                >
+                                    <option value="" disabled>Select a supplier</option>
+                                    {suppliers.map(s => <option key={s._id} value={s._id}>{s.name}</option>)}
+                                </select>
+                            </div>
+                            <div>
+                                <label htmlFor="expectedDeliveryDate" className="block text-sm font-semibold text-[#1A1A1A] mb-2">Expected Delivery Date</label>
+                                <input 
+                                    type="date" 
+                                    id="expectedDeliveryDate" 
+                                    value={expectedDeliveryDate} 
+                                    onChange={(e) => setExpectedDeliveryDate(e.target.value)} 
+                                    className="w-full px-4 py-3 text-[#1A1A1A] bg-white border border-[#E7E2D8] rounded-[14px] focus:outline-none focus:ring-2 focus:ring-[#F2C94C] focus:border-transparent transition-all duration-200"
+                                />
+                            </div>
+                            <div>
+                                <label htmlFor="paymentTerms" className="block text-sm font-semibold text-[#1A1A1A] mb-2">Payment Terms</label>
+                                <select 
+                                    id="paymentTerms" 
+                                    value={paymentTerms} 
+                                    onChange={(e) => setPaymentTerms(e.target.value)} 
+                                    className="w-full px-4 py-3 text-[#1A1A1A] bg-white border border-[#E7E2D8] rounded-[14px] focus:outline-none focus:ring-2 focus:ring-[#F2C94C] focus:border-transparent transition-all duration-200"
+                                >
+                                    <option value="Net 30">Net 30</option>
+                                    <option value="Net 15">Net 15</option>
+                                    <option value="Net 45">Net 45</option>
+                                    <option value="Cash on Delivery">Cash on Delivery</option>
+                                    <option value="Immediate">Immediate</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Items Section */}
+                    <div className="bg-white p-6 rounded-[16px] border border-[#E7E2D8] shadow-sm">
+                        <div className="flex justify-between items-center mb-4 pb-3 border-b border-[#E7E2D8]">
+                            <h3 className="text-xl font-bold text-[#1A1A1A]">Items</h3>
+                            <button 
+                                type="button" 
+                                onClick={addItem}
+                                className="flex items-center px-5 py-3 text-sm bg-[#F2C94C] text-[#1A1A1A] rounded-[14px] hover:bg-[#e0b840] transition-all duration-200 shadow-md font-bold"
+                            >
+                                <FaPlus className="mr-2" /> Add Item
+                            </button>
+                        </div>
+                        
+                        {/* Improved table layout to prevent horizontal scrolling */}
+                        <div className="overflow-x-auto -mx-6 -my-2 sm:-mx-6 lg:-mx-8">
+                            <div className="inline-block min-w-full py-2 align-middle md:px-6 lg:px-8">
+                                <div className="overflow-hidden shadow ring-1 ring-black ring-opacity-5 md:rounded-lg">
+                                    <table className="min-w-full divide-y divide-[#E7E2D8]">
+                                        <thead className="bg-[#FAF7F2]">
+                                            <tr>
+                                                <th scope="col" className="py-4 pl-4 pr-3 text-left text-sm font-semibold text-[#1A1A1A] sm:pl-6 bg-[#f0ebe0]">S.No</th>
+                                                <th scope="col" className="px-3 py-4 text-left text-sm font-semibold text-[#1A1A1A] bg-[#f0ebe0]">Item Code</th>
+                                                <th scope="col" className="px-3 py-4 text-left text-sm font-semibold text-[#1A1A1A] bg-[#f0ebe0]">Material</th>
+                                                <th scope="col" className="px-3 py-4 text-left text-sm font-semibold text-[#1A1A1A] bg-[#f0ebe0]">HSN</th>
+                                                <th scope="col" className="px-3 py-4 text-left text-sm font-semibold text-[#1A1A1A] bg-[#f0ebe0]">Qty</th>
+                                                <th scope="col" className="px-3 py-4 text-left text-sm font-semibold text-[#1A1A1A] bg-[#f0ebe0]">UOM</th>
+                                                <th scope="col" className="px-3 py-4 text-left text-sm font-semibold text-[#1A1A1A] bg-[#f0ebe0]">Rate (₹)</th>
+                                                <th scope="col" className="px-3 py-4 text-left text-sm font-semibold text-[#1A1A1A] bg-[#f0ebe0]">Disc%</th>
+                                                <th scope="col" className="px-3 py-4 text-left text-sm font-semibold text-[#1A1A1A] bg-[#f0ebe0]">GST%</th>
+                                                {/* Grouped extra receiving columns to save space */}
+                                                <th scope="col" className="px-3 py-4 text-left text-sm font-semibold text-[#1A1A1A] bg-[#f0ebe0]">Extra Receiving</th>
+                                                <th scope="col" className="px-3 py-4 text-left text-sm font-semibold text-[#1A1A1A] bg-[#f0ebe0]">Extra Qty</th>
+                                                <th scope="col" className="px-3 py-4 text-left text-sm font-semibold text-[#1A1A1A] bg-[#f0ebe0]">Total (₹)</th>
+                                                <th scope="col" className="relative py-3.5 pl-3 pr-4 sm:pr-6">
+                                                    <span className="sr-only">Actions</span>
+                                                </th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="bg-white divide-y divide-[#E7E2D8]">
+                                            {items.map((item, index) => {
+                                                const lineItem = calculateLineItem(item);
+                                                return (
+                                                    <tr key={index} className="hover:bg-[#FAF7F2] transition-colors duration-150">
+                                                        <td className="whitespace-nowrap py-5 pl-4 pr-3 text-sm font-medium text-[#1A1A1A] sm:pl-6">{index + 1}</td>
+                                                        <td className="whitespace-nowrap px-3 py-5 text-sm text-[#1A1A1A]">
+                                                            <input 
+                                                                type="text" 
+                                                                value={item.itemCode || ''} 
+                                                                onChange={(e) => handleItemChange(index, 'itemCode', e.target.value)} 
+                                                                className="w-24 px-2 py-2 text-sm border border-[#E7E2D8] rounded-[8px] focus:outline-none focus:ring-1 focus:ring-[#F2C94C]"
+                                                                title="Auto-populated from material selection, but can be manually edited"
+                                                            />
+                                                        </td>
+                                                        <td className="whitespace-nowrap px-3 py-5 text-sm text-[#1A1A1A]">
+                                                            <select 
+                                                                value={item.materialId} 
+                                                                onChange={(e) => handleItemChange(index, 'materialId', e.target.value)} 
+                                                                required 
+                                                                className="w-40 px-2 py-2 text-sm border border-[#E7E2D8] rounded-[8px] focus:outline-none focus:ring-1 focus:ring-[#F2C94C]"
+                                                            >
+                                                                <option value="" disabled>Select material</option>
+                                                                {getAvailableMaterials(index).map(m => (
+                                                                    <option key={m._id} value={m._id}>
+                                                                        {m.name} ({m.type.replace('Material', '')})
+                                                                    </option>
+                                                                ))}
+                                                            </select>
+                                                        </td>
+                                                        <td className="whitespace-nowrap px-3 py-5 text-sm text-[#1A1A1A]">
+                                                            <input 
+                                                                type="text" 
+                                                                value={item.hsn} 
+                                                                onChange={(e) => handleItemChange(index, 'hsn', e.target.value)} 
+                                                                className="w-20 px-2 py-2 text-sm border border-[#E7E2D8] rounded-[8px] focus:outline-none focus:ring-1 focus:ring-[#F2C94C]"
+                                                                title="Auto-populated from material selection, but can be manually edited"
+                                                            />
+                                                        </td>
+                                                        <td className="whitespace-nowrap px-3 py-5 text-sm text-[#1A1A1A]">
+                                                            <input 
+                                                                type="number" 
+                                                                min="1" 
+                                                                step="1"
+                                                                value={item.quantity} 
+                                                                onChange={(e) => handleItemChange(index, 'quantity', e.target.value)} 
+                                                                required 
+                                                                className="w-20 px-2 py-2 text-sm border border-[#E7E2D8] rounded-[8px] focus:outline-none focus:ring-1 focus:ring-[#F2C94C]"
+                                                            />
+                                                        </td>
+                                                        <td className="whitespace-nowrap px-3 py-5 text-sm text-[#1A1A1A]">
+                                                            <input 
+                                                                type="text" 
+                                                                value={item.uom} 
+                                                                onChange={(e) => handleItemChange(index, 'uom', e.target.value)} 
+                                                                className="w-16 px-2 py-2 text-sm border border-[#E7E2D8] rounded-[8px] focus:outline-none focus:ring-1 focus:ring-[#F2C94C]"
+                                                            />
+                                                        </td>
+                                                        <td className="whitespace-nowrap px-3 py-5 text-sm text-[#1A1A1A]">
+                                                            <input 
+                                                                type="number" 
+                                                                step="0.01" 
+                                                                min="0"
+                                                                value={item.rate} 
+                                                                onChange={(e) => handleItemChange(index, 'rate', e.target.value)} 
+                                                                required 
+                                                                className="w-24 px-2 py-2 text-sm border border-[#E7E2D8] rounded-[8px] focus:outline-none focus:ring-1 focus:ring-[#F2C94C]"
+                                                            />
+                                                        </td>
+                                                        <td className="whitespace-nowrap px-3 py-5 text-sm text-[#1A1A1A]">
+                                                            <input 
+                                                                type="number" 
+                                                                step="0.01" 
+                                                                min="0"
+                                                                max="100"
+                                                                value={item.discountPercent} 
+                                                                onChange={(e) => handleItemChange(index, 'discountPercent', e.target.value)} 
+                                                                className="w-16 px-2 py-2 text-sm border border-[#E7E2D8] rounded-[8px] focus:outline-none focus:ring-1 focus:ring-[#F2C94C]"
+                                                            />
+                                                        </td>
+                                                        <td className="whitespace-nowrap px-3 py-5 text-sm text-[#1A1A1A]">
+                                                            <input 
+                                                                type="number" 
+                                                                step="0.01" 
+                                                                min="0"
+                                                                max="100"
+                                                                value={item.gstPercent} 
+                                                                onChange={(e) => handleItemChange(index, 'gstPercent', e.target.value)} 
+                                                                className="w-16 px-2 py-2 text-sm border border-[#E7E2D8] rounded-[8px] focus:outline-none focus:ring-1 focus:ring-[#F2C94C]"
+                                                            />
+                                                        </td>
+                                                        {/* Combined extra receiving type and value in a single cell to save space */}
+                                                        <td className="whitespace-nowrap px-3 py-5 text-sm text-[#1A1A1A]">
+                                                            <div className="flex flex-col gap-2">
+                                                                <select 
+                                                                    value={item.extraReceivingType} 
+                                                                    onChange={(e) => handleItemChange(index, 'extraReceivingType', e.target.value)} 
+                                                                    className="w-full px-2 py-2 text-sm border border-[#E7E2D8] rounded-[8px] focus:outline-none focus:ring-1 focus:ring-[#F2C94C]"
+                                                                >
+                                                                    <option value="">Select</option>
+                                                                    <option value="Percentage">%</option>
+                                                                    <option value="Quantity">Qty</option>
+                                                                </select>
+                                                                <input 
+                                                                    type="number" 
+                                                                    step="0.01" 
+                                                                    min="0"
+                                                                    value={item.extraReceivingValue} 
+                                                                    onChange={(e) => handleItemChange(index, 'extraReceivingValue', e.target.value)} 
+                                                                    className="w-full px-2 py-2 text-sm border border-[#E7E2D8] rounded-[8px] focus:outline-none focus:ring-1 focus:ring-[#F2C94C] mt-1"
+                                                                    disabled={!item.extraReceivingType}
+                                                                />
+                                                            </div>
+                                                        </td>
+                                                        <td className="whitespace-nowrap px-3 py-5 text-sm text-[#1A1A1A]">
+                                                            {item.extraReceivingType && item.extraReceivingValue ? (
+                                                                item.extraReceivingType === 'Percentage' ? 
+                                                                `${((parseFloat(item.quantity) || 0) * (parseFloat(item.extraReceivingValue) || 0) / 100).toFixed(2)}` :
+                                                                `${parseFloat(item.extraReceivingValue).toFixed(2)}`
+                                                            ) : '0.00'}
+                                                        </td>
+                                                        <td className="whitespace-nowrap px-3 py-5 text-sm font-medium text-[#1A1A1A]">
+                                                            {lineItem.lineTotal.toFixed(2)}
+                                                        </td>
+                                                        <td className="relative whitespace-nowrap py-5 pl-3 pr-4 text-right text-sm font-medium sm:pr-6">
+                                                            {items.length > 1 && (
+                                                                <button 
+                                                                    type="button" 
+                                                                    onClick={() => removeItem(index)} 
+                                                                    className="text-red-500 hover:text-red-700 p-2 rounded-full hover:bg-red-100 transition-all duration-200"
+                                                                    title="Remove item"
+                                                                >
+                                                                    <FaTrash size={18} />
+                                                                </button>
+                                                            )}
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            })}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    {/* Compare Prices Button */}
+                    <div className="flex justify-center my-8">
+                        <button 
+                            type="button" 
+                            onClick={comparePrices}
+                            disabled={items.filter(item => item.materialId).length === 0}
+                            className={`flex items-center px-6 py-3 rounded-[14px] transition-all duration-300 transform hover:scale-105 ${
+                                items.filter(item => item.materialId).length > 0
+                                    ? 'bg-gradient-to-r from-[#6A7F3F] to-[#5a6d35] text-white hover:from-[#5a6d35] hover:to-[#4a5d25] shadow-lg' 
+                                    : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                            }`}
+                        >
+                            <FaExchangeAlt className="mr-2" />
+                            Compare Prices
+                        </button>
+                    </div>
+                    
+                    {/* Totals Section */}
+                    <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-[16px] border border-[#E7E2D8] p-6 shadow-sm">
+                        <h3 className="text-xl font-bold text-[#1A1A1A] mb-6">Order Summary</h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-5">
+                            <div className="lg:col-span-3"></div>
+                            <div className="lg:col-span-2">
+                                <div className="bg-white rounded-[14px] p-5 shadow-sm border border-[#E7E2D8]">
+                                    <div className="space-y-4">
+                                        <div className="flex justify-between">
+                                            <span className="text-[#6A6A6A]">Taxable Amount:</span>
+                                            <span className="font-medium">₹{totals.taxableAmount.toFixed(2)}</span>
+                                        </div>
+                                        <div className="flex justify-between">
+                                            <span className="text-[#6A6A6A]">Total CGST:</span>
+                                            <span className="font-medium">₹{totals.totalCGST.toFixed(2)}</span>
+                                        </div>
+                                        <div className="flex justify-between">
+                                            <span className="text-[#6A6A6A]">Total SGST:</span>
+                                            <span className="font-medium">₹{totals.totalSGST.toFixed(2)}</span>
+                                        </div>
+                                        <div className="flex justify-between">
+                                            <span className="text-[#6A6A6A]">Round Off:</span>
+                                            <span className="font-medium">₹{totals.roundOff.toFixed(2)}</span>
+                                        </div>
+                                        <div className="flex justify-between pt-4 border-t border-[#E7E2D8]">
+                                            <span className="text-lg font-bold text-[#1A1A1A]">Grand Total:</span>
+                                            <span className="text-lg font-extrabold text-[#6A7F3F]">₹{totals.finalTotal.toFixed(2)}</span>
+                                        </div>
+                                        <div className="pt-4 border-t border-[#E7E2D8]">
+                                            <span className="text-sm text-[#6A6A6A]">Amount in Words: </span>
+                                            <span className="text-sm font-medium">
+                                                Rupees {totals.finalTotal > 0 ? 
+                                                    // Convert number to words (simplified version)
+                                                    `${Math.floor(totals.finalTotal).toLocaleString('en-IN')} and ${Math.round((totals.finalTotal - Math.floor(totals.finalTotal)) * 100)}/100 Only` : 
+                                                    'Zero Only'}
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    {/* Price Comparison Section */}
+                    {showComparisonPanel && (
+                        <div id="comparison-panel" className="bg-white rounded-[16px] border border-[#E7E2D8] shadow-sm overflow-hidden transition-all duration-300 ease-in-out">
+                            <div className="bg-gradient-to-r from-[#6A7F3F] to-[#5a6d35] text-white p-5 rounded-t-[16px]">
+                                <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4">
+                                    <h3 className="text-xl font-bold flex items-center">
+                                        <FaExchangeAlt className="mr-2" />
+                                        Purchase Order Comparison
+                                    </h3>
+                                    <div className="flex flex-col sm:flex-row gap-3">
+                                        {/* Supplier Filter - Added before date filters */}
+                                        <div className="flex items-center">
+                                            <label className="text-sm mr-2 whitespace-nowrap">Supplier:</label>
+                                            <select 
+                                                value={comparisonSupplier} 
+                                                onChange={(e) => setComparisonSupplier(e.target.value)}
+                                                className="text-sm px-3 py-2 rounded-[12px] text-[#1A1A1A] min-w-[120px] border border-[#E7E2D8]"
+                                            >
+                                                <option value="">All Suppliers</option>
+                                                {suppliers.map(supplier => (
+                                                    <option key={supplier._id} value={supplier._id}>
+                                                        {supplier.name}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                        <div className="flex items-center">
+                                            <label className="text-sm mr-2">From:</label>
+                                            <input 
+                                                type="date" 
+                                                value={dateFrom} 
+                                                onChange={(e) => setDateFrom(e.target.value)}
+                                                className="text-sm px-3 py-2 rounded-[12px] text-[#1A1A1A] border border-[#E7E2D8]"
+                                            />
+                                        </div>
+                                        <div className="flex items-center">
+                                            <label className="text-sm mr-2">To:</label>
+                                            <input 
+                                                type="date" 
+                                                value={dateTo} 
+                                                onChange={(e) => setDateTo(e.target.value)}
+                                                className="text-sm px-3 py-2 rounded-[12px] text-[#1A1A1A] border border-[#E7E2D8]"
+                                            />
+                                        </div>
+                                        <button 
+                                            type="button" 
+                                            onClick={applyDateFilter}
+                                            className="px-4 py-2 bg-white text-[#6A7F3F] text-sm rounded-[12px] hover:bg-gray-100 font-medium whitespace-nowrap transition-all duration-200"
+                                        >
+                                            Apply Filters
+                                        </button>
+                                    </div>
+                                    <button 
+                                        type="button" 
+                                        onClick={clearComparison}
+                                        className="px-4 py-2 bg-white text-[#6A7F3F] text-sm rounded-[12px] hover:bg-gray-100 flex items-center font-medium whitespace-nowrap transition-all duration-200"
+                                    >
+                                        <FaTimes className="mr-1" /> Clear
+                                    </button>
+                                </div>
+                            </div>
+                            <div className="p-5">
+                                {comparisonData.length > 0 ? (
+                                    <div className="space-y-6">
+                                        {comparisonData.map((materialData, index) => (
+                                            <div key={index} className="bg-[#FAF7F2] rounded-[14px] shadow-sm overflow-hidden">
+                                                <div className="bg-white px-5 py-4 border-b border-[#E7E2D8]">
+                                                    <h4 className="font-semibold text-[#1A1A1A] text-lg">{materialData.materialName}</h4>
+                                                </div>
+                                                <div className="overflow-x-auto">
+                                                    <table className="min-w-full divide-y divide-[#E7E2D8]">
+                                                        <thead className="bg-[#FAF7F2]">
+                                                            <tr>
+                                                                <th className="px-4 py-3 text-left text-xs font-medium text-[#1A1A1A] uppercase tracking-wider">PO Number</th>
+                                                                <th className="px-4 py-3 text-left text-xs font-medium text-[#1A1A1A] uppercase tracking-wider">PO Date</th>
+                                                                <th className="px-4 py-3 text-left text-xs font-medium text-[#1A1A1A] uppercase tracking-wider">Supplier</th>
+                                                                <th className="px-4 py-3 text-left text-xs font-medium text-[#1A1A1A] uppercase tracking-wider">Ordered Qty</th>
+                                                                <th className="px-4 py-3 text-left text-xs font-medium text-[#1A1A1A] uppercase tracking-wider">Previous Price (₹)</th>
+                                                                <th className="px-4 py-3 text-left text-xs font-medium text-[#1A1A1A] uppercase tracking-wider">Current Price (₹)</th>
+                                                                <th className="px-4 py-3 text-left text-xs font-medium text-[#1A1A1A] uppercase tracking-wider">Difference (₹)</th>
+                                                                <th className="px-4 py-3 text-left text-xs font-medium text-[#1A1A1A] uppercase tracking-wider">Change (%)</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody className="bg-white divide-y divide-[#E7E2D8]">
+                                                            {materialData.records.map((record, recordIndex) => (
+                                                                <tr key={recordIndex} className="hover:bg-[#FAF7F2] transition-colors duration-150">
+                                                                    <td className="px-4 py-4 whitespace-nowrap text-sm font-medium text-[#1A1A1A]">{record.poNumber}</td>
+                                                                    <td className="px-4 py-4 whitespace-nowrap text-sm text-[#6A6A6A]">{formatDate(record.poDate)}</td>
+                                                                    <td className="px-4 py-4 whitespace-nowrap text-sm text-[#6A6A6A]">{record.supplier}</td>
+                                                                    <td className="px-4 py-4 whitespace-nowrap text-sm text-[#6A6A6A]">{record.orderedQty}</td>
+                                                                    <td className="px-4 py-4 whitespace-nowrap text-sm text-[#1A1A1A]">₹{parseFloat(record.previousPrice).toFixed(2)}</td>
+                                                                    <td className="px-4 py-4 whitespace-nowrap text-sm text-[#1A1A1A] font-medium">₹{parseFloat(record.currentPrice).toFixed(2)}</td>
+                                                                    <td className={`px-4 py-4 whitespace-nowrap text-sm font-medium ${getPriceDifferenceColor(record.difference, record.percentage)}`}>
+                                                                        {record.difference >= 0 ? '+' : ''}{record.difference.toFixed(2)}
+                                                                    </td>
+                                                                    <td className={`px-4 py-4 whitespace-nowrap text-sm font-medium ${getPriceDifferenceColor(record.difference, record.percentage)}`}>
+                                                                        {record.percentage >= 0 ? '+' : ''}{record.percentage.toFixed(2)}%
+                                                                    </td>
+                                                                </tr>
+                                                            ))}
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <div className="text-center py-8 text-[#6A6A6A] bg-[#FAF7F2] rounded-[14px]">
+                                        <p>No previous purchase records found for the selected materials{comparisonSupplier ? ` from supplier ${suppliers.find(s => s._id === comparisonSupplier)?.name || ''}` : ''}{dateFrom || dateTo ? ' within the selected date range' : ''}.</p>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    )}
+                    
+                    {/* Submit */}
+                    <div className="flex justify-end pt-6">
+                        <button 
+                            type="submit" 
+                            disabled={isLoading} 
+                            className="px-6 py-3 text-[#1A1A1A] bg-[#F2C94C] rounded-[14px] hover:bg-[#e0b840] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#F2C94C] disabled:opacity-50 shadow-md font-medium transition-all duration-200"
+                        >
+                            {isLoading ? (
+                                <span className="flex items-center">
+                                    <FaSpinner className="animate-spin mr-2" />
+                                    Creating...
+                                </span>
+                            ) : 'Create Purchase Order'}
+                        </button>
+                    </div>
+                     {error && <p className="text-red-500 text-sm mt-3 text-right">{error}</p>}
+                </form>
+            </div>
+        </div>
     );
 };
 
@@ -1049,7 +1061,7 @@ const CreatePurchaseOrder = () => {
     };
 
     if (isLoading) {
-        return <div className="flex justify-center items-center h-64"><FaSpinner className="animate-spin text-primary-500" size={48} /></div>;
+        return <div className="flex justify-center items-center h-64"><FaSpinner className="animate-spin text-[#F2C94C]" size={48} /></div>;
     }
 
     if (error) {

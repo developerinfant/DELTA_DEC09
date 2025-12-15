@@ -1,12 +1,15 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../../api';
-import { FaSpinner, FaRedo, FaSearch, FaDownload, FaCheck, FaTimes, FaEye } from 'react-icons/fa';
+import { FaSpinner, FaRedo, FaSearch, FaDownload, FaCheck, FaTimes, FaEye, FaExclamationTriangle, FaClock } from 'react-icons/fa';
 import { toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
+import autoTable from 'jspdf-autotable';
+import Card from '../../components/common/Card';
+import MobileCardList from '../../components/common/MobileCardList';
 
 const DamagedStockReport = () => {
   const [damagedStockEntries, setDamagedStockEntries] = useState([]);
@@ -17,6 +20,12 @@ const DamagedStockReport = () => {
   const [historyData, setHistoryData] = useState([]);
   const [currentMaterialName, setCurrentMaterialName] = useState('');
   const [historyLoading, setHistoryLoading] = useState(false);
+  // Approval modal state
+  const [showApprovalModal, setShowApprovalModal] = useState(false);
+  const [approvalAction, setApprovalAction] = useState(''); // 'accept' or 'reject'
+  const [approvalRemarks, setApprovalRemarks] = useState('');
+  const [approvalEntryId, setApprovalEntryId] = useState('');
+  const [approvalRemarksError, setApprovalRemarksError] = useState('');
   const [filters, setFilters] = useState({
     startDate: '',
     endDate: '',
@@ -116,7 +125,9 @@ const DamagedStockReport = () => {
 
   // Handle page change
   const handlePageChange = (newPage) => {
-    setPagination(prev => ({ ...prev, page: newPage }));
+    if (newPage >= 1 && newPage <= pagination.pages) {
+      setPagination(prev => ({ ...prev, page: newPage }));
+    }
   };
 
   // View history
@@ -143,6 +154,35 @@ const DamagedStockReport = () => {
     setCurrentMaterialName('');
   };
 
+  // Open approval modal
+  const openApprovalModal = (id, action) => {
+    setApprovalEntryId(id);
+    setApprovalAction(action);
+    setApprovalRemarks('');
+    setApprovalRemarksError('');
+    setShowApprovalModal(true);
+  };
+
+  // Close approval modal
+  const closeApprovalModal = () => {
+    setShowApprovalModal(false);
+    setApprovalAction('');
+    setApprovalRemarks('');
+    setApprovalEntryId('');
+    setApprovalRemarksError('');
+  };
+
+  // Handle approval submission
+  const handleApprovalSubmit = () => {
+    if (!approvalRemarks.trim()) {
+      setApprovalRemarksError('Remarks are required');
+      return;
+    }
+    
+    setApprovalRemarksError('');
+    handleAction(approvalEntryId, approvalAction, approvalRemarks);
+  };
+
   // Handle approve/reject action
   const handleAction = async (id, action, remarks = '') => {
     try {
@@ -150,6 +190,13 @@ const DamagedStockReport = () => {
       toast.success(`Damaged stock entry ${action}ed successfully`);
       fetchDamagedStockEntries();
       fetchSummary();
+      // Close the approval modal
+      setShowApprovalModal(false);
+      // Reset approval state
+      setApprovalAction('');
+      setApprovalRemarks('');
+      setApprovalEntryId('');
+      setApprovalRemarksError('');
     } catch (err) {
       const errorMessage = err.response?.data?.message || 'Failed to process damaged stock entry';
       toast.error(errorMessage);
@@ -309,7 +356,7 @@ const DamagedStockReport = () => {
       ]);
       
       // Add table
-      doc.autoTable({
+      autoTable(doc, {
         head: [tableColumn],
         body: tableRows,
         startY: 40,
@@ -329,6 +376,28 @@ const DamagedStockReport = () => {
     }
   };
 
+
+  // Define fields for mobile card list
+  const mobileFields = [
+    { key: 'material_name', label: 'Material', isTitle: true },
+    { key: 'entered_on', label: 'Date', render: (value) => formatDate(value) },
+    { key: 'dc_no', label: 'DC No' },
+    { key: 'product_name', label: 'Product' },
+    { key: 'received_qty', label: 'Received' },
+    { key: 'damaged_qty', label: 'Damaged', render: (value) => <span className="font-medium text-red-600">{value}</span> },
+    { 
+      key: 'status', 
+      label: 'Status', 
+      render: (value) => getStatusBadge(value)
+    }
+  ];
+
+  // Handle item click (for viewing details)
+  const handleItemClick = (item) => {
+    // On mobile, we could show a detail view, but for now we'll just show the history
+    viewHistory(item.material_name);
+  };
+
   if (isLoading) {
     return (
       <div className="flex justify-center items-center h-64">
@@ -346,19 +415,19 @@ const DamagedStockReport = () => {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 page-fade-in">
       <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4">
         <h1 className="text-3xl font-bold text-gray-800">Damaged Stock Report</h1>
         <div className="flex space-x-2">
           <button 
             onClick={() => navigate('/packing/damaged-stock-master')}
-            className="flex items-center px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors"
+            className="btn btn-accent"
           >
             Damaged Stock Summary
           </button>
           <button 
             onClick={fetchDamagedStockEntries}
-            className="flex items-center px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors self-end md:self-auto"
+            className="btn btn-primary"
           >
             <FaRedo className="mr-2" />
             Refresh
@@ -368,72 +437,93 @@ const DamagedStockReport = () => {
       
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
-          <h3 className="text-lg font-medium text-gray-900">Pending Requests</h3>
-          <p className="text-3xl font-bold text-yellow-600">{summary.pendingRequests}</p>
-        </div>
-        <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
-          <h3 className="text-lg font-medium text-gray-900">Total Damaged Qty</h3>
-          <p className="text-3xl font-bold text-red-600">{summary.totalDamagedQty}</p>
-        </div>
-        <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
-          <h3 className="text-lg font-medium text-gray-900">Last Updated</h3>
-          <p className="text-lg font-medium text-gray-600">
-            {summary.lastUpdated ? formatDate(summary.lastUpdated) : 'N/A'}
-          </p>
-        </div>
+        <Card className="border-l-4 border-yellow-500">
+          <div className="flex items-center">
+            <div className="p-3 rounded-full bg-yellow-100 text-yellow-600 mr-4">
+              <FaSpinner size={24} />
+            </div>
+            <div>
+              <div className="text-sm font-medium text-gray-500">Pending Requests</div>
+              <div className="text-2xl font-bold text-gray-900">{summary.pendingRequests}</div>
+            </div>
+          </div>
+        </Card>
+        <Card className="border-l-4 border-red-500">
+          <div className="flex items-center">
+            <div className="p-3 rounded-full bg-red-100 text-red-600 mr-4">
+              <FaExclamationTriangle size={24} />
+            </div>
+            <div>
+              <div className="text-sm font-medium text-gray-500">Total Damaged Qty</div>
+              <div className="text-2xl font-bold text-gray-900">{summary.totalDamagedQty}</div>
+            </div>
+          </div>
+        </Card>
+        <Card className="border-l-4 border-blue-500">
+          <div className="flex items-center">
+            <div className="p-3 rounded-full bg-blue-100 text-blue-600 mr-4">
+              <FaClock size={24} />
+            </div>
+            <div>
+              <div className="text-sm font-medium text-gray-500">Last Updated</div>
+              <div className="text-lg font-medium text-gray-600">
+                {summary.lastUpdated ? formatDate(summary.lastUpdated) : 'N/A'}
+              </div>
+            </div>
+          </div>
+        </Card>
       </div>
       
       {/* Filters */}
-      <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200">
+      <Card title="Filters">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Date Range</label>
+            <label className="form-label">Date Range</label>
             <div className="flex space-x-2">
               <input
                 type="date"
                 value={filters.startDate}
                 onChange={(e) => handleFilterChange('startDate', e.target.value)}
-                className="flex-1 px-3 py-2 border border-gray-300 rounded-md text-sm"
+                className="form-input flex-1"
               />
               <input
                 type="date"
                 value={filters.endDate}
                 onChange={(e) => handleFilterChange('endDate', e.target.value)}
-                className="flex-1 px-3 py-2 border border-gray-300 rounded-md text-sm"
+                className="form-input flex-1"
               />
             </div>
           </div>
           
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Supplier</label>
+            <label className="form-label">Supplier</label>
             <input
               type="text"
               value={filters.supplier}
               onChange={(e) => handleFilterChange('supplier', e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+              className="form-input w-full"
               placeholder="Supplier name"
             />
           </div>
           
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Product</label>
+            <label className="form-label">Product</label>
             <input
               type="text"
               value={filters.product}
               onChange={(e) => handleFilterChange('product', e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+              className="form-input w-full"
               placeholder="Product name"
             />
           </div>
           
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Material</label>
+            <label className="form-label">Material</label>
             <input
               type="text"
               value={filters.material}
               onChange={(e) => handleFilterChange('material', e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+              className="form-input w-full"
               placeholder="Material name"
             />
           </div>
@@ -441,11 +531,11 @@ const DamagedStockReport = () => {
         
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+            <label className="form-label">Status</label>
             <select
               value={filters.status}
               onChange={(e) => handleFilterChange('status', e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+              className="form-input w-full"
             >
               <option value="">All Statuses</option>
               <option value="Pending">Pending</option>
@@ -455,7 +545,7 @@ const DamagedStockReport = () => {
           </div>
           
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Search</label>
+            <label className="form-label">Search</label>
             <div className="relative">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                 <FaSearch className="text-gray-400" />
@@ -464,7 +554,7 @@ const DamagedStockReport = () => {
                 type="text"
                 value={filters.search}
                 onChange={(e) => handleFilterChange('search', e.target.value)}
-                className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md text-sm"
+                className="form-input block w-full pl-10"
                 placeholder="Search by DC No, GRN No..."
               />
             </div>
@@ -473,183 +563,216 @@ const DamagedStockReport = () => {
           <div className="flex items-end space-x-2">
             <button
               onClick={applyFilters}
-              className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 text-sm"
+              className="btn btn-primary"
             >
               Apply Filters
             </button>
             <button
               onClick={resetFilters}
-              className="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 text-sm"
+              className="btn btn-outline"
             >
               Reset
             </button>
           </div>
         </div>
-      </div>
+      </Card>
       
       {/* Export Buttons */}
       <div className="flex justify-end space-x-2">
         <button
           onClick={exportToCSV}
-          className="flex items-center px-3 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 text-sm"
+          className="btn btn-success"
         >
           <FaDownload className="mr-1" /> CSV
         </button>
         <button
           onClick={exportToExcel}
-          className="flex items-center px-3 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm"
+          className="btn btn-primary"
         >
           <FaDownload className="mr-1" /> Excel
         </button>
         <button
           onClick={exportToPDF}
-          className="flex items-center px-3 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 text-sm"
+          className="btn btn-secondary"
         >
           <FaDownload className="mr-1" /> PDF
         </button>
       </div>
       
       {/* Damaged Stock Table */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">DC No</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">GRN No</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Product</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Material</th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Total Received</th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Damaged Qty</th>
-                <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Stock Deducted</th>
-                <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Entered By</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Approved By</th>
-                <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {damagedStockEntries.length === 0 ? (
-                <tr>
-                  <td colSpan="12" className="px-6 py-4 text-center text-gray-500">
-                    No damaged stock entries found.
-                  </td>
-                </tr>
-              ) : (
-                damagedStockEntries.map((entry) => (
-                  <tr key={entry._id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {formatDate(entry.entered_on)}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                      {entry.dc_no}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {entry.grnNumber || 'N/A'}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {entry.product_name}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {entry.material_name}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-right">
-                      {entry.received_qty}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-red-600 text-right">
-                      {entry.damaged_qty}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-center">
-                      {entry.deducted_from_stock ? (
-                        <span className="px-2 py-1 text-xs bg-green-100 text-green-800 rounded-full">
-                          Yes
-                        </span>
-                      ) : (
-                        <span className="px-2 py-1 text-xs bg-gray-100 text-gray-800 rounded-full">
-                          No
-                        </span>
-                      )}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm">
-                      {getStatusBadge(entry.status)}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {entry.entered_by}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {entry.approved_by || 'N/A'}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-center">
-                      {entry.status === 'Pending' && (
-                        <div className="flex space-x-2 justify-center">
-                          <button
-                            onClick={() => {
-                              const remarks = prompt('Enter remarks for approval:');
-                              if (remarks !== null) {
-                                handleAction(entry._id, 'accept', remarks);
-                              }
-                            }}
-                            className="p-2 text-green-600 hover:text-green-900"
-                            title="Approve"
-                          >
-                            <FaCheck />
-                          </button>
-                          <button
-                            onClick={() => {
-                              const remarks = prompt('Enter remarks for rejection:');
-                              if (remarks !== null) {
-                                handleAction(entry._id, 'reject', remarks);
-                              }
-                            }}
-                            className="p-2 text-red-600 hover:text-red-900"
-                            title="Reject"
-                          >
-                            <FaTimes />
-                          </button>
-                        </div>
-                      )}
-                      {entry.status !== 'Pending' && (
-                        <button
-                          onClick={() => viewHistory(entry.material_name)}
-                          className="p-2 text-blue-600 hover:text-blue-900"
-                          title="View History"
-                        >
-                          <FaEye />
-                        </button>
-                      )}
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+      <div className="card glass-container">
+        <div className="px-6 py-4 border-b border-light-200">
+          <h3 className="text-lg font-semibold text-dark-800">Damaged Stock Entries</h3>
         </div>
-        
-        {/* Pagination */}
-        {pagination.pages > 1 && (
-          <div className="px-6 py-3 bg-gray-50 border-t border-gray-200 flex items-center justify-between">
-            <div className="text-sm text-gray-700">
-              Showing page {pagination.page} of {pagination.pages}
+        <div className="p-4">
+          <div className="table-container">
+            <div className="hidden md:block overflow-x-hidden">
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200 table-zebra">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-24">Date</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-24">DC No</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-24">GRN No</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider max-w-xs truncate">Product</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider max-w-xs truncate">Material</th>
+                      <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider w-24">Received</th>
+                      <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider w-24">Damaged</th>
+                      <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-24">Deducted</th>
+                      <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-24">Status</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider max-w-xs truncate">Entered By</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider max-w-xs truncate">Approved By</th>
+                      <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider sticky right-0 bg-gray-50 w-24">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {damagedStockEntries.length > 0 ? (
+                      damagedStockEntries.map((item, rowIndex) => (
+                        <tr key={item._id} className="hover:bg-gray-50 transition-colors duration-200">
+                          <td className="px-4 py-4 text-sm text-gray-500 whitespace-nowrap">{formatDate(item.entered_on)}</td>
+                          <td className="px-4 py-4 text-sm font-medium text-gray-900 whitespace-nowrap">{item.dc_no}</td>
+                          <td className="px-4 py-4 text-sm text-gray-500 whitespace-nowrap">{item.grnNumber || 'N/A'}</td>
+                          <td className="px-4 py-4 text-sm text-gray-500 max-w-xs truncate" title={item.product_name}>{item.product_name}</td>
+                          <td className="px-4 py-4 text-sm text-gray-500 max-w-xs truncate" title={item.material_name}>{item.material_name}</td>
+                          <td className="px-4 py-4 text-sm text-gray-500 text-right">{item.received_qty}</td>
+                          <td className="px-4 py-4 text-sm font-medium text-red-600 text-right">{item.damaged_qty}</td>
+                          <td className="px-4 py-4 text-sm text-center">
+                            {item.deducted_from_stock ? (
+                              <span className="px-2 py-1 text-xs bg-green-100 text-green-800 rounded-full">Yes</span>
+                            ) : (
+                              <span className="px-2 py-1 text-xs bg-gray-100 text-gray-800 rounded-full">No</span>
+                            )}
+                          </td>
+                          <td className="px-4 py-4 text-sm">{getStatusBadge(item.status)}</td>
+                          <td className="px-4 py-4 text-sm text-gray-500 max-w-xs truncate" title={item.entered_by}>{item.entered_by}</td>
+                          <td className="px-4 py-4 text-sm text-gray-500 max-w-xs truncate" title={item.approved_by || 'N/A'}>{item.approved_by || 'N/A'}</td>
+                          <td className="px-4 py-4 text-sm text-center sticky right-0 bg-white z-10">
+                            {item.status === 'Pending' ? (
+                              <div className="flex space-x-2 justify-center">
+                                <button
+                                  onClick={() => openApprovalModal(item._id, 'accept')}
+                                  className="p-2 text-green-600 hover:text-green-900"
+                                  title="Approve"
+                                >
+                                  <FaCheck />
+                                </button>
+                                <button
+                                  onClick={() => openApprovalModal(item._id, 'reject')}
+                                  className="p-2 text-red-600 hover:text-red-900"
+                                  title="Reject"
+                                >
+                                  <FaTimes />
+                                </button>
+                              </div>
+                            ) : (
+                              <button
+                                onClick={() => viewHistory(item.material_name)}
+                                className="p-2 text-blue-600 hover:text-blue-900"
+                                title="View History"
+                              >
+                                <FaEye />
+                              </button>
+                            )}
+                          </td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td colSpan="12" className="px-6 py-4 text-center text-sm text-gray-500">
+                          No data found.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
             </div>
-            <div className="flex space-x-2">
-              <button
-                onClick={() => handlePageChange(pagination.page - 1)}
-                disabled={pagination.page === 1}
-                className={`px-3 py-1 rounded-md ${pagination.page === 1 ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'}`}
-              >
-                Previous
-              </button>
-              <button
-                onClick={() => handlePageChange(pagination.page + 1)}
-                disabled={pagination.page === pagination.pages}
-                className={`px-3 py-1 rounded-md ${pagination.page === pagination.pages ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'}`}
-              >
-                Next
-              </button>
+            
+            <div className="md:hidden">
+              <MobileCardList 
+                data={damagedStockEntries}
+                onItemClick={handleItemClick}
+                fields={mobileFields}
+                itemKey="_id"
+              />
             </div>
+            
+            {/* Pagination */}
+            {pagination.pages > 1 && (
+              <div className="flex justify-center mt-6">
+                <div className="pagination">
+                  <button
+                    className="pagination-button"
+                    onClick={() => handlePageChange(pagination.page - 1)}
+                    disabled={pagination.page === 1}
+                  >
+                    &lt;
+                  </button>
+                  
+                  <button
+                    className={`pagination-button ${1 === pagination.page ? 'active' : ''}`}
+                    onClick={() => handlePageChange(1)}
+                  >
+                    1
+                  </button>
+                  
+                  {pagination.page > 3 && (
+                    <span className="pagination-ellipsis">...</span>
+                  )}
+                  
+                  {pagination.page === 3 && (
+                    <button
+                      className="pagination-button"
+                      onClick={() => handlePageChange(2)}
+                    >
+                      2
+                    </button>
+                  )}
+                  
+                  {pagination.page > 3 && pagination.page < pagination.pages - 1 && (
+                    <button
+                      className="pagination-button active"
+                      onClick={() => {}}
+                      disabled
+                    >
+                      {pagination.page}
+                    </button>
+                  )}
+                  
+                  {pagination.page === pagination.pages - 2 && (
+                    <button
+                      className="pagination-button"
+                      onClick={() => handlePageChange(pagination.pages - 1)}
+                    >
+                      {pagination.pages - 1}
+                    </button>
+                  )}
+                  
+                  {pagination.page < pagination.pages - 2 && (
+                    <span className="pagination-ellipsis">...</span>
+                  )}
+                  
+                  {pagination.pages > 1 && (
+                    <button
+                      className={`pagination-button ${pagination.pages === pagination.page ? 'active' : ''}`}
+                      onClick={() => handlePageChange(pagination.pages)}
+                    >
+                      {pagination.pages}
+                    </button>
+                  )}
+                  
+                  <button
+                    className="pagination-button"
+                    onClick={() => handlePageChange(pagination.page + 1)}
+                    disabled={pagination.page === pagination.pages}
+                  >
+                    &gt;
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
-        )}
+        </div>
       </div>
       
       {/* History Modal */}
@@ -742,10 +865,62 @@ const DamagedStockReport = () => {
             <div className="border-t p-4 flex justify-end">
               <button
                 onClick={closeHistoryModal}
-                className="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300"
+                className="btn btn-outline"
               >
                 Close
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* Approval Modal */}
+      {showApprovalModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-md overflow-hidden">
+            <div className="flex justify-between items-center border-b p-4">
+              <h2 className="text-xl font-bold text-gray-800">
+                {approvalAction === 'accept' ? 'Approve' : 'Reject'} Damaged Stock
+              </h2>
+              <button 
+                onClick={closeApprovalModal}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                <FaTimes size={20} />
+              </button>
+            </div>
+            
+            <div className="p-6">
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Remarks <span className="text-red-500">*</span>
+                </label>
+                <textarea
+                  value={approvalRemarks}
+                  onChange={(e) => setApprovalRemarks(e.target.value)}
+                  className={`w-full px-3 py-2 border rounded-md ${approvalRemarksError ? 'border-red-500' : 'border-gray-300'}`}
+                  rows="3"
+                  placeholder="Enter remarks..."
+                />
+                {approvalRemarksError && (
+                  <p className="mt-1 text-sm text-red-600">{approvalRemarksError}</p>
+                )}
+              </div>
+              
+              <div className="flex justify-end space-x-3">
+                <button
+                  onClick={closeApprovalModal}
+                  className="btn btn-outline"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleApprovalSubmit}
+                  className={`btn ${approvalAction === 'accept' ? 'btn-success' : 'btn-secondary'}`}
+                >
+                  {approvalAction === 'accept' ? 'Approve' : 'Reject'}
+                </button>
+              </div>
             </div>
           </div>
         </div>

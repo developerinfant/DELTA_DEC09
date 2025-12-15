@@ -73,19 +73,89 @@ const getFGStockReport = async (req, res) => {
         // Get all product stocks
         const productStocks = await ProductStock.find({});
         
+        // Extract product IDs and names for bulk operations
+        const productIds = productStocks.map(p => p._id);
+        const productNames = productStocks.map(p => p.productName);
+        
+        // Bulk fetch all required data using aggregation pipelines to eliminate N+1 query problem
+        
+        // 1. Get all product mappings in one query
+        const productMappings = await ProductMaterialMapping.find({
+            product_name: { $in: productNames }
+        });
+        
+        // Create a map for quick lookup
+        const productMappingMap = {};
+        productMappings.forEach(mapping => {
+            productMappingMap[mapping.product_name] = mapping;
+        });
+        
+        // 2. Get all stock records for the selected date in one query
+        const stockRecords = await ProductStockRecord.find({
+            product: { $in: productIds },
+            date: selectedDate
+        });
+        
+        // Create a map for quick lookup
+        const stockRecordMap = {};
+        stockRecords.forEach(record => {
+            stockRecordMap[record.product.toString()] = record;
+        });
+        
+        // 3. Get previous day's stock records for opening values in one query
+        const yesterday = new Date(selectedDate);
+        yesterday.setDate(yesterday.getDate() - 1);
+        
+        const previousStockRecords = await ProductStockRecord.find({
+            product: { $in: productIds },
+            date: yesterday
+        });
+        
+        // Create a map for quick lookup
+        const previousStockRecordMap = {};
+        previousStockRecords.forEach(record => {
+            previousStockRecordMap[record.product.toString()] = record;
+        });
+        
+        // 4. Get all GRNs for the selected date in one query (both direct and DC-linked)
+        const grns = await GRN.find({
+            sourceType: 'jobber',
+            status: { $nin: ['Draft', 'Cancelled'] },
+            $or: [
+                { productName: { $in: productNames } },
+                { deliveryChallan: { $exists: true, $ne: null } }
+            ]
+        }).populate('deliveryChallan');
+        
+        // Filter GRNs by date
+        const selectedDateGRNs = grns.filter(grn => {
+            const grnDate = new Date(grn.dateReceived);
+            grnDate.setHours(0, 0, 0, 0);
+            return grnDate.getTime() === selectedDate.getTime();
+        });
+        
+        // 5. Get all Delivery Challans for the selected date in one query
+        const deliveryChallans = await FinishedGoodsDC.find({
+            product_name: { $in: productNames },
+            status: { $nin: ['Draft', 'Cancelled'] }
+        });
+        
+        // Filter DCs by date
+        const selectedDateDCs = deliveryChallans.filter(dc => {
+            const dcDate = new Date(dc.date);
+            dcDate.setHours(0, 0, 0, 0);
+            return dcDate.getTime() === selectedDate.getTime();
+        });
+        
         // Process products to calculate stock distribution
         const reportData = [];
         
         for (const product of productStocks) {
             // Get units per carton from product mapping
             let unitsPerCarton = 1; // Default value
-            try {
-                const productMapping = await ProductMaterialMapping.findOne({ product_name: product.productName });
-                if (productMapping && productMapping.units_per_carton) {
-                    unitsPerCarton = productMapping.units_per_carton;
-                }
-            } catch (error) {
-                console.error(`Error fetching product mapping for ${product.productName}:`, error.message);
+            const productMapping = productMappingMap[product.productName];
+            if (productMapping && productMapping.units_per_carton) {
+                unitsPerCarton = productMapping.units_per_carton;
             }
             
             // Initialize opening and closing values
@@ -97,10 +167,7 @@ const getFGStockReport = async (req, res) => {
             // Handle date-specific logic for opening/closing values
             if (selectedDate < currentDate) {
                 // Past date: Always use stored snapshots
-                const stockRecord = await ProductStockRecord.findOne({
-                    product: product._id,
-                    date: selectedDate
-                });
+                const stockRecord = stockRecordMap[product._id.toString()];
                 
                 if (stockRecord) {
                     openingCartons = stockRecord.openingCartons;
@@ -123,13 +190,7 @@ const getFGStockReport = async (req, res) => {
                 todayClosingTime.setHours(closingHour, closingMinute, 0, 0);
                 
                 // Get previous day's closing snapshot for opening values
-                const yesterday = new Date(selectedDate);
-                yesterday.setDate(yesterday.getDate() - 1);
-                
-                const previousStockRecord = await ProductStockRecord.findOne({
-                    product: product._id,
-                    date: yesterday
-                });
+                const previousStockRecord = previousStockRecordMap[product._id.toString()];
                 
                 if (previousStockRecord) {
                     openingCartons = previousStockRecord.closingCartons;
@@ -142,10 +203,7 @@ const getFGStockReport = async (req, res) => {
                 // For closing values, check if we've passed the closing time
                 if (now >= todayClosingTime) {
                     // After closing time: Use today's stored closing snapshot
-                    const todayStockRecord = await ProductStockRecord.findOne({
-                        product: product._id,
-                        date: selectedDate
-                    });
+                    const todayStockRecord = stockRecordMap[product._id.toString()];
                     
                     if (todayStockRecord) {
                         // Per user request: Map closingCartons = totalCartons and closingPieces = brokenPieces
@@ -162,37 +220,22 @@ const getFGStockReport = async (req, res) => {
                     let inward = 0;
                     
                     // Get GRNs that directly reference this product by productName for the selected date
-                    const directGRNs = await GRN.find({
-                        sourceType: 'jobber',
-                        status: { $nin: ['Draft', 'Cancelled'] }, // Count all except Draft and Cancelled
-                        productName: product.productName
-                    });
+                    const directGRNs = selectedDateGRNs.filter(grn => 
+                        grn.productName === product.productName
+                    );
                     
                     directGRNs.forEach(grn => {
-                        const grnDate = new Date(grn.dateReceived);
-                        grnDate.setHours(0, 0, 0, 0);
-                        
-                        // Count all GRNs except those marked as Draft or Cancelled
-                        // This ensures real-time stock addition when GRN is submitted, not just when completed
-                        if (grnDate.getTime() === selectedDate.getTime()) {
-                            inward += grn.cartonsReturned || 0;
-                        }
+                        inward += grn.cartonsReturned || 0;
                     });
                     
                     // Additionally, get GRNs that reference Delivery Challans with multiple products for the selected date
-                    const dcGRNs = await GRN.find({
-                        sourceType: 'jobber',
-                        status: { $nin: ['Draft', 'Cancelled'] }, // Count all except Draft and Cancelled
-                        deliveryChallan: { $exists: true, $ne: null },
-                        productName: { $ne: product.productName } // Exclude GRNs that already directly reference this product
-                    }).populate('deliveryChallan');
+                    const dcGRNs = selectedDateGRNs.filter(grn => 
+                        grn.deliveryChallan && grn.productName !== product.productName
+                    );
                     
                     // For each of these GRNs, check if the referenced DC contains this product
                     for (const grn of dcGRNs) {
-                        const grnDate = new Date(grn.dateReceived);
-                        grnDate.setHours(0, 0, 0, 0);
-                        
-                        if (grnDate.getTime() === selectedDate.getTime() && grn.deliveryChallan) {
+                        if (grn.deliveryChallan) {
                             // Check if this DC contains the product we're looking for
                             if (grn.deliveryChallan.products && Array.isArray(grn.deliveryChallan.products)) {
                                 const productInDC = grn.deliveryChallan.products.find(p => p.product_name === product.productName);
@@ -223,29 +266,22 @@ const getFGStockReport = async (req, res) => {
                     let outwardCartons = 0;
                     let outwardPieces = 0;
                     
-                    const deliveryChallans = await FinishedGoodsDC.find({
-                        product_name: product.productName
-                    });
+                    const productDCs = selectedDateDCs.filter(dc => 
+                        dc.product_name === product.productName
+                    );
                     
-                    deliveryChallans.forEach(dc => {
-                        const dcDate = new Date(dc.date);
-                        dcDate.setHours(0, 0, 0, 0);
-                        
-                        // Count all DCs except those marked as Draft or Cancelled
-                        // This ensures real-time stock deduction when DC is created, not just when completed
-                        if (!['Draft', 'Cancelled'].includes(dc.status) && dcDate.getTime() === selectedDate.getTime()) {
-                            // Calculate outward cartons and pieces based on issue type
-                            if (dc.issue_type === 'Both') {
-                                // Both cartons and pieces issued
-                                outwardCartons += dc.carton_quantity || 0;
-                                outwardPieces += dc.piece_quantity || 0;
-                            } else if (dc.issue_type === 'Carton') {
-                                // Only cartons issued
-                                outwardCartons += dc.quantity || 0;
-                            } else {
-                                // Only pieces issued
-                                outwardPieces += dc.quantity || 0;
-                            }
+                    productDCs.forEach(dc => {
+                        // Calculate outward cartons and pieces based on issue type
+                        if (dc.issue_type === 'Both') {
+                            // Both cartons and pieces issued
+                            outwardCartons += dc.carton_quantity || 0;
+                            outwardPieces += dc.piece_quantity || 0;
+                        } else if (dc.issue_type === 'Carton') {
+                            // Only cartons issued
+                            outwardCartons += dc.quantity || 0;
+                        } else {
+                            // Only pieces issued
+                            outwardPieces += dc.quantity || 0;
                         }
                     });
                     
@@ -292,13 +328,7 @@ const getFGStockReport = async (req, res) => {
                 }
             } else {
                 // Future date: Use previous day's saved closing snapshot for both opening and closing
-                const yesterday = new Date(selectedDate);
-                yesterday.setDate(yesterday.getDate() - 1);
-                
-                const previousStockRecord = await ProductStockRecord.findOne({
-                    product: product._id,
-                    date: yesterday
-                });
+                const previousStockRecord = previousStockRecordMap[product._id.toString()];
                 
                 if (previousStockRecord) {
                     openingCartons = previousStockRecord.closingCartons;
@@ -319,37 +349,22 @@ const getFGStockReport = async (req, res) => {
             let inward = 0;
             
             // Get GRNs that directly reference this product by productName for the selected date
-            const directGRNs = await GRN.find({
-                sourceType: 'jobber',
-                status: { $nin: ['Draft', 'Cancelled'] }, // Count all except Draft and Cancelled
-                productName: product.productName
-            });
+            const directGRNs = selectedDateGRNs.filter(grn => 
+                grn.productName === product.productName
+            );
             
             directGRNs.forEach(grn => {
-                const grnDate = new Date(grn.dateReceived);
-                grnDate.setHours(0, 0, 0, 0);
-                
-                // Count all GRNs except those marked as Draft or Cancelled
-                // This ensures real-time stock addition when GRN is submitted, not just when completed
-                if (grnDate.getTime() === selectedDate.getTime()) {
-                    inward += grn.cartonsReturned || 0;
-                }
+                inward += grn.cartonsReturned || 0;
             });
             
             // Additionally, get GRNs that reference Delivery Challans with multiple products for the selected date
-            const dcGRNs = await GRN.find({
-                sourceType: 'jobber',
-                status: { $nin: ['Draft', 'Cancelled'] }, // Count all except Draft and Cancelled
-                deliveryChallan: { $exists: true, $ne: null },
-                productName: { $ne: product.productName } // Exclude GRNs that already directly reference this product
-            }).populate('deliveryChallan');
+            const dcGRNs = selectedDateGRNs.filter(grn => 
+                grn.deliveryChallan && grn.productName !== product.productName
+            );
             
             // For each of these GRNs, check if the referenced DC contains this product
             for (const grn of dcGRNs) {
-                const grnDate = new Date(grn.dateReceived);
-                grnDate.setHours(0, 0, 0, 0);
-                
-                if (grnDate.getTime() === selectedDate.getTime() && grn.deliveryChallan) {
+                if (grn.deliveryChallan) {
                     // Check if this DC contains the product we're looking for
                     if (grn.deliveryChallan.products && Array.isArray(grn.deliveryChallan.products)) {
                         const productInDC = grn.deliveryChallan.products.find(p => p.product_name === product.productName);
@@ -380,29 +395,22 @@ const getFGStockReport = async (req, res) => {
             let outwardCartons = 0;
             let outwardPieces = 0;
             
-            const deliveryChallans = await FinishedGoodsDC.find({
-                product_name: product.productName
-            });
+            const productDCs = selectedDateDCs.filter(dc => 
+                dc.product_name === product.productName
+            );
             
-            deliveryChallans.forEach(dc => {
-                const dcDate = new Date(dc.date);
-                dcDate.setHours(0, 0, 0, 0);
-                
-                // Count all DCs except those marked as Draft or Cancelled
-                // This ensures real-time stock deduction when DC is created, not just when completed
-                if (!['Draft', 'Cancelled'].includes(dc.status) && dcDate.getTime() === selectedDate.getTime()) {
-                    // Calculate outward cartons and pieces based on issue type
-                    if (dc.issue_type === 'Both') {
-                        // Both cartons and pieces issued
-                        outwardCartons += dc.carton_quantity || 0;
-                        outwardPieces += dc.piece_quantity || 0;
-                    } else if (dc.issue_type === 'Carton') {
-                        // Only cartons issued
-                        outwardCartons += dc.quantity || 0;
-                    } else {
-                        // Only pieces issued
-                        outwardPieces += dc.quantity || 0;
-                    }
+            productDCs.forEach(dc => {
+                // Calculate outward cartons and pieces based on issue type
+                if (dc.issue_type === 'Both') {
+                    // Both cartons and pieces issued
+                    outwardCartons += dc.carton_quantity || 0;
+                    outwardPieces += dc.piece_quantity || 0;
+                } else if (dc.issue_type === 'Carton') {
+                    // Only cartons issued
+                    outwardCartons += dc.quantity || 0;
+                } else {
+                    // Only pieces issued
+                    outwardPieces += dc.quantity || 0;
                 }
             });
             
@@ -446,11 +454,7 @@ const getFGStockReport = async (req, res) => {
             let lastUpdated = product.updatedAt || product.createdAt || new Date();
             
             // Check if there were any transactions today that might have updated the product (unchanged logic)
-            const todayTransactions = [...directGRNs, ...deliveryChallans].filter(item => {
-                const itemDate = new Date(item.dateReceived || item.date || item.createdAt);
-                itemDate.setHours(0, 0, 0, 0);
-                return itemDate.getTime() === selectedDate.getTime();
-            });
+            const todayTransactions = [...directGRNs, ...productDCs];
             
             if (todayTransactions.length > 0) {
                 // Find the latest transaction timestamp (unchanged logic)

@@ -44,43 +44,52 @@ const GRNTable = ({ grns }) => {
     };
 
     return (
-        <div className="overflow-x-auto bg-light-100 rounded-xl shadow-lg">
-            <table className="min-w-full divide-y divide-light-200">
-                <thead className="bg-light-200">
+        <div className="overflow-x-auto bg-white rounded-xl shadow-sm border border-gray-200">
+            <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
                     <tr>
-                        <th className="th-style">GRN Number</th>
-                        <th className="th-style">PO Number</th>
-                        <th className="th-style">Supplier</th>
-                        <th className="th-style">Date Received</th>
-                        <th className="th-style">Status</th>
-                        <th className="th-style">Received By</th>
-                        <th className="th-style">Actions</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">GRN Number</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">PO Number</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Supplier</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date Received</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Received By</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                     </tr>
                 </thead>
-                <tbody className="bg-light-100 divide-y divide-light-200">
+                <tbody className="bg-white divide-y divide-gray-200">
                     {grns.length === 0 ? (
                         <tr>
-                            <td colSpan="7" className="px-6 py-4 text-center text-secondary-500">No GRNs found.</td>
+                            <td colSpan="7" className="px-6 py-8 text-center text-gray-500">
+                                <div className="flex flex-col items-center justify-center">
+                                    <div className="bg-gray-100 rounded-full p-3 mb-3">
+                                        <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                                        </svg>
+                                    </div>
+                                    <p className="text-gray-500">No GRNs found</p>
+                                    <p className="text-sm text-gray-400 mt-1">There are no packing material GRNs recorded yet</p>
+                                </div>
+                            </td>
                         </tr>
                     ) : (
                         grns.map(grn => (
-                            <tr key={grn._id} className="hover:bg-light-200">
-                                <td className="td-style font-medium">{grn.grnNumber}</td>
-                                <td className="td-style">{getReferenceNumber(grn)}</td>
-                                <td className="td-style">{getSupplierName(grn)}</td>
-                                <td className="td-style">{formatDate(grn.dateReceived)}</td>
-                                <td className="td-style">
-                                    <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusClass(grn.status)}`}>
+                            <tr key={grn._id} className="hover:bg-gray-50 transition-colors duration-150">
+                                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{grn.grnNumber}</td>
+                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{getReferenceNumber(grn)}</td>
+                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{getSupplierName(grn)}</td>
+                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{formatDate(grn.dateReceived)}</td>
+                                <td className="px-6 py-4 whitespace-nowrap">
+                                    <span className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusClass(grn.status)}`}>
                                         {grn.status}
                                     </span>
                                 </td>
-                                <td className="td-style">{grn.receivedBy || 'N/A'}</td>
-                                <td className="td-style">
-                                    <div className="flex items-center space-x-2">
-                                        <Link to={`/packing/grn/${grn._id}`} className="text-blue-500 hover:text-blue-700">
+                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{grn.receivedBy || 'N/A'}</td>
+                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                                    <div className="flex items-center space-x-3">
+                                        <Link to={`/packing/grn/${grn._id}`} className="text-blue-600 hover:text-blue-900 transition-colors duration-150">
                                             <FaEye />
                                         </Link>
-
                                     </div>
                                 </td>
                             </tr>
@@ -88,7 +97,6 @@ const GRNTable = ({ grns }) => {
                     )}
                 </tbody>
             </table>
-            <style>{`.th-style { padding: 0.75rem 1.5rem; text-align: left; font-size: 0.75rem; font-weight: 700; color: #757575; text-transform: uppercase; } .td-style { padding: 1rem 1.5rem; white-space: nowrap; font-size: 0.875rem; color: #212121; }`}</style>
         </div>
     );
 };
@@ -179,32 +187,37 @@ const ViewPackingGRNs = () => {
     if (isLoading) {
         return (
             <div className="flex justify-center items-center h-64">
-                <FaSpinner className="animate-spin text-3xl text-primary-500" />
+                <div className="text-center">
+                    <FaSpinner className="animate-spin text-3xl text-primary-500 mx-auto" />
+                    <p className="mt-4 text-gray-600">Loading GRNs...</p>
+                </div>
             </div>
         );
     }
 
     return (
-        <div className="space-y-6">
-            <div className="flex justify-between items-center">
-                <div className="flex items-center space-x-4">|
-                   <Link
-    to="/packing/grn/create"
-    className="inline-flex items-center bg-blue-600 hover:bg-blue-700 text-white font-semibold px-4 py-2 rounded-md shadow-md whitespace-nowrap"
->
-    <span className="mr-2">
-        <i className="bi bi-plus-circle"></i>
-    </span>
-    Create New GRN
-</Link>
-
-
-                    <h1 className="text-3xl font-bold text-dark-700">Packing Materials GRN </h1>
-                    
+        <div className="space-y-6 bg-FAF7F2 min-h-screen">
+            {/* Page Header */}
+            <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-200">
+                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                    <div>
+                        <h1 className="text-2xl font-bold text-gray-900">Packing Materials GRN</h1>
+                        <p className="text-gray-600 mt-1">Manage and track goods receipt notes for packing materials</p>
+                    </div>
+                    <Link
+                        to="/packing/grn/create"
+                        className="inline-flex items-center bg-F2C94C hover:bg-amber-500 text-gray-900 font-semibold px-5 py-3 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 whitespace-nowrap"
+                    >
+                        <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+                        </svg>
+                        Create New GRN
+                    </Link>
                 </div>
             </div>
 
-            <Card>
+            {/* Filters Card */}
+            <Card className="bg-white rounded-xl shadow-sm p-6 border border-gray-200">
                 <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
                     {/* Only show Purchase Order option - DC-based options removed */}
                     <div className="flex items-center">
@@ -218,21 +231,25 @@ const ViewPackingGRNs = () => {
                     />
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
+                        <label htmlFor="search" className="block text-sm font-medium text-gray-700 mb-1">Search</label>
                         <input
+                            id="search"
                             type="text"
                             placeholder="Search by GRN number, reference, or supplier..."
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
-                            className="w-full px-4 py-3 text-gray-700 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                            className="w-full px-4 py-2.5 text-gray-700 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-F2C94C focus:border-transparent transition-all duration-200"
                         />
                     </div>
                     <div>
+                        <label htmlFor="status-filter" className="block text-sm font-medium text-gray-700 mb-1">Filter by Status</label>
                         <select 
+                            id="status-filter"
                             value={statusFilter}
                             onChange={(e) => setStatusFilter(e.target.value)}
-                            className="w-full px-4 py-3 text-gray-700 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                            className="w-full px-4 py-2.5 text-gray-700 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-F2C94C focus:border-transparent transition-all duration-200"
                         >
                             <option value="">All Statuses</option>
                             <option value="Pending Admin Approval">Pending Admin Approval</option>
@@ -246,14 +263,17 @@ const ViewPackingGRNs = () => {
                 </div>
                 
                 {error && (
-                    <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700">
+                    <div className="mt-6 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700">
                         {error}
                     </div>
                 )}
-                
+            </Card>
+            
+            {/* GRN Table */}
+            <Card className="bg-white rounded-xl shadow-sm p-6 border border-gray-200">
                 <GRNTable grns={filteredGRNs} />
                 
-                <div className="mt-6 text-sm text-gray-500 flex justify-between items-center">
+                <div className="mt-6 text-sm text-gray-500 flex flex-col md:flex-row md:items-center md:justify-between gap-2">
                     <div>
                         Showing {filteredGRNs.length} of {grns.length} GRNs
                     </div>
@@ -273,8 +293,6 @@ const ViewPackingGRNs = () => {
                     )}
                 </div>
             </Modal>
-            
-
         </div>
     );
 };

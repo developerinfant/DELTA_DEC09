@@ -50,49 +50,49 @@ const PurchaseOrdersTable = ({ purchaseOrders }) => {
     };
 
     return (
-        <div className="overflow-x-auto bg-light-100 rounded-xl shadow-lg">
-            <table className="min-w-full divide-y divide-light-200">
-                <thead className="bg-light-200">
+        <div className="overflow-x-auto bg-white rounded-[16px] shadow-lg border border-[#E7E2D8]">
+            <table className="min-w-full divide-y divide-[#E7E2D8]">
+                <thead className="bg-[#FAF7F2]">
                     <tr>
-                        <th className="px-6 py-3 text-left text-xs font-bold text-secondary-500 uppercase">PO Number</th>
-                        <th className="px-6 py-3 text-left text-xs font-bold text-secondary-500 uppercase">Supplier</th>
-                        <th className="px-6 py-3 text-left text-xs font-bold text-secondary-500 uppercase">Date</th>
-                        <th className="px-6 py-3 text-left text-xs font-bold text-secondary-500 uppercase">Total Amount</th>
-                        <th className="px-6 py-3 text-left text-xs font-bold text-secondary-500 uppercase">Status</th>
-                        <th className="px-6 py-3 text-left text-xs font-bold text-secondary-500 uppercase">Actions</th>
+                        <th scope="col" className="px-6 py-4 text-left text-xs font-bold text-[#1A1A1A] uppercase tracking-wider">PO Number</th>
+                        <th scope="col" className="px-6 py-4 text-left text-xs font-bold text-[#1A1A1A] uppercase tracking-wider">Supplier</th>
+                        <th scope="col" className="px-6 py-4 text-left text-xs font-bold text-[#1A1A1A] uppercase tracking-wider">Date</th>
+                        <th scope="col" className="px-6 py-4 text-left text-xs font-bold text-[#1A1A1A] uppercase tracking-wider">Total Amount</th>
+                        <th scope="col" className="px-6 py-4 text-left text-xs font-bold text-[#1A1A1A] uppercase tracking-wider">Status</th>
+                        <th scope="col" className="px-6 py-4 text-left text-xs font-bold text-[#1A1A1A] uppercase tracking-wider">Actions</th>
                     </tr>
                 </thead>
-                <tbody className="bg-light-100 divide-y divide-light-200">
+                <tbody className="bg-white divide-y divide-[#E7E2D8]">
                     {purchaseOrders.length === 0 ? (
                         <tr>
-                            <td colSpan="6" className="px-6 py-4 text-center text-secondary-500">No purchase orders found.</td>
+                            <td colSpan="6" className="px-6 py-8 text-center text-[#6A6A6A]">No purchase orders found.</td>
                         </tr>
                     ) : (
                         purchaseOrders.map(po => (
-                            <tr key={po._id} className="hover:bg-light-200">
-                                <td className="px-6 py-4 text-sm font-medium text-dark-700">{po.poNumber}</td>
-                                <td className="px-6 py-4 text-sm text-dark-700">{po.supplier?.name || 'N/A'}</td>
-                                <td className="px-6 py-4 text-sm text-dark-700">{formatDate(po.createdAt)}</td>
-                                <td className="px-6 py-4 text-sm font-semibold text-dark-700">{formatCurrency(po.totalAmount)}</td>
-                                <td className="px-6 py-4 text-sm">
-                                    <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusClass(po.status)}`}>
+                            <tr key={po._id} className="hover:bg-[#FAF7F2] transition-colors duration-150">
+                                <td className="px-6 py-5 whitespace-nowrap text-sm font-medium text-[#1A1A1A]">{po.poNumber}</td>
+                                <td className="px-6 py-5 whitespace-nowrap text-sm text-[#1A1A1A]">{po.supplier?.name || 'N/A'}</td>
+                                <td className="px-6 py-5 whitespace-nowrap text-sm text-[#6A6A6A]">{formatDate(po.createdAt)}</td>
+                                <td className="px-6 py-5 whitespace-nowrap text-sm font-semibold text-[#1A1A1A]">{formatCurrency(po.totalAmount)}</td>
+                                <td className="px-6 py-5 whitespace-nowrap text-sm">
+                                    <span className={`px-3 py-1.5 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusClass(po.status)}`}>
                                         {po.status}
                                     </span>
                                 </td>
-                                <td className="px-6 py-4 text-sm space-x-2">
-                                    <Link to={`/purchase-orders/${po._id}`} className="text-blue-500 hover:text-blue-700" title="View Details">
+                                <td className="px-6 py-5 whitespace-nowrap text-sm space-x-3">
+                                    <Link to={`/purchase-orders/${po._id}`} className="text-[#6A7F3F] hover:text-[#5a6d35] transition-colors duration-200" title="View Details">
                                         <FaEye />
                                     </Link>
                                     <button 
                                         onClick={() => handleDownloadPDF(po)} 
-                                        className="text-red-500 hover:text-red-700"
+                                        className="text-red-500 hover:text-red-700 transition-colors duration-200"
                                         title="Download PDF"
                                     >
                                         <FaFilePdf />
                                     </button>
                                     <button 
                                         onClick={() => handlePrintPDF(po)} 
-                                        className="text-green-500 hover:text-green-700"
+                                        className="text-green-500 hover:text-green-700 transition-colors duration-200"
                                         title="Print PDF"
                                     >
                                         <FaPrint />

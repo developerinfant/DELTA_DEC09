@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../../api';
-import Modal from '../../components/common/Modal'; // Added Modal import
+import Modal from '../../components/common/Modal';
 import { FaSpinner, FaRedo, FaSearch, FaDownload, FaEye, FaTimes } from 'react-icons/fa';
 import { toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
+import Card from '../../components/common/Card';
+import MobileCardList from '../../components/common/MobileCardList';
 
 const DamagedStockMaster = () => {
   const [damagedStockEntries, setDamagedStockEntries] = useState([]);
@@ -123,7 +125,19 @@ const DamagedStockMaster = () => {
     setCurrentMaterialName('');
   };
 
-  // Removed handleOutsideClick since Modal component handles this
+  // Define fields for mobile card list
+  const mobileFields = [
+    { key: 'materialName', label: 'Material', isTitle: true },
+    { key: 'itemCode', label: 'Item Code' },
+    { key: 'totalDamagedQty', label: 'Damaged Qty' },
+    { key: 'lastApprovedDate', label: 'Last Approved', render: (value) => formatDate(value) }
+  ];
+
+  // Handle item click (for viewing details)
+  const handleItemClick = (item) => {
+    // On mobile, we could show a detail view, but for now we'll just show the history
+    handleViewHistory(item.materialName);
+  };
 
   if (isLoading) {
     return (
@@ -142,12 +156,12 @@ const DamagedStockMaster = () => {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 page-fade-in">
       <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4">
         <h1 className="text-3xl font-bold text-gray-800">Damaged Stock Master</h1>
         <button 
           onClick={fetchDamagedStockEntries}
-          className="flex items-center px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors self-end md:self-auto"
+          className="btn btn-primary"
         >
           <FaRedo className="mr-2" />
           Refresh
@@ -155,10 +169,10 @@ const DamagedStockMaster = () => {
       </div>
       
       {/* Filters - REMOVED BRAND FILTER */}
-      <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200">
+      <Card title="Filters">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Search Material</label>
+            <label className="form-label">Search Material</label>
             <div className="relative">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                 <FaSearch className="text-gray-400" />
@@ -167,26 +181,26 @@ const DamagedStockMaster = () => {
                 type="text"
                 value={filters.search}
                 onChange={(e) => handleFilterChange('search', e.target.value)}
-                className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md text-sm"
+                className="form-input block w-full pl-10"
                 placeholder="Search by material name or item code"
               />
             </div>
           </div>
           
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Date Range</label>
+            <label className="form-label">Date Range</label>
             <div className="flex space-x-2">
               <input
                 type="date"
                 value={filters.startDate}
                 onChange={(e) => handleFilterChange('startDate', e.target.value)}
-                className="flex-1 px-3 py-2 border border-gray-300 rounded-md text-sm"
+                className="form-input flex-1"
               />
               <input
                 type="date"
                 value={filters.endDate}
                 onChange={(e) => handleFilterChange('endDate', e.target.value)}
-                className="flex-1 px-3 py-2 border border-gray-300 rounded-md text-sm"
+                className="form-input flex-1"
               />
             </div>
           </div>
@@ -194,108 +208,89 @@ const DamagedStockMaster = () => {
           <div className="flex items-end space-x-2">
             <button
               onClick={applyFilters}
-              className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 text-sm"
+              className="btn btn-primary"
             >
               Apply Filters
             </button>
             <button
               onClick={resetFilters}
-              className="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 text-sm"
+              className="btn btn-outline"
             >
               Reset
             </button>
           </div>
         </div>
-      </div>
+      </Card>
       
       {/* Damaged Stock Master Table - REMOVED BRAND COLUMN */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-        <div className="overflow-x-auto bg-light-100 rounded-xl shadow-lg">
-          <table className="min-w-full divide-y divide-light-200">
-            <thead className="bg-light-200 sticky top-0 z-10">
-              <tr>
-                {/* Item Code */}
-                <th scope="col" className="px-4 py-3 text-left text-xs font-bold text-secondary-500 uppercase tracking-wider whitespace-nowrap">
-                  <span className="hidden md:inline">Item</span>
-                  <span className="md:hidden">Code</span>
-                </th>
-                
-                {/* Material Name */}
-                <th scope="col" className="px-4 py-3 text-left text-xs font-bold text-secondary-500 uppercase tracking-wider hidden md:table-cell">
-                  Material Name
-                </th>
-                
-                {/* Total Damaged Quantity */}
-                <th scope="col" className="px-4 py-3 text-left text-xs font-bold text-secondary-500 uppercase tracking-wider">
-                  Total Damaged Qty
-                </th>
-                
-                {/* Date */}
-                <th scope="col" className="px-4 py-3 text-left text-xs font-bold text-secondary-500 uppercase tracking-wider">
-                  Last Approved Date
-                </th>
-                
-                {/* Actions */}
-                <th scope="col" className="relative px-4 py-3 text-right">
-                  <span className="sr-only">Actions</span>
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-light-100 divide-y divide-light-200">
-              {damagedStockEntries.length === 0 ? (
-                <tr>
-                  <td colSpan="5" className="px-4 py-6 text-center text-secondary-500">
-                    No damaged stock entries found.
-                  </td>
-                </tr>
-              ) : (
-                damagedStockEntries.map((entry) => (
-                  <tr key={entry._id} className="hover:bg-light-200">
-                    {/* Item Code */}
-                    <td className="px-4 py-3 whitespace-nowrap text-sm font-bold text-gray-700 overflow-hidden">
-                      <div className="truncate max-w-[80px] md:max-w-[120px]" title={entry.itemCode || 'N/A'}>
-                        {entry.itemCode || 'N/A'}
-                      </div>
-                    </td>
-                    
-                    {/* Material Name */}
-                    <td className="px-4 py-3 text-sm font-medium text-dark-700 overflow-hidden hidden md:table-cell">
-                      <div className="truncate max-w-[150px] lg:max-w-xs" title={entry.materialName}>
-                        {entry.materialName}
-                      </div>
-                    </td>
-                    
-                    {/* Total Damaged Quantity */}
-                    <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-red-600 overflow-hidden">
-                      <div className="truncate max-w-[80px]" title={entry.totalDamagedQty}>
-                        {entry.totalDamagedQty}
-                      </div>
-                    </td>
-                    
-                    {/* Date */}
-                    <td className="px-4 py-3 whitespace-nowrap text-sm text-dark-700 overflow-hidden">
-                      <div className="truncate max-w-[120px]" title={formatDate(entry.lastApprovedDate)}>
-                        {formatDate(entry.lastApprovedDate)}
-                      </div>
-                    </td>
-                    
-                    {/* Actions */}
-                    <td className="px-4 py-3 whitespace-nowrap text-right text-sm font-medium">
-                      <div className="flex justify-end space-x-2">
-                        <button
-                          onClick={() => handleViewHistory(entry.materialName)}
-                          className="text-indigo-600 hover:text-indigo-900 flex items-center"
-                        >
-                          <FaEye className="mr-1" />
-                          <span className="truncate md:hidden">View</span>
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+      <div className="card glass-container">
+        <div className="px-6 py-4 border-b border-light-200">
+          <h3 className="text-lg font-semibold text-dark-800">Damaged Stock Entries</h3>
+        </div>
+        <div className="p-4">
+          {/* Desktop Table View */}
+          <div className="hidden md:block">
+            <div className="table-container">
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200 table-zebra">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Item Code</th>
+                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Material Name</th>
+                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total Damaged Qty</th>
+                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Last Approved Date</th>
+                      <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {damagedStockEntries.length === 0 ? (
+                      <tr>
+                        <td colSpan="5" className="px-6 py-4 text-center text-sm text-gray-500">
+                          No damaged stock entries found.
+                        </td>
+                      </tr>
+                    ) : (
+                      damagedStockEntries.map((entry) => (
+                        <tr key={entry._id} className="hover:bg-gray-50 transition-colors duration-200">
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-gray-700">
+                            {entry.itemCode || 'N/A'}
+                          </td>
+                          <td className="px-6 py-4 text-sm font-medium text-dark-700">
+                            {entry.materialName}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-red-600">
+                            {entry.totalDamagedQty}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-dark-700">
+                            {formatDate(entry.lastApprovedDate)}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                            <button
+                              onClick={() => handleViewHistory(entry.materialName)}
+                              className="btn btn-outline"
+                            >
+                              <FaEye className="mr-1" />
+                              View History
+                            </button>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+          
+          {/* Mobile Card List View */}
+          <div className="md:hidden">
+            <MobileCardList 
+              data={damagedStockEntries}
+              onItemClick={handleItemClick}
+              fields={mobileFields}
+              itemKey="_id"
+            />
+          </div>
         </div>
       </div>
       
@@ -372,7 +367,7 @@ const DamagedStockMaster = () => {
         <div className="border-t p-4 flex justify-end">
           <button
             onClick={closeHistoryModal}
-            className="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300"
+            className="btn btn-outline"
           >
             Close
           </button>
